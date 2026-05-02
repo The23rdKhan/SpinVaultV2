@@ -1,0 +1,435 @@
+import { useState } from 'react'
+import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { LinearGradient } from 'expo-linear-gradient'
+import FontAwesome from '@expo/vector-icons/FontAwesome'
+import Toast from 'react-native-toast-message'
+import { HelpFeedback } from '@/components/profile/HelpFeedback'
+import {
+  AccountSection,
+  AchievementsGridSection,
+  EquippedVanitySection,
+  NotificationPrefsSection,
+  RecentBigWinsSection,
+  ResponsiblePlaySection,
+  StatsGridSection,
+  SupportSection,
+  TrophyCaseSection,
+} from '@/components/profile/parity-sections'
+import { AppButton } from '@/components/ui/AppButton'
+import type { AppearanceMode } from '@/lib/appearance-context'
+import { useAppearance } from '@/lib/appearance-context'
+import type { AuthProviderKind } from '@/lib/auth-context'
+import { useAuth } from '@/lib/auth-context'
+import { useGame } from '@/lib/game-context'
+import { SCREEN_PAD_H } from '@/lib/screen-edge'
+import { useCasinoTheme } from '@/lib/use-casino-theme'
+
+function accountProviderBadge(isGuest: boolean, provider: AuthProviderKind | undefined): string {
+  if (isGuest) return 'Guest'
+  if (provider === 'apple') return 'Apple'
+  if (provider === 'google') return 'Google'
+  if (provider === 'email') return 'Email'
+  return 'Signed in'
+}
+
+const VIP_TIERS = [
+  { level: 1, name: 'Bronze', minXp: 0, accent: '#b45309' },
+  { level: 2, name: 'Silver', minXp: 5000, accent: '#9ca3af' },
+  { level: 3, name: 'Gold', minXp: 15000, accent: '#eab308' },
+  { level: 4, name: 'Platinum', minXp: 50000, accent: '#22d3ee' },
+  { level: 5, name: 'Diamond', minXp: 150000, accent: '#e879f9' },
+]
+
+export default function ProfileScreen() {
+  const t = useCasinoTheme()
+  const insets = useSafeAreaInsets()
+  const {
+    username,
+    setUsername,
+    level,
+    xp,
+    coins,
+    totalSpins,
+    biggestWin,
+    dailyStreak,
+    ownedThemes,
+    userVanity,
+    recentBigWins,
+    soundEnabled,
+    musicEnabled,
+    hapticsEnabled,
+    notificationsEnabled,
+    toggleSound,
+    toggleMusic,
+    toggleHaptics,
+    toggleNotifications,
+    sessionReminderMinutes,
+    setSessionReminder,
+    cooldownEnabled,
+    toggleCooldown,
+    trophies,
+  } = useGame()
+
+  const {
+    user,
+    isGuest,
+    signOut,
+    restorePurchases,
+    notificationPrefs,
+    setNotificationPref,
+  } = useAuth()
+
+  const { mode: appearanceMode, setMode: setAppearanceMode } = useAppearance()
+
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState(username)
+
+  const xpNeeded = level * 1000
+  const xpPct = Math.min(100, Math.round((xp / Math.max(1, xpNeeded)) * 100))
+  const totalXp = level * 1000 + xp
+
+  const currentVip =
+    [...VIP_TIERS].reverse().find((ti) => totalXp >= ti.minXp) ?? VIP_TIERS[0]
+  const nextVip = VIP_TIERS.find((ti) => ti.minXp > totalXp)
+  const vipBarPct =
+    nextVip != null
+      ? Math.min(
+          100,
+          ((totalXp - currentVip.minXp) / Math.max(1, nextVip.minXp - currentVip.minXp)) * 100
+        )
+      : 100
+
+  const saveName = () => {
+    if (name.trim()) setUsername(name.trim())
+    setEditing(false)
+    Toast.show({ type: 'success', text1: 'Profile updated' })
+  }
+
+  const onRestore = async () => {
+    await restorePurchases()
+    Toast.show({ type: 'info', text1: 'Restore complete (simulated)' })
+  }
+
+  const appearanceOptions: { id: AppearanceMode; label: string }[] = [
+    { id: 'dark', label: 'Dark' },
+    { id: 'light', label: 'Light' },
+    { id: 'system', label: 'System' },
+  ]
+
+  const bottomPad = Math.max(insets.bottom, 12) + 28
+
+  return (
+    <ScrollView
+      style={[styles.scroll, { backgroundColor: t.background }]}
+      contentContainerStyle={[
+        styles.pad,
+        { paddingHorizontal: SCREEN_PAD_H, paddingBottom: bottomPad },
+      ]}
+    >
+      <Text style={[styles.lead, { color: t.mutedForeground }]}>
+        Your stats, trophies & settings
+      </Text>
+
+      <LinearGradient
+        colors={[`${t.primary}22`, t.card, `${t.primary}11`]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.hero, { borderColor: t.border }]}
+      >
+        <View style={styles.heroTop}>
+          <View style={[styles.avatarRing, { borderColor: currentVip.accent }]}>
+            <View style={[styles.avatarInner, { backgroundColor: t.card }]}>
+              <FontAwesome name="user" size={28} color={t.foreground} />
+            </View>
+          </View>
+          <View style={[styles.vipPill, { backgroundColor: currentVip.accent }]}>
+            <FontAwesome name="star" size={10} color="#fff" />
+            <Text style={styles.vipPillTxt}>{currentVip.name}</Text>
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            {editing ? (
+              <>
+                <TextInput
+                  value={name}
+                  onChangeText={setName}
+                  style={[styles.input, { color: t.foreground, borderColor: t.border }]}
+                  maxLength={20}
+                />
+                <AppButton label="Save" onPress={saveName} style={{ marginTop: 8 }} />
+              </>
+            ) : (
+              <>
+                <View style={styles.nameRow}>
+                  <Text style={[styles.username, { color: t.foreground }]} numberOfLines={1}>
+                    {username}
+                  </Text>
+                  <AppButton variant="ghost" size="sm" label="Edit" onPress={() => setEditing(true)} />
+                </View>
+                <View style={styles.badgeRow}>
+                  <View style={[styles.levelPill, { backgroundColor: `${t.primary}33` }]}>
+                    <Text style={[styles.levelPillTxt, { color: t.primary }]}>Lv {level}</Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.levelPill,
+                      { backgroundColor: isGuest ? '#f59e0b33' : `${t.win}33` },
+                    ]}
+                  >
+                    <Text style={[styles.levelPillTxt, { color: isGuest ? '#f59e0b' : t.win }]}>
+                      {accountProviderBadge(isGuest, user?.provider)}
+                    </Text>
+                  </View>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+
+        {nextVip ? (
+          <View style={{ marginTop: 12 }}>
+            <View style={styles.vipLblRow}>
+              <Text style={[styles.vipLbl, { color: t.mutedForeground }]}>{currentVip.name}</Text>
+              <Text style={[styles.vipLbl, { color: t.mutedForeground }]}>{nextVip.name}</Text>
+            </View>
+            <View style={[styles.vipTrack, { backgroundColor: t.muted }]}>
+              <View
+                style={[styles.vipFill, { width: `${vipBarPct}%`, backgroundColor: currentVip.accent }]}
+              />
+            </View>
+          </View>
+        ) : null}
+
+        <View style={styles.heroStats}>
+          <View style={[styles.statCard, { backgroundColor: `${t.background}99` }]}>
+            <Text style={[styles.statLbl, { color: t.mutedForeground }]}>
+              Level {level} · XP {xp}/{xpNeeded}
+            </Text>
+            <View style={[styles.xpTrack, { backgroundColor: t.muted }]}>
+              <View style={[styles.xpFill, { width: `${xpPct}%`, backgroundColor: t.primary }]} />
+            </View>
+          </View>
+          <View style={[styles.statCard, { backgroundColor: `${t.background}99` }]}>
+            <Text style={[styles.statLbl, { color: t.mutedForeground }]}>Wallet</Text>
+            <View style={styles.walletRow}>
+              <FontAwesome name="bitcoin" size={14} color={t.primary} />
+              <Text style={[styles.walletAmt, { color: t.foreground }]}>{coins.toLocaleString()}</Text>
+            </View>
+          </View>
+        </View>
+      </LinearGradient>
+
+      <AccountSection
+        isGuest={isGuest}
+        userEmail={user?.email}
+        userProvider={user?.provider}
+        onSocialLinkSuccess={() =>
+          Toast.show({ type: 'success', text1: 'Account linked' })
+        }
+        onRestore={onRestore}
+        onSignOut={signOut}
+      />
+
+      <StatsGridSection
+        totalSpins={totalSpins}
+        biggestWin={biggestWin}
+        dailyStreak={dailyStreak}
+        themesOwned={ownedThemes.length}
+      />
+
+      <EquippedVanitySection userVanity={userVanity} />
+
+      <TrophyCaseSection trophies={trophies} />
+
+      <RecentBigWinsSection wins={recentBigWins} />
+
+      <AchievementsGridSection
+        totalSpins={totalSpins}
+        biggestWin={biggestWin}
+        ownedThemesLength={ownedThemes.length}
+        dailyStreak={dailyStreak}
+        coins={coins}
+      />
+
+      <NotificationPrefsSection
+        prefs={notificationPrefs}
+        setPref={(key, value) => setNotificationPref(key, value)}
+      />
+
+      <Text style={[styles.h3, { color: t.foreground }]}>Appearance</Text>
+      <View style={styles.row}>
+        {appearanceOptions.map((o) => (
+          <AppButton
+            key={o.id}
+            variant={appearanceMode === o.id ? 'primary' : 'outline'}
+            label={o.label}
+            onPress={() => setAppearanceMode(o.id)}
+            style={{ flex: 1 }}
+          />
+        ))}
+      </View>
+
+      <Text style={[styles.h3, { color: t.foreground }]}>Settings</Text>
+      <View style={[styles.card, { borderColor: t.border }]}>
+        <ToggleRow
+          label="Sound Effects"
+          description="Reels, wins, and UI sounds"
+          on={soundEnabled}
+          onToggle={toggleSound}
+          t={t}
+        />
+        <ToggleRow
+          label="Background Music"
+          description="Lobby and ambient music"
+          on={musicEnabled}
+          onToggle={toggleMusic}
+          t={t}
+        />
+        <ToggleRow
+          label="Haptic Feedback"
+          description="Vibration on spins and big wins"
+          on={hapticsEnabled}
+          onToggle={toggleHaptics}
+          t={t}
+        />
+        <ToggleRow
+          label="Push Notifications"
+          description="System alerts when enabled on this device"
+          on={notificationsEnabled}
+          onToggle={toggleNotifications}
+          t={t}
+          isLast
+        />
+      </View>
+
+      <ResponsiblePlaySection
+        sessionReminderMinutes={sessionReminderMinutes}
+        setSessionReminder={setSessionReminder}
+        cooldownEnabled={cooldownEnabled}
+        toggleCooldown={toggleCooldown}
+      />
+
+      <HelpFeedback />
+
+      <SupportSection />
+    </ScrollView>
+  )
+}
+
+function ToggleRow({
+  label,
+  description,
+  on,
+  onToggle,
+  t,
+  isLast,
+}: {
+  label: string
+  description?: string
+  on: boolean
+  onToggle: () => void
+  t: ReturnType<typeof useCasinoTheme>
+  /** Omit bottom border on last row */
+  isLast?: boolean
+}) {
+  return (
+    <View
+      style={[
+        styles.toggleRow,
+        { borderColor: t.border },
+        isLast && { borderBottomWidth: 0 },
+      ]}
+    >
+      <View style={styles.toggleLabelCol}>
+        <Text style={{ color: t.foreground, fontWeight: '600' }}>{label}</Text>
+        {description ? (
+          <Text style={[styles.toggleDesc, { color: t.mutedForeground }]}>{description}</Text>
+        ) : null}
+      </View>
+      <AppButton size="sm" variant={on ? 'primary' : 'outline'} label={on ? 'On' : 'Off'} onPress={onToggle} />
+    </View>
+  )
+}
+
+const styles = StyleSheet.create({
+  scroll: { flex: 1 },
+  pad: { gap: 14, paddingTop: 8 },
+  lead: { fontSize: 14, fontWeight: '600' },
+  hero: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 16,
+    gap: 12,
+  },
+  heroTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  avatarRing: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 3,
+    padding: 3,
+  },
+  avatarInner: {
+    flex: 1,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  vipPill: {
+    position: 'absolute',
+    left: 52,
+    top: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  vipPillTxt: { color: '#fff', fontSize: 10, fontWeight: '900' },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  username: { fontSize: 20, fontWeight: '900', flex: 1 },
+  badgeRow: { flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' },
+  levelPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  levelPillTxt: { fontSize: 11, fontWeight: '800' },
+  vipLblRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  vipLbl: { fontSize: 10 },
+  vipTrack: { height: 6, borderRadius: 999, overflow: 'hidden' },
+  vipFill: { height: '100%', borderRadius: 999 },
+  heroStats: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  statCard: { flex: 1, borderRadius: 12, padding: 12, gap: 8 },
+  statLbl: { fontSize: 11, fontWeight: '600' },
+  xpTrack: { height: 8, borderRadius: 999, overflow: 'hidden' },
+  xpFill: { height: '100%', borderRadius: 999 },
+  walletRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  walletAmt: { fontSize: 16, fontWeight: '900' },
+  h3: { fontSize: 17, fontWeight: '800', marginTop: 4 },
+  card: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 4,
+    overflow: 'hidden',
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 6,
+    fontSize: 16,
+  },
+  row: { flexDirection: 'row', gap: 8 },
+  toggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  toggleLabelCol: { flex: 1, paddingRight: 10, minWidth: 0 },
+  toggleDesc: { fontSize: 12, marginTop: 3, lineHeight: 16 },
+})

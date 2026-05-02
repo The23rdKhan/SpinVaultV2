@@ -1,0 +1,45 @@
+{
+  "cli": {
+    "version": ">= 13.2.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_APP_NAME": "SpinVault"
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": false
+      }
+    },
+    "development-simulator": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_APP_NAME": "SpinVault"
+      },
+      "ios": {
+        "simulator": true
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_APP_NAME": "SpinVault"
+      }
+    },
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_APP_NAME": "SpinVault"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
