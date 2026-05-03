@@ -1,7 +1,7 @@
 /**
  * Dev builds: use a custom client (expo-dev-client), not Expo Go — `npm run dev` in /mobile
  * (repo root: `npm run expo:dev`). First time: `npx expo prebuild` then `npx expo run:ios` / `run:android`,
- * or EAS: `npm run eas:build:dev:ios-sim` etc. Expo Go: `npm run start:go`.
+ * or EAS device builds from `mobile/package.json`. Expo Go: `npm run start:go`.
  *
  * Env for Google Sign-In (native → Supabase `signInWithIdToken`):
  * - EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID — OAuth client ID type **Web** (required for Android + server token exchange).
@@ -58,7 +58,7 @@ const config = {
   splash: {
     image: './assets/images/splash-icon.png',
     resizeMode: 'contain',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#140707',
   },
   ios: {
     supportsTablet: true,
@@ -73,7 +73,7 @@ const config = {
     package: 'com.spinvault.mobile',
     adaptiveIcon: {
       foregroundImage: './assets/images/adaptive-icon.png',
-      backgroundColor: '#ffffff',
+      backgroundColor: '#140707',
     },
     predictiveBackGestureEnabled: false,
   },

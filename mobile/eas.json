@@ -8,7 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_APP_NAME": "SpinVault"
+        "EXPO_PUBLIC_APP_NAME": "SpinVault Dev"
       },
       "android": {
         "buildType": "apk"
@@ -17,20 +17,10 @@
         "simulator": false
       }
     },
-    "development-simulator": {
-      "developmentClient": true,
-      "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_APP_NAME": "SpinVault"
-      },
-      "ios": {
-        "simulator": true
-      }
-    },
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_APP_NAME": "SpinVault"
+        "EXPO_PUBLIC_APP_NAME": "SpinVault Preview"
       }
     },
     "production": {
