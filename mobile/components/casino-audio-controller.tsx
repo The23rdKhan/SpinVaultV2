@@ -8,7 +8,7 @@ const WIN_SRC = require('@/assets/sounds/win.wav')
 
 /** Hooks spin/win SFX to `soundEnabled`. Lobby loop removed (no autoplay at launch). */
 export function CasinoAudioController() {
-  const { soundEnabled, isSpinning, spinSequence, lastWin } = useGame()
+  const { soundEnabled, musicEnabled, isSpinning, spinSequence, lastWin } = useGame()
 
   const spinPlayer = useAudioPlayer(SPIN_SRC)
   const winPlayer = useAudioPlayer(WIN_SRC)
@@ -28,9 +28,11 @@ export function CasinoAudioController() {
 
   useEffect(() => {
     if (Platform.OS === 'web') return
-    spinPlayer.volume = 1
-    winPlayer.volume = 1
-  }, [spinPlayer, winPlayer])
+    // Sound effects respect soundEnabled; lobby music would respect musicEnabled.
+    // Volumes are set here so toggling takes effect on the next play call.
+    spinPlayer.volume = soundEnabled ? 1 : 0
+    winPlayer.volume = soundEnabled ? 1 : 0
+  }, [spinPlayer, winPlayer, soundEnabled])
 
   useEffect(() => {
     if (Platform.OS === 'web') return

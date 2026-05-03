@@ -1,4 +1,5 @@
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { BlurView } from 'expo-blur'
 import { SYMBOLS } from '@/lib/game-context'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { AppButton } from '@/components/ui/AppButton'
@@ -14,6 +15,12 @@ export function InfoModal({ open, onClose }: Props) {
 
   return (
     <Modal visible={open} animationType="slide" transparent onRequestClose={onClose}>
+      <BlurView
+        intensity={45}
+        tint="dark"
+        blurMethod="dimezisBlurView"
+        style={StyleSheet.absoluteFill}
+      />
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable
           style={[styles.sheet, { backgroundColor: t.card, borderColor: t.border }]}
@@ -46,7 +53,7 @@ export function InfoModal({ open, onClose }: Props) {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'transparent',
     justifyContent: 'flex-end',
   },
   sheet: {

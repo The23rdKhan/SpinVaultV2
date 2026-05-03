@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    if (!BET_OPTIONS.includes(bet as (typeof BET_OPTIONS)[number])) {
+    if (!BET_OPTIONS.includes(bet)) {
       return new Response(JSON.stringify({ error: 'invalid_bet' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

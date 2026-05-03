@@ -1,15 +1,19 @@
 import { ThemeProvider, DarkTheme, DefaultTheme } from '@react-navigation/native'
 import { Redirect } from 'expo-router'
 import { NativeTabs } from 'expo-router/unstable-native-tabs'
+import { Platform } from 'react-native'
+import * as Haptics from 'expo-haptics'
 import { useAppearance } from '@/lib/appearance-context'
 import { useAuth } from '@/lib/auth-context'
 import { routes } from '@/lib/app-routes'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { useGame } from '@/lib/game-context'
 
 export default function TabLayout() {
   const { isAuthenticated, isLoading, passwordRecoveryPending } = useAuth()
   const { resolvedMode } = useAppearance()
   const t = useCasinoTheme()
+  const { hapticsEnabled } = useGame()
 
   if (!isLoading && !isAuthenticated) {
     return <Redirect href={routes.login} />
@@ -27,6 +31,16 @@ export default function TabLayout() {
         labelStyle={{ color: t.mutedForeground }}
         iconColor={{ default: t.mutedForeground, selected: t.primary }}
         disableTransparentOnScrollEdge
+        screenListeners={{
+          tabPress: () => {
+            if (!hapticsEnabled || Platform.OS === 'web') return
+            if (Platform.OS === 'android') {
+              void Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Virtual_Key)
+            } else {
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+            }
+          },
+        }}
       >
         <NativeTabs.Trigger name="play">
           <NativeTabs.Trigger.Label>Play</NativeTabs.Trigger.Label>

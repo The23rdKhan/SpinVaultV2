@@ -1,5 +1,6 @@
 import 'react-native-get-random-values'
 import { v4 as uuidv4 } from 'uuid'
+import type { SpinResultSummary } from '@shared/slot/evaluate-spin'
 import { getSupabase } from '@/lib/supabase'
 
 export interface ServerSpinPayload {
@@ -9,17 +10,7 @@ export interface ServerSpinPayload {
   free_spin_balance: number
   bonus_meter_progress: number
   grid: string[][]
-  result_summary: {
-    total_win: number
-    free_spins_won: number
-    is_jackpot: boolean
-    bonus_meter_payout: number
-    bonus_progress_after: number
-    win_multiplier: number
-    win_type: string
-    winning_lines: { positions: [number, number][]; symbol_id: string; multiplier: number }[]
-    used_free_spin?: boolean
-  }
+  result_summary: SpinResultSummary
 }
 
 export function isServerSpinEnabled(): boolean {

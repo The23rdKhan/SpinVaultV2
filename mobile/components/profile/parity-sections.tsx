@@ -241,15 +241,18 @@ export function StatsGridSection({
   biggestWin,
   dailyStreak,
   themesOwned,
+  totalWins,
 }: {
   totalSpins: number
   biggestWin: number
   dailyStreak: number
   themesOwned: number
+  totalWins: number
 }) {
   const t = useCasinoTheme()
   const cells = [
     { label: 'Total Spins', value: totalSpins.toLocaleString(), icon: 'crosshairs' as const },
+    { label: 'Total Wins', value: totalWins.toLocaleString(), icon: 'check-circle' as const },
     { label: 'Biggest Win', value: `$${biggestWin.toLocaleString()}`, icon: 'trophy' as const },
     { label: 'Day Streak', value: dailyStreak.toString(), icon: 'fire' as const },
     { label: 'Themes Owned', value: themesOwned.toString(), icon: 'star' as const },
@@ -660,14 +663,25 @@ const SESSION_CHIPS: { label: string; value: number | null }[] = [
   { label: '2 hr', value: 120 },
 ]
 
+const PURCHASE_LIMIT_CHIPS: { label: string; value: number | null }[] = [
+  { label: 'Off', value: null },
+  { label: '$5', value: 5 },
+  { label: '$10', value: 10 },
+  { label: '$25', value: 25 },
+]
+
 export function ResponsiblePlaySection({
   sessionReminderMinutes,
   setSessionReminder,
+  dailyPurchaseLimit,
+  setPurchaseLimit,
   cooldownEnabled,
   toggleCooldown,
 }: {
   sessionReminderMinutes: number | null
   setSessionReminder: (minutes: number | null) => void
+  dailyPurchaseLimit: number | null
+  setPurchaseLimit: (limit: number | null) => void
   cooldownEnabled: boolean
   toggleCooldown: () => void
 }) {
@@ -734,6 +748,37 @@ export function ResponsiblePlaySection({
             <View style={styles.switchKnob} />
           </View>
         </Pressable>
+        <View style={[styles.prefRow, { flexWrap: 'wrap', gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: sep }]}>
+          <FontAwesome name="credit-card" size={14} color={iconC} />
+          <View style={{ flex: 1, minWidth: 140 }}>
+            <Text style={[styles.rowTitle, { color: titleC }]}>Daily Purchase Limit</Text>
+            <Text style={[styles.rowSub, { color: subC }]}>Cap in-app spending per day</Text>
+          </View>
+          <View style={styles.chipRow}>
+            {PURCHASE_LIMIT_CHIPS.map((c) => {
+              const selected =
+                (c.value === null && dailyPurchaseLimit === null) ||
+                c.value === dailyPurchaseLimit
+              return (
+                <Pressable
+                  key={c.label}
+                  onPress={() => setPurchaseLimit(c.value)}
+                  style={[
+                    styles.chip,
+                    {
+                      borderColor: selected ? t.primary : sep,
+                      backgroundColor: selected ? `${t.primary}33` : 'transparent',
+                    },
+                  ]}
+                >
+                  <Text style={[styles.chipTxt, { color: selected ? t.primary : titleC }]}>
+                    {c.label}
+                  </Text>
+                </Pressable>
+              )
+            })}
+          </View>
+        </View>
       </View>
       <Text style={[styles.disclaimer, { color: subC }]}>
         Play responsibly. This is a simulated casino game for entertainment purposes only.

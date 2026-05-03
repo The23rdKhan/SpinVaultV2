@@ -1,107 +1,183 @@
 import { useEffect, useRef, useState } from 'react'
 import { StyleSheet, View } from 'react-native'
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  runOnJS,
+} from 'react-native-reanimated'
 import { useGame, SYMBOLS, type ReelGrid as ReelGridType } from '@/lib/game-context'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { SlotSymbolView } from './SlotSymbol'
+import { PaylineOverlay } from './PaylineOverlay'
+import { useHaptics } from '@/lib/use-haptics'
 
 interface ReelGridProps {
   onSpinComplete?: () => void
 }
 
+const NUM_COLS = 5
+const SETTLE_PX = 6 // px overshoot on land
+
+function ReelColumn({
+  colIndex,
+  column,
+  isSpinning: colSpinning,
+  winningPositions,
+  settleSignal,
+}: {
+  colIndex: number
+  column: ReelGridType[number]
+  isSpinning: boolean
+  winningPositions: Set<string>
+  settleSignal: number
+}) {
+  const t = useCasinoTheme()
+  const translateY = useSharedValue(0)
+
+  useEffect(() => {
+    if (settleSignal === 0) return
+    translateY.value = SETTLE_PX
+    translateY.value = withSpring(0, { damping: 10, stiffness: 220, mass: 0.6 })
+  }, [settleSignal, translateY])
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }))
+
+  return (
+    <Animated.View style={[styles.col, animStyle]}>
+      {column.map((symbol, rowIndex) => {
+        const key = `${colIndex}-${rowIndex}`
+        const isWin = winningPositions.has(key)
+        return (
+          <View
+            key={key}
+            style={[
+              styles.cell,
+              { borderColor: t.border },
+              isWin && {
+                borderColor: t.primary,
+                shadowColor: t.primary,
+                shadowOpacity: 0.7,
+                shadowRadius: 8,
+                elevation: 4,
+              },
+            ]}
+          >
+            <SlotSymbolView symbol={symbol} isWinning={isWin} isSpinning={colSpinning} />
+          </View>
+        )
+      })}
+    </Animated.View>
+  )
+}
+
 export function ReelGrid({ onSpinComplete }: ReelGridProps) {
   const t = useCasinoTheme()
-  const { reelGrid, isSpinning, winningPositions, stopSpin } = useGame()
-  const [spinningReels, setSpinningReels] = useState<boolean[]>([false, false, false, false, false])
+  const { reelGrid, isSpinning, reelsLocked, winningPositions, winningLines, stopSpin } = useGame()
+  const { reelStop } = useHaptics()
+
+  // Stable ref so the last-column stop timeout always calls the current callback
+  const onSpinCompleteRef = useRef(onSpinComplete)
+  onSpinCompleteRef.current = onSpinComplete
+
+  const [spinningReels, setSpinningReels] = useState<boolean[]>(Array(NUM_COLS).fill(false))
   const [displayGrid, setDisplayGrid] = useState<ReelGridType>(reelGrid)
-  const spinIntervalRefs = useRef<(ReturnType<typeof setInterval> | null)[]>([
-    null,
-    null,
-    null,
-    null,
-    null,
-  ])
-  const spinTimeoutRefs = useRef<(ReturnType<typeof setTimeout> | null)[]>([
-    null,
-    null,
-    null,
-    null,
-    null,
-  ])
+  // Each element increments when that reel lands — used as a signal to trigger settle spring
+  const [settleSignals, setSettleSignals] = useState<number[]>(Array(NUM_COLS).fill(0))
+
+  const spinIntervalRefs = useRef<(ReturnType<typeof setInterval> | null)[]>(
+    Array(NUM_COLS).fill(null),
+  )
+  const spinTimeoutRefs = useRef<(ReturnType<typeof setTimeout> | null)[]>(
+    Array(NUM_COLS).fill(null),
+  )
 
   useEffect(() => {
     if (!isSpinning) return
 
     const reelDelays = [0, 150, 300, 450, 600]
     const stopDelays = [1500, 1800, 2100, 2400, 2700]
-    const startKickTimeouts: ReturnType<typeof setTimeout>[] = []
-    const auxiliaryTimeouts: ReturnType<typeof setTimeout>[] = []
+    const startTimeouts: ReturnType<typeof setTimeout>[] = []
+    const auxTimeouts: ReturnType<typeof setTimeout>[] = []
 
-    reelDelays.forEach((delay, colIndex) => {
-      const kick = setTimeout(() => {
-        setSpinningReels((prev) => {
-          const next = [...prev]
-          next[colIndex] = true
-          return next
-        })
-
-        spinIntervalRefs.current[colIndex] = setInterval(() => {
-          setDisplayGrid((prev) => {
-            const next = [...prev]
-            next[colIndex] = [
-              SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)],
-              SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)],
-              SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)],
-            ]
-            return next
+    reelDelays.forEach((delay, col) => {
+      startTimeouts.push(
+        setTimeout(() => {
+          setSpinningReels((prev) => {
+            const next = [...prev]; next[col] = true; return next
           })
-        }, 80)
-      }, delay)
-      startKickTimeouts.push(kick)
+          spinIntervalRefs.current[col] = setInterval(() => {
+            setDisplayGrid((prev) => {
+              const next = [...prev]
+              next[col] = [
+                SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)],
+                SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)],
+                SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)],
+              ]
+              return next
+            })
+          }, 80)
+        }, delay),
+      )
     })
 
-    stopDelays.forEach((delay, colIndex) => {
-      spinTimeoutRefs.current[colIndex] = setTimeout(() => {
-        if (spinIntervalRefs.current[colIndex]) {
-          clearInterval(spinIntervalRefs.current[colIndex]!)
-          spinIntervalRefs.current[colIndex] = null
+    stopDelays.forEach((delay, col) => {
+      spinTimeoutRefs.current[col] = setTimeout(() => {
+        if (spinIntervalRefs.current[col]) {
+          clearInterval(spinIntervalRefs.current[col]!)
+          spinIntervalRefs.current[col] = null
         }
-
         setSpinningReels((prev) => {
-          const next = [...prev]
-          next[colIndex] = false
-          return next
+          const next = [...prev]; next[col] = false; return next
         })
+        // Trigger settle spring for this column
+        setSettleSignals((prev) => {
+          const next = [...prev]; next[col] = prev[col] + 1; return next
+        })
+        // Haptic for each reel landing
+        reelStop()
 
-        if (colIndex === 4) {
-          auxiliaryTimeouts.push(
+        if (col === NUM_COLS - 1) {
+          auxTimeouts.push(
             setTimeout(() => {
               stopSpin()
-              onSpinComplete?.()
-            }, 100)
+              onSpinCompleteRef.current?.()
+            }, 100),
           )
         }
       }, delay)
     })
 
     return () => {
-      startKickTimeouts.forEach(clearTimeout)
-      spinIntervalRefs.current.forEach((interval, i) => {
-        if (interval) clearInterval(interval)
-        spinIntervalRefs.current[i] = null
+      startTimeouts.forEach(clearTimeout)
+      auxTimeouts.forEach(clearTimeout)
+      spinIntervalRefs.current.forEach((iv, i) => {
+        if (iv) clearInterval(iv); spinIntervalRefs.current[i] = null
       })
-      spinTimeoutRefs.current.forEach((timeout, i) => {
-        if (timeout) clearTimeout(timeout)
-        spinTimeoutRefs.current[i] = null
+      spinTimeoutRefs.current.forEach((to, i) => {
+        if (to) clearTimeout(to); spinTimeoutRefs.current[i] = null
       })
-      auxiliaryTimeouts.forEach(clearTimeout)
     }
-  }, [isSpinning, stopSpin, onSpinComplete])
+  }, [isSpinning, stopSpin, reelStop])
 
   useEffect(() => {
-    if (!isSpinning) {
-      setDisplayGrid(reelGrid)
-    }
+    if (!isSpinning) setDisplayGrid(reelGrid)
   }, [reelGrid, isSpinning])
+
+  // When results are locked (reelsLocked), freeze reel shuffle intervals immediately
+  // so the final grid shows correct symbols before the settle animation completes.
+  useEffect(() => {
+    if (!reelsLocked) return
+    spinIntervalRefs.current.forEach((iv, i) => {
+      if (iv) {
+        clearInterval(iv)
+        spinIntervalRefs.current[i] = null
+      }
+    })
+    setDisplayGrid(reelGrid)
+  }, [reelsLocked, reelGrid])
 
   return (
     <View style={styles.wrap}>
@@ -109,35 +185,19 @@ export function ReelGrid({ onSpinComplete }: ReelGridProps) {
         <View style={[styles.payline, { backgroundColor: t.primary }]} />
         <View style={styles.grid}>
           {displayGrid.map((column, colIndex) => (
-            <View key={colIndex} style={styles.col}>
-              {column.map((symbol, rowIndex) => {
-                const key = `${colIndex}-${rowIndex}`
-                const win = winningPositions.has(key)
-                return (
-                  <View
-                    key={key}
-                    style={[
-                      styles.cell,
-                      { borderColor: t.border },
-                      win && {
-                        borderColor: t.primary,
-                        shadowColor: t.primary,
-                        shadowOpacity: 0.7,
-                        shadowRadius: 8,
-                      },
-                    ]}
-                  >
-                    <SlotSymbolView
-                      symbol={symbol}
-                      isWinning={win}
-                      isSpinning={spinningReels[colIndex]}
-                    />
-                  </View>
-                )
-              })}
-            </View>
+            <ReelColumn
+              key={colIndex}
+              colIndex={colIndex}
+              column={column}
+              isSpinning={spinningReels[colIndex]}
+              winningPositions={winningPositions}
+              settleSignal={settleSignals[colIndex]}
+            />
           ))}
         </View>
+        {!isSpinning && winningLines.length > 0 && (
+          <PaylineOverlay winningLines={winningLines} />
+        )}
       </View>
     </View>
   )
@@ -160,6 +220,7 @@ const styles = StyleSheet.create({
     height: 2,
     opacity: 0.7,
     zIndex: 2,
+    pointerEvents: 'none',
   },
   grid: {
     flexDirection: 'row',

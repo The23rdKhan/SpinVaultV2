@@ -53,6 +53,7 @@ export default function ProfileScreen() {
     coins,
     totalSpins,
     biggestWin,
+    totalWins,
     dailyStreak,
     ownedThemes,
     userVanity,
@@ -70,6 +71,8 @@ export default function ProfileScreen() {
     setSessionReminder,
     cooldownEnabled,
     toggleCooldown,
+    dailyPurchaseLimit,
+    setPurchaseLimit,
     trophies,
   } = useGame()
 
@@ -235,6 +238,7 @@ export default function ProfileScreen() {
       <StatsGridSection
         totalSpins={totalSpins}
         biggestWin={biggestWin}
+        totalWins={totalWins}
         dailyStreak={dailyStreak}
         themesOwned={ownedThemes.length}
       />
@@ -309,6 +313,8 @@ export default function ProfileScreen() {
       <ResponsiblePlaySection
         sessionReminderMinutes={sessionReminderMinutes}
         setSessionReminder={setSessionReminder}
+        dailyPurchaseLimit={dailyPurchaseLimit}
+        setPurchaseLimit={setPurchaseLimit}
         cooldownEnabled={cooldownEnabled}
         toggleCooldown={toggleCooldown}
       />

@@ -21,12 +21,12 @@ interface CoinPack {
 }
 
 const COIN_PACKS: CoinPack[] = [
-  { id: "quick_refill", coins: 2500, bonus: 0, price: "$0.99", icon: Coins },
-  { id: "basic", coins: 15000, bonus: 0, price: "$4.99", icon: Coins },
-  { id: "popular", coins: 40000, bonus: 0, price: "$9.99", popular: true, icon: Sparkles },
-  { id: "premium", coins: 125000, bonus: 0, price: "$24.99", icon: Crown },
-  { id: "ultimate", coins: 350000, bonus: 0, price: "$49.99", icon: Gem },
-  { id: "mega_vault", coins: 1000000, bonus: 0, price: "$99.99", icon: Gem },
+  { id: "com.spinvault.coins.quick_refill", coins: 2500, bonus: 0, price: "$0.99", icon: Coins },
+  { id: "com.spinvault.coins.basic", coins: 15000, bonus: 0, price: "$4.99", icon: Coins },
+  { id: "com.spinvault.coins.popular", coins: 40000, bonus: 0, price: "$9.99", popular: true, icon: Sparkles },
+  { id: "com.spinvault.coins.premium", coins: 125000, bonus: 0, price: "$24.99", icon: Crown },
+  { id: "com.spinvault.coins.ultimate", coins: 350000, bonus: 0, price: "$49.99", icon: Gem },
+  { id: "com.spinvault.coins.mega_vault", coins: 1000000, bonus: 0, price: "$99.99", icon: Gem },
 ]
 
 interface FreeSpinBundle {
@@ -104,20 +104,20 @@ export function ShopPage() {
           </div>
           <div className="flex-1">
             <h3 className="text-lg font-bold text-foreground">Starter Pack</h3>
-            <p className="text-sm text-muted-foreground">10,000 coins + 10 Free Spins</p>
+            <p className="text-sm text-muted-foreground">25,000 coins + 25 Free Spins</p>
             <p className="text-xs text-win font-medium mt-1">First purchase only - 50% OFF!</p>
           </div>
           <Button
             onClick={() => {
               track(AnalyticsEvents.PURCHASE_STARTED, {
-                product_id: "starter_bundle",
+                product_id: "com.spinvault.bundle.starter",
                 kind: "starter_pack",
               })
-              addCoins(10000)
+              addCoins(25_000)
               track(AnalyticsEvents.PURCHASE_COMPLETED, {
-                product_id: "starter_bundle",
+                product_id: "com.spinvault.bundle.starter",
                 kind: "starter_pack",
-                coins_granted: 10000,
+                coins_granted: 25_000,
               })
               showMessage("Welcome bonus claimed!")
             }}

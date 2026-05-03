@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Animated, StyleSheet, Text, View } from 'react-native'
+import Animated2, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withSequence,
+  Easing,
+} from 'react-native-reanimated'
+import { useKeepAwake } from 'expo-keep-awake'
 import Toast from 'react-native-toast-message'
 import { useGame } from '@/lib/game-context'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
@@ -33,6 +42,41 @@ export function SlotMachine() {
   const dismissedSpinSeqRef = useRef(0)
   const bonusMeterToastSeqRef = useRef(-1)
   const cornerPulse = useRef(new Animated.Value(0.35)).current
+  const prevFreeSpinsRef = useRef(freeSpins)
+
+  // Keep screen on while game is active
+  useKeepAwake()
+
+  // Free-spin banner slide-in
+  const fsBannerY = useSharedValue(-20)
+  const fsBannerOpacity = useSharedValue(0)
+  const fsBannerScale = useSharedValue(1)
+
+  useEffect(() => {
+    if (freeSpins > 0 && prevFreeSpinsRef.current === 0) {
+      // Slide in
+      fsBannerY.value = -20
+      fsBannerOpacity.value = 0
+      fsBannerY.value = withSpring(0, { damping: 14, stiffness: 180 })
+      fsBannerOpacity.value = withTiming(1, { duration: 250 })
+    }
+    if (freeSpins < prevFreeSpinsRef.current && freeSpins > 0) {
+      // Pulse on decrement
+      fsBannerScale.value = withSequence(
+        withTiming(1.18, { duration: 120, easing: Easing.out(Easing.quad) }),
+        withTiming(1.0, { duration: 200 }),
+      )
+    }
+    if (freeSpins === 0 && prevFreeSpinsRef.current > 0) {
+      fsBannerOpacity.value = withTiming(0, { duration: 300 })
+    }
+    prevFreeSpinsRef.current = freeSpins
+  }, [freeSpins, fsBannerY, fsBannerOpacity, fsBannerScale])
+
+  const fsBannerStyle = useAnimatedStyle(() => ({
+    opacity: fsBannerOpacity.value,
+    transform: [{ translateY: fsBannerY.value }, { scale: fsBannerScale.value }],
+  }))
 
   useEffect(() => {
     if (isSpinning) return
@@ -142,9 +186,9 @@ export function SlotMachine() {
           </View>
         </View>
         {freeSpins > 0 ? (
-          <View style={styles.fsBanner}>
+          <Animated2.View style={[styles.fsBanner, fsBannerStyle]}>
             <Text style={[styles.fsText, { color: t.win }]}>{freeSpins} FREE SPINS!</Text>
-          </View>
+          </Animated2.View>
         ) : null}
         {isJackpotMode ? (
           <View style={styles.jackpotBadge}>

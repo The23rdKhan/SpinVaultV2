@@ -27,17 +27,25 @@ import {
 import { track } from '@/lib/analytics/track'
 import { AnalyticsEvents } from '@shared/analytics/event-names'
 import { DAILY_LOGIN_REWARD_COINS } from '@shared/economy/daily-login-rewards'
-import { 
-  type VanityCategory, 
-  type Trophy, 
+import {
+  BET_OPTIONS,
+  FREE_SPIN_LINE_BET,
+  buildRandomGridIds,
+  evaluateGrid,
+  type WinType,
+  type WinningLineSerialized,
+} from '@shared/slot/evaluate-spin'
+import {
+  type VanityCategory,
+  type Trophy,
   type UserVanity,
   generateInitialTrophies,
   getDefaultUserVanity,
   ALL_VANITY_ITEMS,
-} from "./vanity-data"
+} from './vanity-data'
 
+export type { WinType }
 export type Theme = "vegas" | "cyber" | "treasure"
-export type WinType = "none" | "normal" | "bigWin" | "megaWin" | "jackpot"
 
 export interface SlotSymbol {
   id: string
@@ -163,10 +171,6 @@ function appendCoinLedger(
   return [entry, ...ledger].slice(0, MAX_COIN_LEDGER)
 }
 
-function bonusMeterPayoutForBet(currentBet: number): number {
-  return Math.min(5000, Math.max(350, Math.round(currentBet * 8)))
-}
-
 export interface GameState {
   // Wallet
   coins: number
@@ -179,7 +183,7 @@ export interface GameState {
   currentBet: number
   betOptions: number[]
   isSpinning: boolean
-  reelsLocked: boolean // New: true when result is determined but animation may continue
+  reelsLocked: boolean // true when result is committed to state; reels may still be visually spinning
   reelGrid: ReelGrid // 5 columns x 3 rows
   lastWin: number
   winMultiplier: number
@@ -307,11 +311,6 @@ const SYMBOLS: SlotSymbol[] = [
   { id: "scatter", name: "Scatter", emoji: "S", value: 0, isScatter: true },
 ]
 
-const BET_OPTIONS = [10, 25, 50, 100, 250, 500]
-
-/** Payout lines for a free spin use this bet; coin cost remains 0. */
-const FREE_SPIN_LINE_BET = 250
-
 const WHEEL_REWARDS = [50, 100, 150, 200, 300, 500, 750, 1000]
 
 const INITIAL_DAILY_REWARDS: DailyReward[] = DAILY_LOGIN_REWARD_COINS.map((coins, i) => ({
@@ -337,15 +336,6 @@ export const generateInitialGrid = (): ReelGrid => {
     grid.push(column)
   }
   return grid
-}
-
-// Determine win type based on multiplier thresholds
-const getWinType = (winMultiplier: number): WinType => {
-  if (winMultiplier >= 25) return "jackpot"
-  if (winMultiplier >= 10) return "megaWin"
-  if (winMultiplier >= 5) return "bigWin"
-  if (winMultiplier > 0) return "normal"
-  return "none"
 }
 
 // Helper to check and unlock trophies based on conditions
@@ -397,94 +387,6 @@ const checkTrophyUnlocks = (
   })
 }
 
-function getRandomSymbol(): SlotSymbol {
-  const weights = SYMBOLS.map((s) => {
-    if (s.isScatter) return 2
-    if (s.isWild) return 4
-    if (s.value >= 75) return 6
-    if (s.value >= 30) return 12
-    return 18
-  })
-  const totalWeight = weights.reduce((a, b) => a + b, 0)
-  let random = Math.random() * totalWeight
-
-  for (let i = 0; i < SYMBOLS.length; i++) {
-    random -= weights[i]
-    if (random <= 0) return SYMBOLS[i]
-  }
-  return SYMBOLS[SYMBOLS.length - 1]
-}
-
-function checkPaylines(
-  grid: ReelGrid,
-  bet: number,
-  multiplier: number
-): {
-  totalWin: number
-  lines: WinningLine[]
-  positions: Set<string>
-} {
-  const lines: WinningLine[] = []
-  const positions = new Set<string>()
-
-  const paylines = [
-    [1, 1, 1, 1, 1],
-    [0, 0, 0, 0, 0],
-    [2, 2, 2, 2, 2],
-    [0, 1, 2, 1, 0],
-    [2, 1, 0, 1, 2],
-    [0, 0, 1, 2, 2],
-    [2, 2, 1, 0, 0],
-    [1, 0, 0, 0, 1],
-    [1, 2, 2, 2, 1],
-  ]
-
-  paylines.forEach((payline) => {
-    const lineSymbols = payline.map((row, col) => grid[col][row])
-
-    let matchCount = 1
-    const firstSymbol = lineSymbols[0].isWild ? null : lineSymbols[0]
-    let matchSymbol = firstSymbol
-
-    for (let i = 1; i < 5; i++) {
-      const current = lineSymbols[i]
-
-      if (current.isWild) {
-        matchCount++
-      } else if (matchSymbol === null) {
-        matchSymbol = current
-        matchCount++
-      } else if (current.id === matchSymbol.id) {
-        matchCount++
-      } else {
-        break
-      }
-    }
-
-    if (matchCount >= 3 && matchSymbol) {
-      const winMultiplier = matchCount === 5 ? 5 : matchCount === 4 ? 2.5 : 1
-      const winPositions: [number, number][] = []
-      for (let i = 0; i < matchCount; i++) {
-        winPositions.push([i, payline[i]])
-        positions.add(`${i}-${payline[i]}`)
-      }
-
-      lines.push({
-        positions: winPositions,
-        symbol: matchSymbol,
-        multiplier: winMultiplier,
-      })
-    }
-  })
-
-  const totalWin = lines.reduce((sum, line) => {
-    const baseWin = Math.floor(bet * (line.symbol.value / 10) * line.multiplier * multiplier)
-    return sum + baseWin
-  }, 0)
-
-  return { totalWin, lines, positions }
-}
-
 function emptySpinResult(prev: Pick<GameState, 'reelGrid'>): SpinResult {
   return {
     win: 0,
@@ -504,13 +406,30 @@ function gridIdsToReelGrid(gridIds: string[][]): ReelGrid {
   )
 }
 
+function winningLinesAndPositionsFromSerialized(
+  serialized: readonly WinningLineSerialized[],
+): { winningLines: WinningLine[]; positions: Set<string> } {
+  const winningLines: WinningLine[] = serialized.map((wl) => ({
+    positions: wl.positions,
+    symbol: SYMBOLS.find((s) => s.id === wl.symbol_id) ?? SYMBOLS[3],
+    multiplier: wl.multiplier,
+  }))
+  const positions = new Set<string>()
+  for (const line of winningLines) {
+    for (const [col, row] of line.positions) {
+      positions.add(`${col}-${row}`)
+    }
+  }
+  return { winningLines, positions }
+}
+
 function createInitialGameState(): GameState {
   return {
     coins: 5000,
     currentTheme: "vegas",
     ownedThemes: ["vegas"],
     currentBet: 50,
-    betOptions: BET_OPTIONS,
+    betOptions: [...BET_OPTIONS],
     isSpinning: false,
     reelsLocked: false,
     reelGrid: generateInitialGrid(),
@@ -1462,49 +1381,23 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
       deferWalletRefresh = prev.spinSyncDeferred && isServerSpinEnabled()
 
-      // Generate new grid (local RNG)
-      const newGrid: ReelGrid = []
-      for (let col = 0; col < 5; col++) {
-        const column: SlotSymbol[] = []
-        for (let row = 0; row < 3; row++) {
-          column.push(getRandomSymbol())
-        }
-        newGrid.push(column)
-      }
-
-      // Count scatters for free spins
-      let scatterCount = 0
-      newGrid.forEach(col => {
-        col.forEach(symbol => {
-          if (symbol.isScatter) scatterCount++
-        })
-      })
-      const freeSpinsWon = scatterCount >= 3 ? 10 : 0
-
-      // Check for jackpot (5 sevens on middle row)
-      const middleRow = newGrid.map(col => col[1])
-      const isJackpot = middleRow.every(s => s.id === "seven")
-      const jackpotMultiplier = isJackpot ? 10 : 1
-
-      // Calculate wins
+      const gridIds = buildRandomGridIds()
+      const newGrid = gridIdsToReelGrid(gridIds)
       const lineBet = spinLineBetRef.current
-      const { totalWin, lines, positions } = checkPaylines(newGrid, lineBet, jackpotMultiplier)
+      const summary = evaluateGrid(gridIds, lineBet, prev.bonusProgress)
 
-      // Calculate win multiplier (win / effective line bet)
-      const winMultiplier = lineBet > 0 ? totalWin / lineBet : 0
-      const winType = getWinType(winMultiplier)
+      const totalWin = summary.total_win
+      const freeSpinsWon = summary.free_spins_won
+      const isJackpot = summary.is_jackpot
+      const jackpotMultiplier = isJackpot ? 10 : 1
+      const winMultiplier = summary.win_multiplier
+      const winType = summary.win_type
+      const bonusMeterPayout = summary.bonus_meter_payout
+      const bonusProgress = summary.bonus_progress_after
 
-      // Bonus meter: +10 on any line win, +2 on loss; payout when crossing 100 with carry-over
-      const bonusInc = totalWin > 0 ? 10 : 2
-      const combinedMeter = prev.bonusProgress + bonusInc
-      let bonusMeterPayout = 0
-      let bonusProgress: number
-      if (combinedMeter >= 100) {
-        bonusMeterPayout = bonusMeterPayoutForBet(lineBet)
-        bonusProgress = combinedMeter % 100
-      } else {
-        bonusProgress = combinedMeter
-      }
+      const { winningLines, positions } = winningLinesAndPositionsFromSerialized(
+        summary.winning_lines,
+      )
 
       let ledger = prev.coinLedger
       let runningBal = prev.coins + totalWin
@@ -1546,7 +1439,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         grid: newGrid,
         isJackpot,
         freeSpinsWon,
-        winningLines: lines,
+        winningLines,
         winType,
         winMultiplier,
         bonusMeterPayout,
@@ -1591,7 +1484,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         lastWin: totalWin,
         winMultiplier,
         lastWinType: winType,
-        winningLines: lines,
+        winningLines,
         winningPositions: positions,
         coins: runningBal,
         coinLedger: ledger,

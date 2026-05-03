@@ -1,11 +1,92 @@
+import { useEffect, useRef, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  withSequence,
+  Easing,
+} from 'react-native-reanimated'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useGame } from '@/lib/game-context'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { useAudio } from '@/lib/use-audio'
 
 export function Marquee() {
   const t = useCasinoTheme()
-  const { bonusProgress, freeSpins, isJackpotMode } = useGame()
+  const { bonusProgress, freeSpins, isJackpotMode, spinSequence, lastBonusMeterPayout } = useGame()
+  const { bonusDing } = useAudio()
+
+  const fillWidth = useSharedValue(0)
+  const floatY = useSharedValue(0)
+  const floatOpacity = useSharedValue(0)
+  const [floatLabel, setFloatLabel] = useState('+0')
+  const prevProgressRef = useRef(bonusProgress)
+  const prevSeqRef = useRef(spinSequence)
+
+  // Animated meter fill
+  useEffect(() => {
+    fillWidth.value = withTiming(bonusProgress, {
+      duration: 600,
+      easing: Easing.out(Easing.quad),
+    })
+
+    // Flash to win color if meter paid out this spin — just use opacity pulse on fill instead
+    if (spinSequence !== prevSeqRef.current && lastBonusMeterPayout > 0) {
+      fillWidth.value = withSequence(
+        withTiming(100, { duration: 100 }),
+        withTiming(bonusProgress, { duration: 400, easing: Easing.out(Easing.quad) }),
+      )
+      bonusDing()
+    }
+
+    // Float "+N" label
+    const delta = bonusProgress - prevProgressRef.current
+    if (spinSequence !== prevSeqRef.current && delta !== 0) {
+      const sign = delta > 0 ? '+' : ''
+      setFloatLabel(`${sign}${delta}`)
+      floatOpacity.value = 0
+      floatY.value = 0
+      floatOpacity.value = withSequence(
+        withTiming(1, { duration: 120 }),
+        withDelay(300, withTiming(0, { duration: 300 })),
+      )
+      floatY.value = withTiming(-18, { duration: 720, easing: Easing.out(Easing.quad) })
+    }
+
+    prevProgressRef.current = bonusProgress
+    prevSeqRef.current = spinSequence
+  // Theme values (t.primary / t.win) are stable at runtime — intentionally omitted from deps.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bonusProgress, spinSequence, lastBonusMeterPayout, bonusDing, fillWidth, floatY, floatOpacity])
+
+  const fillStyle = useAnimatedStyle(() => ({
+    width: `${fillWidth.value}%` as `${number}%`,
+    backgroundColor: t.primary,
+  }))
+
+  const floatStyle = useAnimatedStyle(() => ({
+    opacity: floatOpacity.value,
+    transform: [{ translateY: floatY.value }],
+  }))
+
+  const jackpotPulse = useSharedValue(1)
+  useEffect(() => {
+    if (isJackpotMode) {
+      jackpotPulse.value = withSequence(
+        withTiming(1.12, { duration: 300 }),
+        withTiming(1.0, { duration: 300 }),
+        withTiming(1.08, { duration: 250 }),
+        withTiming(1.0, { duration: 250 }),
+      )
+    }
+  }, [isJackpotMode, jackpotPulse])
+
+  const jackpotPillStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: jackpotPulse.value }],
+    opacity: isJackpotMode ? 1 : 0.95,
+  }))
 
   return (
     <View style={styles.wrap}>
@@ -13,9 +94,15 @@ export function Marquee() {
         colors={[t.card, t.cabinetBg]}
         style={[styles.top, { borderColor: t.cabinetBorder }]}
       >
-        <View style={[styles.jackpotPill, { backgroundColor: t.jackpot, opacity: isJackpotMode ? 1 : 0.95 }]}>
+        <Animated.View
+          style={[
+            styles.jackpotPill,
+            { backgroundColor: t.jackpot },
+            jackpotPillStyle,
+          ]}
+        >
           <Text style={styles.jackpotText}>MEGA JACKPOT</Text>
-        </View>
+        </Animated.View>
 
         <View style={[styles.ticker, { backgroundColor: t.cabinetBg }]}>
           {freeSpins > 0 ? (
@@ -32,9 +119,14 @@ export function Marquee() {
         <View style={styles.meterRow}>
           <Text style={[styles.meterLabel, { color: t.mutedForeground }]}>Bonus</Text>
           <View style={[styles.meterTrack, { backgroundColor: t.muted, borderColor: t.border }]}>
-            <View style={[styles.meterFill, { width: `${bonusProgress}%`, backgroundColor: t.primary }]} />
+            <Animated.View style={[styles.meterFill, fillStyle]} />
           </View>
-          <Text style={[styles.meterPct, { color: t.primary }]}>{bonusProgress}%</Text>
+          <View style={styles.meterRight}>
+            <Text style={[styles.meterPct, { color: t.primary }]}>{bonusProgress}%</Text>
+            <Animated.Text style={[styles.floatText, { color: t.win }, floatStyle]}>
+              {floatLabel}
+            </Animated.Text>
+          </View>
         </View>
         <Text style={[styles.meterHint, { color: t.mutedForeground }]}>
           Reach 100 for bonus coins (+10 each winning spin, +2 each loss). Payout scales with bet.
@@ -90,7 +182,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   meterFill: { height: '100%', borderRadius: 999 },
-  meterPct: { fontSize: 10, fontWeight: '800', width: 36, textAlign: 'right' },
+  meterRight: { width: 48, alignItems: 'flex-end', position: 'relative' },
+  meterPct: { fontSize: 10, fontWeight: '800' },
+  floatText: {
+    position: 'absolute',
+    bottom: 10,
+    right: 0,
+    fontSize: 10,
+    fontWeight: '900',
+  },
   meterHint: {
     fontSize: 10,
     fontWeight: '600',

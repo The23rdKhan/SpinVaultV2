@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withRepeat,
+  withSequence,
+  cancelAnimation,
+  Easing,
+} from 'react-native-reanimated'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
@@ -7,6 +16,8 @@ import { useGame, BET_OPTIONS } from '@/lib/game-context'
 import { routes } from '@/lib/app-routes'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { AppButton } from '@/components/ui/AppButton'
+import { useHaptics } from '@/lib/use-haptics'
+import { useAudio } from '@/lib/use-audio'
 
 interface ControlDeckProps {
   onOpenInfo: () => void
@@ -28,9 +39,42 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
     biggestWin,
   } = useGame()
 
+  const { betChange } = useHaptics()
+  const { betChange: betChangeSfx } = useAudio()
+
+  // Capture theme colors for use inside Reanimated worklets (worklets can't
+  // close over objects that change reference, and returning undefined for a
+  // color prop crashes on the UI thread).
+  const foregroundColor = t.foreground
+
   const [displayedWin, setDisplayedWin] = useState(0)
   const [fastMode, setFastMode] = useState(false)
   const countUpRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Balance flash
+  const balScale = useSharedValue(1)
+  const balColorIdx = useSharedValue(0) // 1 = win, -1 = loss, 0 = neutral
+  const prevCoinsRef = useRef(coins)
+
+  useEffect(() => {
+    if (isSpinning) return
+    if (coins > prevCoinsRef.current) {
+      balScale.value = withSequence(
+        withTiming(1.15, { duration: 100 }),
+        withTiming(1.0, { duration: 300, easing: Easing.out(Easing.quad) }),
+      )
+      balColorIdx.value = withSequence(
+        withTiming(1, { duration: 80 }),
+        withTiming(0, { duration: 600 }),
+      )
+    } else if (coins < prevCoinsRef.current) {
+      balColorIdx.value = withSequence(
+        withTiming(-1, { duration: 80 }),
+        withTiming(0, { duration: 400 }),
+      )
+    }
+    prevCoinsRef.current = coins
+  }, [coins, isSpinning, balScale, balColorIdx])
 
   useEffect(() => {
     if (lastWin > 0 && !isSpinning) {
@@ -56,17 +100,31 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
 
   const canSpin = (coins >= currentBet || freeSpins > 0) && !isSpinning
 
+  const balAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: balScale.value }],
+    color:
+      balColorIdx.value > 0.5
+        ? '#34d399'
+        : balColorIdx.value < -0.5
+          ? '#f87171'
+          : foregroundColor,
+  }))
+
   const decreaseBet = () => {
+    betChange()
+    betChangeSfx()
     const i = BET_OPTIONS.indexOf(currentBet)
     if (i > 0) setBet(BET_OPTIONS[i - 1])
   }
 
   const increaseBet = () => {
+    betChange()
+    betChangeSfx()
     const i = BET_OPTIONS.indexOf(currentBet)
-    if (i < BET_OPTIONS.length - 1) setBet(BET_OPTIONS[i + 1])
+    if (i >= 0 && i < BET_OPTIONS.length - 1) setBet(BET_OPTIONS[i + 1])
   }
 
-  const setMaxBet = () => setBet(BET_OPTIONS[BET_OPTIONS.length - 1])
+  const setMaxBet = () => { betChange(); betChangeSfx(); setBet(BET_OPTIONS[BET_OPTIONS.length - 1]) }
 
   return (
     <View style={styles.wrap}>
@@ -141,7 +199,9 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
           <View style={styles.rightCol}>
             <AppButton variant="outline" size="sm" disabled={isSpinning} onPress={setMaxBet} label="MAX" />
             <Text style={[styles.balLabel, { color: t.mutedForeground }]}>Balance</Text>
-            <Text style={[styles.balVal, { color: t.foreground }]}>${coins.toLocaleString()}</Text>
+            <Animated.Text style={[styles.balVal, { color: t.foreground }, balAnimStyle]}>
+              ${coins.toLocaleString()}
+            </Animated.Text>
           </View>
         </View>
 
@@ -186,16 +246,52 @@ function PressableSpin({
   onSpin: () => void
 }) {
   const t = useCasinoTheme()
+  const { spinPress } = useHaptics()
+  const pressScale = useSharedValue(1)
+  const rotateVal = useSharedValue(0)
+
+  useEffect(() => {
+    if (isSpinning) {
+      rotateVal.value = withRepeat(
+        withTiming(360, { duration: 1200, easing: Easing.linear }),
+        -1,
+        false,
+      )
+    } else {
+      cancelAnimation(rotateVal)
+      rotateVal.value = withTiming(0, { duration: 200 })
+    }
+  }, [isSpinning, rotateVal])
+
+  const spinStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: pressScale.value },
+      { rotate: `${rotateVal.value}deg` },
+    ],
+    opacity: canSpin ? 1 : 0.45,
+  }))
+
+  const handlePress = () => {
+    spinPress()
+    pressScale.value = withSequence(
+      withTiming(0.92, { duration: 80 }),
+      withTiming(1.0, { duration: 160, easing: Easing.out(Easing.back(2)) }),
+    )
+    onSpin()
+  }
+
   return (
-    <Pressable disabled={!canSpin} onPress={onSpin} accessibilityRole="button">
-      <LinearGradient
-        colors={[t.spinButtonTop, t.spinButtonBottom]}
-        style={[styles.spinOuter, { opacity: canSpin ? 1 : 0.45 }]}
-      >
-        <Text style={styles.spinText}>
-          {isSpinning ? '…' : freeSpins > 0 ? 'FREE\nSPIN' : 'SPIN'}
-        </Text>
-      </LinearGradient>
+    <Pressable disabled={!canSpin} onPress={handlePress} accessibilityRole="button">
+      <Animated.View style={spinStyle}>
+        <LinearGradient
+          colors={[t.spinButtonTop, t.spinButtonBottom]}
+          style={styles.spinOuter}
+        >
+          <Text style={styles.spinText}>
+            {isSpinning ? '…' : freeSpins > 0 ? 'FREE\nSPIN' : 'SPIN'}
+          </Text>
+        </LinearGradient>
+      </Animated.View>
     </Pressable>
   )
 }

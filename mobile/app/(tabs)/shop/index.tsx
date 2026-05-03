@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
@@ -25,6 +25,7 @@ import { isReachable } from '@/lib/reachability'
 import { isRevenueCatConfigured, purchaseConsumableSku } from '@/lib/revenuecat'
 import {
   SHOP_COIN_PACKS,
+  STARTER_BUNDLE_ARTWORK,
   STARTER_BUNDLE_GRANT,
   STARTER_BUNDLE_SKU,
   type ShopCoinPackRow,
@@ -97,7 +98,7 @@ export default function ShopScreen() {
       }
       track(AnalyticsEvents.PURCHASE_STARTED, {
         product_id: pack.id,
-        kind: 'coin_pack',
+        kind: pack.kind,
       })
       if (isRevenueCatConfigured()) {
         const r = await purchaseConsumableSku(pack.id)
@@ -105,8 +106,9 @@ export default function ShopScreen() {
           await resyncWalletFromServer()
           track(AnalyticsEvents.PURCHASE_COMPLETED, {
             product_id: pack.id,
-            kind: 'coin_pack',
+            kind: pack.kind,
             coins_granted: pack.coins,
+            free_spins_granted: pack.freeSpins,
           })
           msg('Purchase complete — wallet updated')
           return
@@ -123,12 +125,22 @@ export default function ShopScreen() {
         reason: 'iap_grant',
         label: `Coin pack (${pack.id})`,
       })
+      if (pack.freeSpins > 0) {
+        addFreeSpins(pack.freeSpins)
+      }
       track(AnalyticsEvents.PURCHASE_COMPLETED, {
         product_id: pack.id,
-        kind: 'coin_pack',
+        kind: pack.kind,
         coins_granted: pack.coins,
+        free_spins_granted: pack.freeSpins,
       })
-      msg(`Added ${pack.coins.toLocaleString()} coins`)
+      msg(
+        pack.coins > 0 && pack.freeSpins > 0
+          ? `Added ${pack.coins.toLocaleString()} coins + ${pack.freeSpins} free spins`
+          : pack.coins > 0
+            ? `Added ${pack.coins.toLocaleString()} coins`
+            : `Added ${pack.freeSpins} free spins`,
+      )
     })()
   }
 
@@ -241,19 +253,21 @@ export default function ShopScreen() {
             <Text style={[styles.starterBadgeTxt, { color: t.primaryForeground }]}>LIMITED</Text>
           </View>
           <View style={styles.starterRow}>
-            <View style={[styles.starterIcon, { backgroundColor: `${t.primary}55` }]}>
-              <FontAwesome name="gift" size={28} color={t.primaryForeground} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.starterTitle, { color: t.foreground }]}>Starter Pack</Text>
+            <Image
+              source={STARTER_BUNDLE_ARTWORK}
+              resizeMode="cover"
+              style={[styles.starterArtwork, { borderColor: `${t.primary}66` }]}
+            />
+            <View style={styles.starterCopy}>
+              <Text style={[styles.starterTitle, { color: t.foreground }]}>Starter Bundle</Text>
               <Text style={[styles.starterSub, { color: t.mutedForeground }]}>
-                25,000 coins + 25 free spins + Golden Ring frame
+                One-time offer with coins, free spins, and the Golden Ring frame.
               </Text>
               <Text style={[styles.starterHint, { color: t.win }]}>
-                One-time offer — best value per coin
+                Best entry offer in the store
               </Text>
+              <AppButton label="$1.99" onPress={onStarterPack} style={styles.starterButton} />
             </View>
-            <AppButton label="$1.99" onPress={onStarterPack} />
           </View>
         </LinearGradient>
 
@@ -279,7 +293,7 @@ export default function ShopScreen() {
 
         <View style={styles.sectionHead}>
           <FontAwesome name="bitcoin" size={16} color={t.primary} />
-          <Text style={[styles.h3, { color: t.foreground }]}>Coin packs</Text>
+          <Text style={[styles.h3, { color: t.foreground }]}>Store offers</Text>
         </View>
         <View style={styles.packGrid}>
           {SHOP_COIN_PACKS.map((p) => (
@@ -298,22 +312,18 @@ export default function ShopScreen() {
                   <Text style={[styles.popTagTxt, { color: t.primaryForeground }]}>BEST VALUE</Text>
                 </View>
               ) : null}
-              <FontAwesome
-                name="money"
-                size={22}
-                color={t.primary}
-                style={{ alignSelf: 'center', marginTop: 8 }}
+              <Image
+                source={p.artwork}
+                resizeMode="cover"
+                style={[styles.packArtwork, { borderColor: `${t.primary}33` }]}
               />
-              <Text style={[styles.packSub, { color: t.mutedForeground }]}>{p.subtitle}</Text>
-              <Text style={[styles.packAmt, { color: t.foreground }]}>
-                {formatShortCoins(p.coins)}
-              </Text>
+              <Text style={[styles.packCaption, { color: t.mutedForeground }]}>{p.subtitle}</Text>
               <AppButton
                 size="sm"
                 label={p.priceLabel}
                 variant={p.popular ? 'primary' : 'outline'}
                 onPress={() => onCoinPack(p)}
-                style={{ marginTop: 8 }}
+                style={styles.packButton}
               />
             </View>
           ))}
@@ -486,16 +496,17 @@ const styles = StyleSheet.create({
   },
   starterBadgeTxt: { fontSize: 10, fontWeight: '900' },
   starterRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 8 },
-  starterIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
+  starterArtwork: {
+    width: 148,
+    aspectRatio: 1,
+    borderRadius: 16,
+    borderWidth: 1,
   },
+  starterCopy: { flex: 1, minWidth: 0 },
   starterTitle: { fontSize: 18, fontWeight: '900' },
   starterSub: { fontSize: 13, marginTop: 4 },
   starterHint: { fontSize: 11, marginTop: 6, fontWeight: '700' },
+  starterButton: { marginTop: 12, alignSelf: 'flex-start' },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   h3: { fontSize: 17, fontWeight: '800' },
   bundleRow: { flexDirection: 'row', gap: 10 },
@@ -522,6 +533,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     padding: 12,
     alignItems: 'center',
+    gap: 8,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -534,8 +546,15 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   popTagTxt: { fontSize: 9, fontWeight: '900' },
-  packSub: { fontSize: 10, fontWeight: '700', marginTop: 4, textAlign: 'center' },
-  packAmt: { fontSize: 20, fontWeight: '900', marginTop: 4 },
+  packArtwork: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 6,
+  },
+  packCaption: { fontSize: 10, fontWeight: '700', textAlign: 'center' },
+  packButton: { width: '100%' },
   card: {
     borderWidth: 1,
     borderRadius: 12,
