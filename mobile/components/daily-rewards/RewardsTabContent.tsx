@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import Toast from 'react-native-toast-message'
 import { WeeklyLeaderboard } from '@/components/social/WeeklyLeaderboard'
+import { WinnerFeedStrip } from '@/components/social/WinnerFeedStrip'
 import { SCREEN_PAD_H } from '@/lib/screen-edge'
 import { useGame } from '@/lib/game-context'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
@@ -21,14 +22,19 @@ export function RewardsTabContent() {
 
   const nextClaimableDay = dailyStreak + 1
 
-  const handleClaimDay = (day: number) => {
-    const ok = claimDailyReward(day)
+  const handleClaimDay = async (day: number) => {
+    const ok = await claimDailyReward(day)
     if (ok) {
       setClaimFlash(day)
       setTimeout(() => setClaimFlash(null), 900)
       Toast.show({ type: 'success', text1: `Day ${day} claimed` })
+    } else {
+      Toast.show({
+        type: 'error',
+        text1: 'Claim failed',
+        text2: 'Check connection or claim order and try again.',
+      })
     }
-    return ok
   }
 
   const bottomPad = Math.max(insets.bottom, 12) + 28
@@ -79,6 +85,7 @@ export function RewardsTabContent() {
         </View>
       </View>
 
+      <WinnerFeedStrip />
       <WeeklyLeaderboard />
     </ScrollView>
   )

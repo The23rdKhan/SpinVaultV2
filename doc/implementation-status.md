@@ -115,10 +115,17 @@
 - [ ] Custom cosmetic creation
 - [ ] Cosmetic rarity progression
 
+## Supabase server cutover (mobile + Postgres)
+
+- **Phase 0 (shipped in repo):** Supabase anonymous sign-in for guests; `wallets`, `wallet_ledger`, `user_settings`, and related seed rows via `handle_new_user` — migration `supabase/migrations/20260202121500_phase0_wallets_settings_handle_new_user.sql`; smoke checklist `doc/qa/phase0.md`.
+- **Phase 1 (shipped in repo):** `slot_machines`, `spins`, `wallets.bonus_meter_progress`, service-only RPC `spin_commit_internal`, Edge Function `spin`; mobile uses it when `EXPO_PUBLIC_USE_SERVER_SPIN=1` — see `doc/qa/phase1.md`.
+- **Phases 2–4 (in progress — checklist):** Server economy completion → RevenueCat IAP → AdMob rewarded + SSV — see [`doc/roadmap/README.md`](./roadmap/README.md).
+- **Later phases:** Do **not** recreate `wallets` / `wallet_ledger`; extend with missions/IAP/social as planned.
+
 ## Known Limitations
 
 - Mock leaderboard data (not persisted)
 - Weekly reset simulated (client-side)
-- No backend API integration
+- Many shop/reward flows still client-only until Phase 2 economy RPCs land (spin + daily login can be server-backed when flags are on)
 - Feedback forms don't actually submit (would need backend)
 - Cosmetic chest removed (MVP uses direct purchases only)

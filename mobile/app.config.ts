@@ -26,6 +26,7 @@ const plugins: NonNullable<ExpoConfig['plugins']> = [
   'expo-dev-client',
   'expo-router',
   'expo-font',
+  'expo-asset',
   'expo-web-browser',
   [
     'expo-audio',
@@ -47,7 +48,8 @@ if (googleIosUrlScheme) {
 
 const config = {
   name: appName,
-  slug: 'spinvault',
+  /** Must match the slug of the Expo project for `extra.eas.projectId` (expo.dev); EAS fails if mismatched. */
+  slug: 'mobile',
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
@@ -62,6 +64,10 @@ const config = {
     supportsTablet: true,
     bundleIdentifier: 'com.spinvault.mobile',
     usesAppleSignIn: true,
+    /** App Store export compliance: standard HTTPS only — avoids manual “encryption” questions when correct. */
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
+    },
   },
   android: {
     package: 'com.spinvault.mobile',

@@ -66,7 +66,10 @@ export function CosmeticChest({ onMessage }: { onMessage: (msg: string) => void 
 
     setTimeout(() => {
       const ownedIds = vanityRef.current.ownedItemIds
-      const spent = subtractCoins(CHEST_PRICE)
+      const spent = subtractCoins(CHEST_PRICE, {
+        reason: 'cosmetic_chest',
+        label: 'Cosmetic chest',
+      })
       if (!spent) {
         setOpening(false)
         onMessage('Not enough coins')
@@ -77,7 +80,10 @@ export function CosmeticChest({ onMessage }: { onMessage: (msg: string) => void 
       const pick = pickUnowned(rarity, ownedIds)
 
       if (!pick) {
-        addCoins(CHEST_PRICE + 250)
+        addCoins(CHEST_PRICE + 250, {
+          reason: 'cosmetic_chest',
+          label: 'Chest refund + bonus (collection complete)',
+        })
         setOpening(false)
         onMessage('Collection complete — bonus coins!')
         return
@@ -85,7 +91,10 @@ export function CosmeticChest({ onMessage }: { onMessage: (msg: string) => void 
 
       const ok = buyVanityItem(pick.id, 0)
       if (!ok) {
-        addCoins(CHEST_PRICE)
+        addCoins(CHEST_PRICE, {
+          reason: 'cosmetic_chest',
+          label: 'Chest refund',
+        })
         setOpening(false)
         onMessage('Could not grant item — refunded')
         return

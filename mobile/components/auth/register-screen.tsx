@@ -45,7 +45,7 @@ export function RegisterScreen() {
         <View style={styles.block}>
           <Text style={[styles.hero, { color: t.primary }]}>Create account</Text>
           <Text style={[styles.sub, { color: t.mutedForeground }]}>
-            Use your email or go back to sign in with Apple or Google.
+            Sign up with email. To use Apple or Google, go back and choose those options on the sign-in screen.
           </Text>
 
           <TextInput

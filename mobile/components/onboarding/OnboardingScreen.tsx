@@ -27,16 +27,27 @@ export function OnboardingScreen() {
   const [password, setPassword] = useState('')
   const [username, setUsername] = useState('')
   const [loading, setLoading] = useState(false)
+  const [guestBusy, setGuestBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
   useEffect(() => {
     track(AnalyticsEvents.ONBOARDING_STARTED)
   }, [])
 
-  const onGuest = () => {
-    signInAsGuest()
-    completeOnboarding()
-    track(AnalyticsEvents.ONBOARDING_COMPLETED, { path: 'guest' })
+  const onGuest = async () => {
+    setFormError(null)
+    setGuestBusy(true)
+    try {
+      const ok = await signInAsGuest()
+      if (!ok) {
+        setFormError('Could not start a guest session. Please try again.')
+        return
+      }
+      completeOnboarding()
+      track(AnalyticsEvents.ONBOARDING_COMPLETED, { path: 'guest' })
+    } finally {
+      setGuestBusy(false)
+    }
   }
 
   const onEmailSignup = async () => {
@@ -146,7 +157,14 @@ export function OnboardingScreen() {
                 track(AnalyticsEvents.ONBOARDING_COMPLETED, { path: 'google' })
               }}
             />
-            <AppButton variant="outline" label="Play as guest" onPress={onGuest} style={styles.btn} />
+            <AppButton
+              variant="outline"
+              label="Play as guest"
+              loading={guestBusy}
+              disabled={loading || guestBusy}
+              onPress={() => void onGuest()}
+              style={styles.btn}
+            />
             <AppButton variant="ghost" label="Back" onPress={() => setStep('age')} />
           </View>
         ) : null}

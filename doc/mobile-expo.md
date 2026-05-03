@@ -92,6 +92,7 @@ Theme is **code**, not a separate doc asset. Use this map:
 | Hook used by screens/components | `mobile/lib/use-casino-theme.ts` |
 | Machine theme IDs, names, shop prices | `mobile/lib/theme-config.ts` |
 | System/light/dark preference | `mobile/lib/appearance-context.tsx` |
+| Native semantic colors (RN `PlatformColor` via expo-router `Color`, Appearance **system** only) | `mobile/lib/native-semantic-colors.ts` (`useNativeSemanticColors`) |
 | Active machine theme in game state | `mobile/lib/game-context.tsx` |
 | Vanity item colors (RN-friendly) | `mobile/lib/vanity-data.ts` |
 
@@ -102,3 +103,40 @@ The web app’s parallel theme files (if any) remain under the Next.js tree (e.g
 ## Native tabs caveat
 
 Tab navigation uses **`expo-router/unstable-native-tabs`** (alpha API). Test on **real iOS/Android**; **web** may differ or be unsupported for some native tab behaviors.
+
+---
+
+## `@expo/ui` + RN semantic colors — expand criteria
+
+**Reference:** plan *Expo UI migration approach* (local Cursor plan; not committed as a single source file).
+
+### Roles
+
+| Track | Use for | Notes |
+|-------|---------|--------|
+| **`@expo/ui`** | Native **Host** + SwiftUI / Jetpack Compose where real native controls win (e.g. grouped notification toggles on Profile) | Beta (iOS) / alpha (Android); **not in Expo Go** — **development builds** only. |
+| **RN + `Color` (`expo-router`)** | Settings-shaped **RN** rows: text, separators, input placeholders | Implemented via `mobile/lib/native-semantic-colors.ts` → **`useNativeSemanticColors`**. Tokens apply when Appearance mode is **`system`**; if the user forces light/dark, fall back to **`useCasinoTheme()`** so OS `PlatformColor` does not fight `resolvedMode`. |
+| **`useCasinoTheme`** | Play, Shop, Rewards, **NativeTabs**, slot machine, shop/chest, vanity, trophies, Profile **section titles** | Brand is the product; do not replace with system gray/gold wholesale. |
+
+### Android parity
+
+- Ship **both** iOS and Android implementations for each Expo UI island (see `*.ios.tsx` / `*.android.tsx` next to shared types until Expo exposes universal components).
+- **iOS-only** features must be called out explicitly in PR / changelog.
+
+### Exclusions (no migration without product sign-off)
+
+- Slot machine / Reanimated surfaces, shop rich UI / chest flows, tab bar branding, intentional rarity/VIP accent colors.
+
+### Phase 2 (economy, IAP, ads)
+
+Remaining server economy, RevenueCat IAP, and Google AdMob are tracked in **[`doc/roadmap/README.md`](./roadmap/README.md)** (Phases 2–4).
+
+### Verify after changes
+
+```bash
+cd mobile && npm run typecheck
+```
+
+On device: Profile → **Notification Preferences** (native toggles on iOS/Android), toggle OS appearance and in-app Appearance (**system** vs forced) and confirm readable contrast.
+
+If Metro logs **`Cannot find native module 'ExpoUI'`**, the JavaScript includes `@expo/ui` but the **installed dev client was built before that dependency**. Run **`npx expo prebuild`** (if needed) then **`npx expo run:ios`** / **`run:android`**, or an **EAS development build**. Until then, the app **falls back to RN notification preference rows** (`TurboModuleRegistry.get('ExpoUI')` guard + lazy `require`).

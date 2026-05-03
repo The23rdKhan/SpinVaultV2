@@ -31,18 +31,21 @@ export function ThemeUnlockCards({
   const [preview, setPreview] = useState<ThemeConfig | null>(null)
 
   const unlock = (themeId: Theme) => {
-    const cfg = THEME_CONFIGS[themeId]
-    if (ownedThemes.includes(themeId)) {
-      setTheme(themeId)
-      onMessage(`${cfg.name} equipped`)
-      return
-    }
-    if (buyTheme(themeId, cfg.price)) {
-      setTheme(themeId)
-      onMessage(`${cfg.name} unlocked`)
-    } else {
-      onMessage('Not enough coins')
-    }
+    void (async () => {
+      const cfg = THEME_CONFIGS[themeId]
+      if (ownedThemes.includes(themeId)) {
+        setTheme(themeId)
+        onMessage(`${cfg.name} equipped`)
+        return
+      }
+      const ok = await buyTheme(themeId, cfg.price)
+      if (ok) {
+        setTheme(themeId)
+        onMessage(`${cfg.name} unlocked`)
+      } else {
+        onMessage('Not enough coins')
+      }
+    })()
   }
 
   return (

@@ -20,16 +20,17 @@ import {
   type VanityCategory,
 } from '@/lib/vanity-data'
 import { track } from '@/lib/analytics/track'
+import { formatShortCoins } from '@/lib/format-coins'
+import { isReachable } from '@/lib/reachability'
+import { isRevenueCatConfigured, purchaseConsumableSku } from '@/lib/revenuecat'
+import {
+  SHOP_COIN_PACKS,
+  STARTER_BUNDLE_GRANT,
+  STARTER_BUNDLE_SKU,
+  type ShopCoinPackRow,
+} from '@/lib/shop-iap-catalog'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { AnalyticsEvents } from '@shared/analytics/event-names'
-
-const COIN_PACKS = [
-  { id: 'starter', coins: 1000, bonus: 0, priceLabel: '$0.99', popular: false },
-  { id: 'basic', coins: 5000, bonus: 500, priceLabel: '$4.99', popular: false },
-  { id: 'popular', coins: 15000, bonus: 3000, priceLabel: '$9.99', popular: true },
-  { id: 'premium', coins: 50000, bonus: 15000, priceLabel: '$24.99', popular: false },
-  { id: 'ultimate', coins: 150000, bonus: 50000, priceLabel: '$49.99', popular: false },
-]
 
 const FREE_SPIN_BUNDLES = [
   { id: 'mini', spins: 5, price: 500 },
@@ -64,6 +65,7 @@ export default function ShopScreen() {
     buyVanityItem,
     equipVanityItem,
     userVanity,
+    resyncWalletFromServer,
   } = useGame()
   const [tab, setTab] = useState<VanityCategory>('avatar')
 
@@ -75,18 +77,59 @@ export default function ShopScreen() {
 
   const msg = (m: string) => Toast.show({ type: 'success', text1: m })
 
-  const onCoinPack = (pack: (typeof COIN_PACKS)[0]) => {
-    track(AnalyticsEvents.PURCHASE_STARTED, {
-      product_id: pack.id,
-      kind: 'coin_pack',
+  /** IAP vanity not in wallet RPC yet — grant Golden Ring after successful `STARTER_BUNDLE_SKU` purchase. */
+  const grantStarterBundleCosmetics = useCallback(() => {
+    buyVanityItem(STARTER_BUNDLE_GRANT.frameVanityId, 0)
+    requestAnimationFrame(() => {
+      equipVanityItem('frame', STARTER_BUNDLE_GRANT.frameVanityId)
     })
-    addCoins(pack.coins + pack.bonus)
-    track(AnalyticsEvents.PURCHASE_COMPLETED, {
-      product_id: pack.id,
-      kind: 'coin_pack',
-      coins_granted: pack.coins + pack.bonus,
-    })
-    msg(`Added ${(pack.coins + pack.bonus).toLocaleString()} coins`)
+  }, [buyVanityItem, equipVanityItem])
+
+  const onCoinPack = (pack: ShopCoinPackRow) => {
+    void (async () => {
+      if (!(await isReachable())) {
+        Toast.show({
+          type: 'error',
+          text1: 'No connection',
+          text2: 'Reconnect to the internet to purchase coin packs.',
+        })
+        return
+      }
+      track(AnalyticsEvents.PURCHASE_STARTED, {
+        product_id: pack.id,
+        kind: 'coin_pack',
+      })
+      if (isRevenueCatConfigured()) {
+        const r = await purchaseConsumableSku(pack.id)
+        if (r.ok) {
+          await resyncWalletFromServer()
+          track(AnalyticsEvents.PURCHASE_COMPLETED, {
+            product_id: pack.id,
+            kind: 'coin_pack',
+            coins_granted: pack.coins,
+          })
+          msg('Purchase complete — wallet updated')
+          return
+        }
+        if (r.cancelled) return
+        Toast.show({
+          type: 'error',
+          text1: 'Purchase failed',
+          text2: r.message ?? 'Check App Store / Play products and try again.',
+        })
+        return
+      }
+      addCoins(pack.coins, {
+        reason: 'iap_grant',
+        label: `Coin pack (${pack.id})`,
+      })
+      track(AnalyticsEvents.PURCHASE_COMPLETED, {
+        product_id: pack.id,
+        kind: 'coin_pack',
+        coins_granted: pack.coins,
+      })
+      msg(`Added ${pack.coins.toLocaleString()} coins`)
+    })()
   }
 
   const onBuySpins = (bundle: (typeof FREE_SPIN_BUNDLES)[0]) => {
@@ -98,34 +141,75 @@ export default function ShopScreen() {
   }
 
   const onStarterPack = () => {
-    track(AnalyticsEvents.PURCHASE_STARTED, {
-      product_id: 'starter_bundle',
-      kind: 'starter_pack',
-    })
-    addCoins(10000)
-    addFreeSpins(10)
-    track(AnalyticsEvents.PURCHASE_COMPLETED, {
-      product_id: 'starter_bundle',
-      kind: 'starter_pack',
-      coins_granted: 10000,
-      free_spins_granted: 10,
-    })
-    msg('Starter pack — 10,000 coins + 10 free spins!')
+    void (async () => {
+      if (!(await isReachable())) {
+        Toast.show({
+          type: 'error',
+          text1: 'No connection',
+          text2: 'Reconnect to the internet to purchase the starter pack.',
+        })
+        return
+      }
+      track(AnalyticsEvents.PURCHASE_STARTED, {
+        product_id: STARTER_BUNDLE_SKU,
+        kind: 'starter_pack',
+      })
+      if (isRevenueCatConfigured()) {
+        const r = await purchaseConsumableSku(STARTER_BUNDLE_SKU)
+        if (r.ok) {
+          await resyncWalletFromServer()
+          grantStarterBundleCosmetics()
+          track(AnalyticsEvents.PURCHASE_COMPLETED, {
+            product_id: STARTER_BUNDLE_SKU,
+            kind: 'starter_pack',
+            coins_granted: STARTER_BUNDLE_GRANT.coins,
+            free_spins_granted: STARTER_BUNDLE_GRANT.freeSpins,
+          })
+          msg('Starter pack unlocked — wallet updated + Golden Ring frame')
+          return
+        }
+        if (r.cancelled) return
+        Toast.show({
+          type: 'error',
+          text1: 'Purchase failed',
+          text2: r.message ?? 'Check store setup and try again.',
+        })
+        return
+      }
+      addCoins(STARTER_BUNDLE_GRANT.coins, {
+        reason: 'starter_pack',
+        label: 'Starter pack',
+      })
+      addFreeSpins(STARTER_BUNDLE_GRANT.freeSpins)
+      grantStarterBundleCosmetics()
+      track(AnalyticsEvents.PURCHASE_COMPLETED, {
+        product_id: STARTER_BUNDLE_SKU,
+        kind: 'starter_pack',
+        coins_granted: STARTER_BUNDLE_GRANT.coins,
+        free_spins_granted: STARTER_BUNDLE_GRANT.freeSpins,
+      })
+      msg(
+        `Starter pack — ${STARTER_BUNDLE_GRANT.coins.toLocaleString()} coins + ${STARTER_BUNDLE_GRANT.freeSpins} free spins + frame`,
+      )
+    })()
   }
 
   const onBuyTheme = (theme: Theme) => {
-    const price = THEME_CONFIGS[theme].price
-    if (ownedThemes.includes(theme)) {
-      setTheme(theme)
-      msg(`${THEME_CONFIGS[theme].name} equipped`)
-      return
-    }
-    if (buyTheme(theme, price)) {
-      setTheme(theme)
-      msg(`${THEME_CONFIGS[theme].name} unlocked`)
-    } else {
-      msg('Not enough coins')
-    }
+    void (async () => {
+      const price = THEME_CONFIGS[theme].price
+      if (ownedThemes.includes(theme)) {
+        setTheme(theme)
+        msg(`${THEME_CONFIGS[theme].name} equipped`)
+        return
+      }
+      const ok = await buyTheme(theme, price)
+      if (ok) {
+        setTheme(theme)
+        msg(`${THEME_CONFIGS[theme].name} unlocked`)
+      } else {
+        msg('Not enough coins')
+      }
+    })()
   }
 
   const items = getItemsByCategory(tab)
@@ -142,7 +226,9 @@ export default function ShopScreen() {
         ]}
       >
         <Text style={[styles.lead, { color: t.mutedForeground }]}>
-          Coin packs & cosmetics — simulated IAP
+          {isRevenueCatConfigured()
+            ? 'Coin packs — App Store / Play Billing (wallet syncs from server).'
+            : 'Coin packs & cosmetics — simulated IAP (set RevenueCat keys for real purchases).'}
         </Text>
 
         <LinearGradient
@@ -161,13 +247,13 @@ export default function ShopScreen() {
             <View style={{ flex: 1 }}>
               <Text style={[styles.starterTitle, { color: t.foreground }]}>Starter Pack</Text>
               <Text style={[styles.starterSub, { color: t.mutedForeground }]}>
-                10,000 coins + 10 free spins
+                25,000 coins + 25 free spins + Golden Ring frame
               </Text>
               <Text style={[styles.starterHint, { color: t.win }]}>
-                First purchase only — 50% OFF (simulated)
+                One-time offer — best value per coin
               </Text>
             </View>
-            <AppButton label="$2.99" onPress={onStarterPack} />
+            <AppButton label="$1.99" onPress={onStarterPack} />
           </View>
         </LinearGradient>
 
@@ -196,7 +282,7 @@ export default function ShopScreen() {
           <Text style={[styles.h3, { color: t.foreground }]}>Coin packs</Text>
         </View>
         <View style={styles.packGrid}>
-          {COIN_PACKS.map((p) => (
+          {SHOP_COIN_PACKS.map((p) => (
             <View
               key={p.id}
               style={[
@@ -218,14 +304,10 @@ export default function ShopScreen() {
                 color={t.primary}
                 style={{ alignSelf: 'center', marginTop: 8 }}
               />
+              <Text style={[styles.packSub, { color: t.mutedForeground }]}>{p.subtitle}</Text>
               <Text style={[styles.packAmt, { color: t.foreground }]}>
-                {p.coins >= 1000 ? `${Math.round(p.coins / 1000)}k` : p.coins}
+                {formatShortCoins(p.coins)}
               </Text>
-              {p.bonus > 0 ? (
-                <Text style={[styles.packBonus, { color: t.win }]}>
-                  +{p.bonus >= 1000 ? `${p.bonus / 1000}k` : p.bonus}
-                </Text>
-              ) : null}
               <AppButton
                 size="sm"
                 label={p.priceLabel}
@@ -452,8 +534,8 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   popTagTxt: { fontSize: 9, fontWeight: '900' },
+  packSub: { fontSize: 10, fontWeight: '700', marginTop: 4, textAlign: 'center' },
   packAmt: { fontSize: 20, fontWeight: '900', marginTop: 4 },
-  packBonus: { fontSize: 12, fontWeight: '700' },
   card: {
     borderWidth: 1,
     borderRadius: 12,

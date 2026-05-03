@@ -1,4 +1,4 @@
-import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SYMBOLS } from '@/lib/game-context'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { AppButton } from '@/components/ui/AppButton'
@@ -14,8 +14,11 @@ export function InfoModal({ open, onClose }: Props) {
 
   return (
     <Modal visible={open} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        <View style={[styles.sheet, { backgroundColor: t.card, borderColor: t.border }]}>
+      <Pressable style={styles.backdrop} onPress={onClose}>
+        <Pressable
+          style={[styles.sheet, { backgroundColor: t.card, borderColor: t.border }]}
+          onPress={(e) => e.stopPropagation()}
+        >
           <Text style={[styles.title, { color: t.foreground }]}>Paytable</Text>
           <ScrollView style={styles.scroll}>
             {regular.map((s) => (
@@ -34,8 +37,8 @@ export function InfoModal({ open, onClose }: Props) {
             </Text>
           </ScrollView>
           <AppButton label="Close" onPress={onClose} style={{ marginTop: 12 }} />
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   )
 }

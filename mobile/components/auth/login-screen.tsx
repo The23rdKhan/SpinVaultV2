@@ -37,8 +37,12 @@ export function LoginScreen() {
     }
   }
 
-  const onGuest = () => {
-    signInAsGuest()
+  const onGuest = async () => {
+    setError(null)
+    const ok = await signInAsGuest()
+    if (!ok) {
+      setError('Could not continue as guest. Please try again.')
+    }
   }
 
   return (
@@ -93,7 +97,12 @@ export function LoginScreen() {
           <AppleSignInButton />
           <GoogleSignInButton />
 
-          <AppButton variant="outline" label="Continue as guest" onPress={onGuest} style={styles.btn} />
+          <AppButton
+            variant="outline"
+            label="Continue as guest"
+            onPress={() => void onGuest()}
+            style={styles.btn}
+          />
 
           <AppButton
             variant="ghost"

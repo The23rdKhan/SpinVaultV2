@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
+import { useRouter } from 'expo-router'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { useGame, BET_OPTIONS } from '@/lib/game-context'
+import { routes } from '@/lib/app-routes'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { AppButton } from '@/components/ui/AppButton'
 
@@ -12,6 +14,7 @@ interface ControlDeckProps {
 }
 
 export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
+  const router = useRouter()
   const t = useCasinoTheme()
   const {
     coins,
@@ -79,12 +82,14 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
         <AppButton
           variant="ghost"
           size="sm"
+          accessibilityLabel="Quick win tally"
+          accessibilityHint="Speeds up the last win number animation only"
           onPress={() => setFastMode((f) => !f)}
           style={styles.quickBtn}
         >
           <FontAwesome name="forward" size={14} color={fastMode ? t.primary : t.foreground} />
           <Text style={{ color: fastMode ? t.primary : t.foreground, fontWeight: '700', fontSize: 12 }}>
-            FAST
+            QUICK
           </Text>
         </AppButton>
       </View>
@@ -141,7 +146,28 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
         </View>
 
         {coins < currentBet && freeSpins === 0 ? (
-          <Text style={[styles.warn, { color: t.destructive }]}>Not enough coins — visit the shop.</Text>
+          <View style={styles.warnBlock}>
+            <Text style={[styles.warn, { color: t.destructive }]}>
+              Not enough coins for this bet. Lower bet with − or get coins below.
+            </Text>
+            <View style={styles.warnLinks}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Open shop"
+                onPress={() => router.push(routes.shop)}
+              >
+                <Text style={[styles.warnLink, { color: t.primary }]}>Shop</Text>
+              </Pressable>
+              <Text style={[styles.warnSep, { color: t.mutedForeground }]}>·</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Open rewards"
+                onPress={() => router.push(routes.rewards)}
+              >
+                <Text style={[styles.warnLink, { color: t.primary }]}>Rewards</Text>
+              </Pressable>
+            </View>
+          </View>
         ) : null}
       </View>
     </View>
@@ -227,5 +253,9 @@ const styles = StyleSheet.create({
   rightCol: { alignItems: 'center', gap: 4, minWidth: 72 },
   balLabel: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
   balVal: { fontSize: 15, fontWeight: '800' },
-  warn: { textAlign: 'center', marginTop: 10, fontWeight: '600', fontSize: 12 },
+  warnBlock: { marginTop: 10, gap: 8, alignItems: 'center' },
+  warn: { textAlign: 'center', fontWeight: '600', fontSize: 12, paddingHorizontal: 4 },
+  warnLinks: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  warnSep: { fontWeight: '700', fontSize: 14 },
+  warnLink: { fontWeight: '800', fontSize: 13, textDecorationLine: 'underline' },
 })

@@ -17,14 +17,17 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@expo/ui": "~55.0.13",
     "@expo/vector-icons": "^15.0.3",
     "@invertase/react-native-apple-authentication": "^2.5.1",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/netinfo": "11.5.2",
     "@react-native-google-signin/google-signin": "^16.1.2",
     "@react-navigation/native": "^7.1.8",
     "@supabase/supabase-js": "^2.105.1",
     "clsx": "^2.1.1",
-    "expo": "^55.0.0",
+    "expo": "^55.0.19",
+    "expo-asset": "~55.0.16",
     "expo-audio": "~55.0.14",
     "expo-constants": "~55.0.15",
     "expo-dev-client": "~55.0.30",

@@ -21,11 +21,12 @@ interface CoinPack {
 }
 
 const COIN_PACKS: CoinPack[] = [
-  { id: "starter", coins: 1000, bonus: 0, price: "$0.99", icon: Coins },
-  { id: "basic", coins: 5000, bonus: 500, price: "$4.99", icon: Coins },
-  { id: "popular", coins: 15000, bonus: 3000, price: "$9.99", popular: true, icon: Sparkles },
-  { id: "premium", coins: 50000, bonus: 15000, price: "$24.99", icon: Crown },
-  { id: "ultimate", coins: 150000, bonus: 50000, price: "$49.99", icon: Gem },
+  { id: "quick_refill", coins: 2500, bonus: 0, price: "$0.99", icon: Coins },
+  { id: "basic", coins: 15000, bonus: 0, price: "$4.99", icon: Coins },
+  { id: "popular", coins: 40000, bonus: 0, price: "$9.99", popular: true, icon: Sparkles },
+  { id: "premium", coins: 125000, bonus: 0, price: "$24.99", icon: Crown },
+  { id: "ultimate", coins: 350000, bonus: 0, price: "$49.99", icon: Gem },
+  { id: "mega_vault", coins: 1000000, bonus: 0, price: "$99.99", icon: Gem },
 ]
 
 interface FreeSpinBundle {

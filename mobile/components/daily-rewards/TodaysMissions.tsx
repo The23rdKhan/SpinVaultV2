@@ -105,9 +105,11 @@ export function TodaysMissions() {
                   size="sm"
                   label="Claim"
                   onPress={() => {
-                    if (claimMissionReward(mission.id)) {
-                      Toast.show({ type: 'success', text1: 'Reward claimed' })
-                    }
+                    void (async () => {
+                      const ok = await claimMissionReward(mission.id)
+                      if (ok) Toast.show({ type: 'success', text1: 'Reward claimed' })
+                      else Toast.show({ type: 'error', text1: 'Could not claim reward' })
+                    })()
                   }}
                   style={styles.claimBtn}
                 />

@@ -8,6 +8,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -18,6 +19,13 @@ import {
 } from '@/lib/native-social-auth'
 import { routes } from '@/lib/app-routes'
 import { getPasswordResetRedirectUrl, parseRecoveryTokensFromUrl } from '@/lib/password-recovery'
+import { requestIapRestoreFromServer } from '@/lib/iap-restore-client'
+import { isRevenueCatConfigured, syncRevenueCatUser } from '@/lib/revenuecat'
+import Purchases from 'react-native-purchases'
+import {
+  pullNotificationPreferences,
+  pushNotificationPreferences,
+} from '@/lib/notification-preferences-db'
 import { getSupabase } from '@/lib/supabase'
 import { friendlyAuthMessage } from '@/lib/supabase-auth-errors'
 import { AnalyticsEvents } from '@shared/analytics/event-names'
@@ -56,7 +64,8 @@ export interface AuthState {
 export type AuthCredentialResult = { ok: true } | { ok: false; error: string }
 
 interface AuthActions {
-  signInAsGuest: () => void
+  /** Resolves true when a guest session exists (anonymous Supabase or local fallback). */
+  signInAsGuest: () => Promise<boolean>
   signInWithApple: () => Promise<boolean>
   signInWithGoogle: () => Promise<boolean>
   signInWithEmail: (email: string, password: string) => Promise<AuthCredentialResult>
@@ -108,14 +117,18 @@ const initialState: AuthState = {
   lastSignInPromptAt: null,
 }
 
-const SUPABASE_USER_ID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-
-function isSupabaseAuthUserId(id: string): boolean {
-  return SUPABASE_USER_ID_RE.test(id)
-}
-
 function mapSupabaseUserToAppUser(u: SupabaseAuthUser): User {
+  const isAnonymous = Boolean(u.is_anonymous)
+  if (isAnonymous) {
+    return {
+      id: u.id,
+      username: 'Player',
+      provider: 'guest',
+      createdAt: u.created_at ?? new Date().toISOString(),
+      isGuest: true,
+    }
+  }
+
   const meta = (u.user_metadata ?? {}) as Record<string, unknown>
   const fromMeta =
     (typeof meta.full_name === 'string' && meta.full_name) ||
@@ -150,6 +163,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false)
   const [initialSessionResolved, setInitialSessionResolved] = useState(false)
   const [passwordRecoveryPending, setPasswordRecoveryPending] = useState(false)
+  /** Avoid duplicate pulls per signed-in Supabase user id (local `guest_*` skips remote). */
+  const prefsPulledForUserIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -194,11 +209,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } = await supabase.auth.getSession()
         if (cancelled) return
         if (session?.user) {
+          const user = mapSupabaseUserToAppUser(session.user)
           setState((prev) => ({
             ...prev,
-            user: mapSupabaseUserToAppUser(session.user),
+            user,
             isAuthenticated: true,
-            isGuest: false,
+            isGuest: user.isGuest,
           }))
         }
       } finally {
@@ -214,18 +230,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         queueMicrotask(() => router.replace(routes.resetPassword))
       }
       if (session?.user) {
+        const user = mapSupabaseUserToAppUser(session.user)
+        void syncRevenueCatUser(session.user.id)
         setState((prev) => ({
           ...prev,
-          user: mapSupabaseUserToAppUser(session.user),
+          user,
           isAuthenticated: true,
-          isGuest: false,
+          isGuest: user.isGuest,
         }))
         return
       }
       setState((prev) => {
-        if (!prev.user || !isSupabaseAuthUserId(prev.user.id)) {
-          return prev
-        }
+        if (!prev.user) return prev
+        // Legacy local-only guest id when Supabase env was missing; keep persisted offline user.
+        if (prev.user.id.startsWith('guest_')) return prev
+        void syncRevenueCatUser(null)
         return {
           ...prev,
           user: null,
@@ -270,6 +289,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub.remove()
   }, [isLoaded, initialSessionResolved])
 
+  useEffect(() => {
+    const uid = state.user?.id
+    if (!uid || uid.startsWith('guest_')) {
+      prefsPulledForUserIdRef.current = null
+      return
+    }
+    if (!getSupabase()) return
+    if (prefsPulledForUserIdRef.current === uid) return
+
+    let cancelled = false
+    void pullNotificationPreferences(uid).then((remote) => {
+      if (cancelled) return
+      prefsPulledForUserIdRef.current = uid
+      if (remote) setState((prev) => ({ ...prev, notificationPrefs: remote }))
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [state.user?.id])
+
   const isLoading = !isLoaded || !initialSessionResolved
 
   useEffect(() => {
@@ -279,23 +319,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     )
   }, [state, isLoaded])
 
-  const signInAsGuest = useCallback(() => {
-    void getSupabase()?.auth.signOut()
-    void GoogleSignin.signOut().catch(() => {})
-    const guestUser: User = {
-      id: generateGuestId(),
-      username: 'Player',
-      provider: 'guest',
-      createdAt: new Date().toISOString(),
-      isGuest: true,
+  const signInAsGuest = useCallback(async (): Promise<boolean> => {
+    await GoogleSignin.signOut().catch(() => {})
+    const supabase = getSupabase()
+    if (!supabase) {
+      if (__DEV__) {
+        console.warn(
+          '[auth] Missing Supabase — using local guest id (no cloud wallet). Set EXPO_PUBLIC_SUPABASE_URL + KEY.',
+        )
+      }
+      const guestUser: User = {
+        id: generateGuestId(),
+        username: 'Player',
+        provider: 'guest',
+        createdAt: new Date().toISOString(),
+        isGuest: true,
+      }
+      setState((prev) => ({
+        ...prev,
+        user: guestUser,
+        isAuthenticated: true,
+        isGuest: true,
+      }))
+      queueMicrotask(() => track(AnalyticsEvents.GUEST_CREATED))
+      return true
     }
+
+    await supabase.auth.signOut().catch(() => {})
+
+    const { data, error } = await supabase.auth.signInAnonymously()
+    if (error) {
+      if (__DEV__) console.warn('[auth] Anonymous sign-in:', error.message)
+      return false
+    }
+    if (!data.user) return false
+
+    const user = mapSupabaseUserToAppUser(data.user)
     setState((prev) => ({
       ...prev,
-      user: guestUser,
+      user,
       isAuthenticated: true,
-      isGuest: true,
+      isGuest: user.isGuest,
     }))
     queueMicrotask(() => track(AnalyticsEvents.GUEST_CREATED))
+    return true
   }, [])
 
   const signInWithApple = useCallback(async (): Promise<boolean> => {
@@ -352,11 +419,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
     if (data.user) {
+      const user = mapSupabaseUserToAppUser(data.user)
       setState((prev) => ({
         ...prev,
-        user: mapSupabaseUserToAppUser(data.user),
+        user,
         isAuthenticated: true,
-        isGuest: false,
+        isGuest: user.isGuest,
       }))
       queueMicrotask(() => track(AnalyticsEvents.LOGIN_COMPLETED, { provider: 'email' }))
       return { ok: true }
@@ -393,11 +461,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       const sessionUser = data.session?.user
       if (sessionUser) {
+        const user = mapSupabaseUserToAppUser(sessionUser)
         setState((prev) => ({
           ...prev,
-          user: mapSupabaseUserToAppUser(sessionUser),
+          user,
           isAuthenticated: true,
-          isGuest: false,
+          isGuest: user.isGuest,
         }))
         queueMicrotask(() => track(AnalyticsEvents.ACCOUNT_CREATED, { provider: 'email' }))
         return { ok: true }
@@ -519,10 +588,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const setNotificationPref = useCallback((key: keyof NotificationPrefs, value: boolean) => {
-    setState((prev) => ({
-      ...prev,
-      notificationPrefs: { ...prev.notificationPrefs, [key]: value },
-    }))
+    setState((prev) => {
+      const next = { ...prev.notificationPrefs, [key]: value }
+      const uid = prev.user?.id
+      if (uid && !uid.startsWith('guest_')) {
+        void pushNotificationPreferences(uid, next)
+      }
+      return {
+        ...prev,
+        notificationPrefs: next,
+      }
+    })
   }, [])
 
   const canWatchAd = useCallback((): boolean => {
@@ -560,8 +636,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const restorePurchases = useCallback(async (): Promise<boolean> => {
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    return true
+    try {
+      if (isRevenueCatConfigured()) {
+        await Purchases.restorePurchases()
+      }
+      const supabase = getSupabase()
+      if (!supabase) return true
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (!session?.user) return true
+      return await requestIapRestoreFromServer()
+    } catch {
+      return false
+    }
   }, [])
 
   const value: AuthContextValue = {

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Animated, StyleSheet, Text, View } from 'react-native'
+import Toast from 'react-native-toast-message'
 import { useGame } from '@/lib/game-context'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { ControlDeck } from './ControlDeck'
+import { SpinSyncBanner } from './SpinSyncBanner'
 import { InfoModal } from './InfoModal'
 import { LinesModal } from './LinesModal'
 import { Marquee } from './Marquee'
@@ -20,6 +22,7 @@ export function SlotMachine() {
     freeSpins,
     spinSequence,
     lastSpinFreeSpinsWon,
+    lastBonusMeterPayout,
     clearLastSpinFreeSpinsBonus,
   } = useGame()
   const [showWin, setShowWin] = useState(false)
@@ -28,7 +31,20 @@ export function SlotMachine() {
   const [showInfoModal, setShowInfoModal] = useState(false)
   const [showLinesModal, setShowLinesModal] = useState(false)
   const dismissedSpinSeqRef = useRef(0)
+  const bonusMeterToastSeqRef = useRef(-1)
   const cornerPulse = useRef(new Animated.Value(0.35)).current
+
+  useEffect(() => {
+    if (isSpinning) return
+    if (lastBonusMeterPayout <= 0) return
+    if (bonusMeterToastSeqRef.current === spinSequence) return
+    bonusMeterToastSeqRef.current = spinSequence
+    Toast.show({
+      type: 'success',
+      text1: 'Bonus meter full!',
+      text2: `+${lastBonusMeterPayout.toLocaleString()} coins`,
+    })
+  }, [spinSequence, isSpinning, lastBonusMeterPayout])
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -136,6 +152,8 @@ export function SlotMachine() {
           </View>
         ) : null}
       </View>
+
+      <SpinSyncBanner />
 
       <ControlDeck onOpenInfo={() => setShowInfoModal(true)} onOpenLines={() => setShowLinesModal(true)} />
 

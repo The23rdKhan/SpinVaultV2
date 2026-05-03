@@ -38,13 +38,13 @@ export function HelpFeedback() {
 
   const handleSubmitForm = () => {
     if (!formData.message.trim()) return
-    
+
     track(AnalyticsEvents.FEEDBACK_SUBMITTED, {
       form_type: formData.type,
       has_email: Boolean(formData.email?.trim()),
     })
     setSubmitted(true)
-    
+
     setTimeout(() => {
       setShowForm(false)
       setSubmitted(false)

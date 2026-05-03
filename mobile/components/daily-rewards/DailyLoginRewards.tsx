@@ -9,7 +9,8 @@ interface DailyLoginRewardsProps {
   dailyStreak: number
   nextClaimableDay: number
   claimFlash: number | null
-  onClaim: (day: number) => boolean
+  /** Fire-and-forget; parent runs async server work. */
+  onClaim: (day: number) => void | Promise<void>
 }
 
 function fmtCoins(coins: number): string {
@@ -45,7 +46,9 @@ export function DailyLoginRewards({
               key={reward.day}
               variant={isClaimable ? 'primary' : 'outline'}
               disabled={!isClaimable || isLocked}
-              onPress={() => isClaimable && onClaim(reward.day)}
+              onPress={() => {
+                if (isClaimable) void onClaim(reward.day)
+              }}
               style={[styles.cellBtn, flash && { borderColor: t.win, borderWidth: 2 }]}
               accessibilityLabel={`Day ${reward.day} reward ${reward.coins} coins`}
             >

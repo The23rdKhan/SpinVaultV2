@@ -7,8 +7,26 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { AppState } from 'react-native'
+import Toast from 'react-native-toast-message'
+import { getSupabase } from '@/lib/supabase'
+import {
+  isServerEconomyEnabled,
+  requestBuyTheme,
+  requestClaimDailyReward,
+  requestClaimMissionReward,
+  requestSpinDailyWheel,
+} from '@/lib/economy-client'
+import { isServerSpinEnabled, requestServerSpin, type ServerSpinPayload } from '@/lib/server-spin'
+import {
+  PLAYER_SAVE_SCHEMA_VERSION,
+  applyCloudPlayerSave,
+  buildPlayerSavePayload,
+} from '@/lib/player-save'
 import { track } from '@/lib/analytics/track'
 import { AnalyticsEvents } from '@shared/analytics/event-names'
+import { DAILY_LOGIN_REWARD_COINS } from '@shared/economy/daily-login-rewards'
 import { 
   type VanityCategory, 
   type Trophy, 
@@ -88,7 +106,68 @@ export interface WinningLine {
   multiplier: number
 }
 
-interface GameState {
+const MAX_COIN_LEDGER = 200
+
+export type CoinLedgerReason =
+  | 'spin_bet'
+  | 'spin_win'
+  | 'bonus_meter_full'
+  | 'daily_reward'
+  | 'daily_wheel'
+  | 'mission_reward'
+  | 'level_up_bonus'
+  | 'free_spins_bundle'
+  | 'theme_unlock'
+  | 'vanity_purchase'
+  | 'cosmetic_chest'
+  | 'iap_grant'
+  | 'rewarded_ad'
+  | 'starter_pack'
+  | 'adjustment'
+
+export interface CoinLedgerEntry {
+  id: string
+  ts: string
+  delta: number
+  balanceAfter: number
+  reason: CoinLedgerReason
+  label: string
+}
+
+export interface CoinLedgerMeta {
+  reason: CoinLedgerReason
+  label: string
+}
+
+function newLedgerEntryId(): string {
+  const c = globalThis.crypto
+  if (c?.randomUUID) return c.randomUUID()
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+}
+
+function appendCoinLedger(
+  ledger: CoinLedgerEntry[],
+  delta: number,
+  balanceAfter: number,
+  reason: CoinLedgerReason,
+  label: string
+): CoinLedgerEntry[] {
+  const entry: CoinLedgerEntry = {
+    id: newLedgerEntryId(),
+    ts: new Date().toISOString(),
+    delta,
+    balanceAfter,
+    reason,
+    label,
+  }
+  return [entry, ...ledger].slice(0, MAX_COIN_LEDGER)
+}
+
+function bonusMeterPayoutForBet(currentBet: number): number {
+  return Math.min(5000, Math.max(350, Math.round(currentBet * 8)))
+}
+
+export interface GameState {
   // Wallet
   coins: number
   
@@ -115,6 +194,16 @@ interface GameState {
   isJackpotMode: boolean
   jackpotMultiplier: number
   bonusProgress: number // 0-100 for bonus meter
+  /** Coin credit when the bonus meter completed on the last resolved spin (UI/toast); cleared when a new spin starts. */
+  lastBonusMeterPayout: number
+  /** Recent coin movements (newest first); capped for memory. Local-only until cloud sync. */
+  coinLedger: CoinLedgerEntry[]
+
+  /**
+   * Server spin failed and local RNG was used — wallet may differ from DB until
+   * `resyncWalletFromServer` succeeds or the next server-authoritative spin.
+   */
+  spinSyncDeferred: boolean
   
   // Daily rewards
   dailyStreak: number
@@ -160,10 +249,10 @@ interface GameState {
 
 interface GameActions {
   setCoins: (coins: number) => void
-  addCoins: (amount: number) => void
-  subtractCoins: (amount: number) => boolean
+  addCoins: (amount: number, meta?: CoinLedgerMeta) => void
+  subtractCoins: (amount: number, meta?: CoinLedgerMeta) => boolean
   setTheme: (theme: Theme) => void
-  buyTheme: (theme: Theme, price: number) => boolean
+  buyTheme: (theme: Theme, price: number) => Promise<boolean>
   /** Simulated shop: spend coins for free spins. */
   buyFreeSpinsWithCoins: (price: number, spins: number) => boolean
   /** Grant free spins (e.g. starter pack / promos). */
@@ -171,9 +260,10 @@ interface GameActions {
   setBet: (bet: number) => void
   spin: () => Promise<SpinResult>
   stopSpin: () => void
-  claimDailyReward: (day: number) => boolean
-  spinDailyWheel: () => number
-  claimMissionReward: (missionId: string) => boolean
+  /** Resolves false if the claim is invalid or the server rejects the sequence. */
+  claimDailyReward: (day: number) => Promise<boolean>
+  spinDailyWheel: () => Promise<number>
+  claimMissionReward: (missionId: string) => Promise<boolean>
   setUsername: (name: string) => void
   addXp: (amount: number) => void
   toggleSound: () => void
@@ -184,7 +274,9 @@ interface GameActions {
   setPurchaseLimit: (limit: number | null) => void
   toggleCooldown: () => void
   clearLastSpinFreeSpinsBonus: () => void
-  
+  /** Pull wallet + meter from Supabase; clears `spinSyncDeferred` on success. */
+  resyncWalletFromServer: () => Promise<boolean>
+
   // Vanity actions
   buyVanityItem: (itemId: string, priceCoins: number) => boolean
   equipVanityItem: (category: VanityCategory, itemId: string) => void
@@ -200,6 +292,7 @@ export interface SpinResult {
   winningLines: WinningLine[]
   winType: WinType
   winMultiplier: number
+  bonusMeterPayout: number
 }
 
 const SYMBOLS: SlotSymbol[] = [
@@ -216,17 +309,16 @@ const SYMBOLS: SlotSymbol[] = [
 
 const BET_OPTIONS = [10, 25, 50, 100, 250, 500]
 
+/** Payout lines for a free spin use this bet; coin cost remains 0. */
+const FREE_SPIN_LINE_BET = 250
+
 const WHEEL_REWARDS = [50, 100, 150, 200, 300, 500, 750, 1000]
 
-const INITIAL_DAILY_REWARDS: DailyReward[] = [
-  { day: 1, coins: 100, claimed: false },
-  { day: 2, coins: 200, claimed: false },
-  { day: 3, coins: 350, claimed: false },
-  { day: 4, coins: 500, claimed: false },
-  { day: 5, coins: 750, claimed: false },
-  { day: 6, coins: 1000, claimed: false },
-  { day: 7, coins: 2500, claimed: false },
-]
+const INITIAL_DAILY_REWARDS: DailyReward[] = DAILY_LOGIN_REWARD_COINS.map((coins, i) => ({
+  day: i + 1,
+  coins,
+  claimed: false,
+}))
 
 const INITIAL_MISSIONS: Mission[] = [
   { id: "spin20", name: "Spin Master", description: "Complete 20 spins", target: 20, progress: 0, reward: 500, completed: false, claimed: false },
@@ -235,7 +327,7 @@ const INITIAL_MISSIONS: Mission[] = [
 ]
 
 // Generate initial 5x3 grid
-const generateInitialGrid = (): ReelGrid => {
+export const generateInitialGrid = (): ReelGrid => {
   const grid: ReelGrid = []
   for (let col = 0; col < 5; col++) {
     const column: SlotSymbol[] = []
@@ -393,6 +485,25 @@ function checkPaylines(
   return { totalWin, lines, positions }
 }
 
+function emptySpinResult(prev: Pick<GameState, 'reelGrid'>): SpinResult {
+  return {
+    win: 0,
+    grid: prev.reelGrid,
+    isJackpot: false,
+    freeSpinsWon: 0,
+    winningLines: [],
+    winType: 'none',
+    winMultiplier: 0,
+    bonusMeterPayout: 0,
+  }
+}
+
+function gridIdsToReelGrid(gridIds: string[][]): ReelGrid {
+  return gridIds.map((col) =>
+    col.map((id) => SYMBOLS.find((s) => s.id === id) ?? SYMBOLS[3]),
+  )
+}
+
 const initialState: GameState = {
   coins: 5000,
   currentTheme: "vegas",
@@ -412,6 +523,9 @@ const initialState: GameState = {
   isJackpotMode: false,
   jackpotMultiplier: 1,
   bonusProgress: 0,
+  lastBonusMeterPayout: 0,
+  coinLedger: [],
+  spinSyncDeferred: false,
   dailyStreak: 0,
   dailyRewards: INITIAL_DAILY_REWARDS,
   lastClaimDate: null,
@@ -451,21 +565,395 @@ const initialState: GameState = {
 
 const GameContext = createContext<(GameState & GameActions) | null>(null)
 
+const FALLBACK_TOAST_THROTTLE_MS = 3 * 60 * 1000
+
+/** Set when a cloud upsert failed (e.g. offline); cleared on success or sign-out. Survives cold start. */
+const PLAYER_SAVE_PENDING_RETRY_KEY = '@spinvault/player_save_pending_retry'
+
 export function GameProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<GameState>(initialState)
+  const stateRef = useRef(state)
+  stateRef.current = state
   /** Resolves the pending `spin()` promise after reels finish — ref avoids stale closures and setState-in-setState. */
   const spinResolveRef = useRef<((result: SpinResult) => void) | null>(null)
-  // Game state is not persisted yet (coins, missions, etc. reset on cold start). Layer AsyncStorage or SQLite when ready.
+  const serverSpinPayloadRef = useRef<ServerSpinPayload | null>(null)
+  const lastServerFallbackToastAtRef = useRef(0)
+  const suppressCloudSaveUntilRef = useRef(0)
+  const cloudHydrateGenRef = useRef(0)
+  const cloudSaveInFlightRef = useRef(false)
+  const cloudSaveNeedsRetryRef = useRef(false)
+  /** Avoid clearing pending-save storage on cold start before `getSession` resolves. */
+  const hadCloudUserSessionRef = useRef(false)
+  /** Effective bet for payline + bonus meter (free spins use `FREE_SPIN_LINE_BET`; cost to player is 0). */
+  const spinLineBetRef = useRef(initialState.currentBet)
 
-  // Reset daily wheel and missions at midnight
+  const [cloudUserId, setCloudUserId] = useState<string | null>(null)
+
+  const resyncWalletFromServer = useCallback(async (): Promise<boolean> => {
+    const supabase = getSupabase()
+    if (!supabase) return false
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    if (!session?.user) return false
+    const { data, error } = await supabase
+      .from('wallets')
+      .select('coin_balance, free_spin_balance, bonus_meter_progress')
+      .eq('user_id', session.user.id)
+      .maybeSingle()
+    if (error || !data) return false
+    setState((prev) => ({
+      ...prev,
+      coins: Number(data.coin_balance),
+      freeSpins: data.free_spin_balance,
+      bonusProgress: Number(data.bonus_meter_progress ?? 0),
+      spinSyncDeferred: false,
+    }))
+    return true
+  }, [])
+
+  /** Align login-reward UI with `daily_reward_state` (authoritative when economy Edge is on). */
+  const hydrateDailyRewardProgressFromServer = useCallback(async () => {
+    if (!isServerEconomyEnabled()) return
+    const supabase = getSupabase()
+    if (!supabase) return
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    if (!session?.user) return
+    const { data, error } = await supabase
+      .from('daily_reward_state')
+      .select('current_streak, last_claimed_at')
+      .eq('user_id', session.user.id)
+      .maybeSingle()
+    if (error || !data) return
+    const streak = Number(data.current_streak ?? 0)
+    const lastClaim =
+      data.last_claimed_at != null ? new Date(data.last_claimed_at).toDateString() : null
+    setState((prev) => ({
+      ...prev,
+      dailyStreak: streak,
+      dailyRewards: prev.dailyRewards.map((r) => ({
+        ...r,
+        claimed: r.day <= streak,
+      })),
+      lastClaimDate: lastClaim ?? prev.lastClaimDate,
+    }))
+  }, [])
+
+  /** `user_missions` + `daily_wheel_state` when server economy is on. */
+  const hydrateMissionsAndWheelFromServer = useCallback(async () => {
+    if (!isServerEconomyEnabled()) return
+    const supabase = getSupabase()
+    if (!supabase) return
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    if (!session?.user) return
+
+    const utcDay = new Date().toISOString().slice(0, 10)
+
+    const { data: rows, error: umErr } = await supabase
+      .from('user_missions')
+      .select(
+        'progress, completed, claimed, missions ( mission_key, target_value, reward_coins, title, description )',
+      )
+      .eq('user_id', session.user.id)
+      .eq('period_start', utcDay)
+
+    if (umErr) return
+
+    const { data: wheelRow } = await supabase
+      .from('daily_wheel_state')
+      .select('last_claim_utc_date, last_reward_coins')
+      .eq('user_id', session.user.id)
+      .maybeSingle()
+
+    const claimedToday = wheelRow?.last_claim_utc_date === utcDay
+    const rewardAmt =
+      claimedToday && wheelRow?.last_reward_coins != null ? Number(wheelRow.last_reward_coins) : null
+
+    type UmRow = {
+      progress: number
+      completed: boolean
+      claimed: boolean
+      missions: {
+        mission_key: string
+        target_value: number
+        reward_coins: number
+        title: string
+        description: string
+      } | null
+    }
+
+    const list = (rows ?? []) as unknown as UmRow[]
+
+    setState((prev) => {
+      const merged: Mission[] = INITIAL_MISSIONS.map((template) => {
+        const row = list.find((r) => r.missions?.mission_key === template.id)
+        if (!row?.missions) return template
+        return {
+          ...template,
+          name: row.missions.title,
+          description: row.missions.description,
+          target: row.missions.target_value,
+          reward: Number(row.missions.reward_coins),
+          progress: row.progress,
+          completed: row.completed,
+          claimed: row.claimed,
+        }
+      })
+      return {
+        ...prev,
+        missions: merged,
+        dailyWheel: {
+          ...prev.dailyWheel,
+          dailyWheelClaimed: claimedToday,
+          wheelReward: rewardAmt,
+          lastWheelSpinAt: claimedToday ? prev.dailyWheel.lastWheelSpinAt ?? new Date().toISOString() : null,
+        },
+      }
+    })
+  }, [])
+
+  const hydrateOwnedThemesFromServer = useCallback(async () => {
+    if (!isServerEconomyEnabled()) return
+    const supabase = getSupabase()
+    if (!supabase) return
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    if (!session?.user) return
+    const { data, error } = await supabase.from('user_themes').select('theme_slug').eq('user_id', session.user.id)
+    if (error) return
+    const allowed: Theme[] = ['vegas', 'cyber', 'treasure']
+    const fromDb =
+      data?.map((r) => r.theme_slug as string).filter((s): s is Theme => (allowed as string[]).includes(s)) ??
+      []
+    // Empty successful response: trust server (migration should seed Vegas); avoid stale client-only unlocks.
+    const owned = fromDb.length > 0 ? fromDb : (['vegas'] as Theme[])
+    setState((prev) => ({ ...prev, ownedThemes: owned }))
+  }, [])
+
+  const flushCloudPlayerSave = useCallback(async (): Promise<boolean> => {
+    const uid = cloudUserId
+    const supabase = getSupabase()
+    if (!uid || !supabase) return false
+    if (Date.now() < suppressCloudSaveUntilRef.current) return false
+    if (cloudSaveInFlightRef.current) return false
+    cloudSaveInFlightRef.current = true
+    try {
+      const payload = buildPlayerSavePayload(stateRef.current)
+      const { error } = await supabase.from('player_saves').upsert(
+        {
+          user_id: uid,
+          schema_version: PLAYER_SAVE_SCHEMA_VERSION,
+          payload,
+        },
+        { onConflict: 'user_id' },
+      )
+      if (error) {
+        cloudSaveNeedsRetryRef.current = true
+        void AsyncStorage.setItem(PLAYER_SAVE_PENDING_RETRY_KEY, '1').catch(() => {})
+        if (__DEV__) console.warn('[player_saves] upsert failed:', error.message)
+        return false
+      }
+      cloudSaveNeedsRetryRef.current = false
+      void AsyncStorage.removeItem(PLAYER_SAVE_PENDING_RETRY_KEY).catch(() => {})
+      return true
+    } finally {
+      cloudSaveInFlightRef.current = false
+    }
+  }, [cloudUserId])
+
+  useEffect(() => {
+    const supabase = getSupabase()
+    if (!supabase) {
+      setCloudUserId(null)
+      return
+    }
+    void supabase.auth.getSession().then(({ data: { session } }) => {
+      const id = session?.user?.id
+      setCloudUserId(id && !id.startsWith('guest_') ? id : null)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (cloudUserId) {
+      hadCloudUserSessionRef.current = true
+      return
+    }
+    if (hadCloudUserSessionRef.current) {
+      hadCloudUserSessionRef.current = false
+      cloudSaveNeedsRetryRef.current = false
+      void AsyncStorage.removeItem(PLAYER_SAVE_PENDING_RETRY_KEY).catch(() => {})
+    }
+  }, [cloudUserId])
+
+  useEffect(() => {
+    if (!cloudUserId) return
+    let cancelled = false
+    void (async () => {
+      const flag = await AsyncStorage.getItem(PLAYER_SAVE_PENDING_RETRY_KEY)
+      if (cancelled || flag !== '1') return
+      cloudSaveNeedsRetryRef.current = true
+      void flushCloudPlayerSave()
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [cloudUserId, flushCloudPlayerSave])
+
+  useEffect(() => {
+    if (!cloudUserId) return
+    const gen = ++cloudHydrateGenRef.current
+    let cancelled = false
+    const supabase = getSupabase()
+    if (!supabase) return
+
+    suppressCloudSaveUntilRef.current = Date.now() + 2500
+
+    void (async () => {
+      const { data, error } = await supabase
+        .from('player_saves')
+        .select('payload')
+        .eq('user_id', cloudUserId)
+        .maybeSingle()
+
+      if (cancelled || gen !== cloudHydrateGenRef.current) return
+      if (error) {
+        if (__DEV__) console.warn('[player_saves] load failed:', error.message)
+        return
+      }
+
+      const payload = data?.payload ?? {}
+      const { patch } = applyCloudPlayerSave(payload, {
+        createFreshGrid: generateInitialGrid,
+        fallbackDailyRewards: INITIAL_DAILY_REWARDS,
+        fallbackMissions: INITIAL_MISSIONS,
+        fallbackDailyWheel: initialState.dailyWheel,
+        fallbackUserVanity: getDefaultUserVanity(),
+        fallbackTrophies: generateInitialTrophies(),
+        fallbackLeaderboard: initialState.leaderboardStats,
+      })
+
+      setState((prev) => ({ ...prev, ...patch }))
+      await resyncWalletFromServer()
+      await hydrateDailyRewardProgressFromServer()
+      await hydrateMissionsAndWheelFromServer()
+      await hydrateOwnedThemesFromServer()
+      suppressCloudSaveUntilRef.current = 0
+      void flushCloudPlayerSave()
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    cloudUserId,
+    resyncWalletFromServer,
+    hydrateDailyRewardProgressFromServer,
+    hydrateMissionsAndWheelFromServer,
+    hydrateOwnedThemesFromServer,
+    flushCloudPlayerSave,
+  ])
+
+  useEffect(() => {
+    if (!cloudUserId) return
+    const t = setTimeout(() => {
+      void flushCloudPlayerSave()
+    }, 2000)
+    return () => clearTimeout(t)
+  }, [state, cloudUserId, flushCloudPlayerSave])
+
+  useEffect(() => {
+    if (!cloudUserId) return
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'background' || next === 'inactive') {
+        void flushCloudPlayerSave()
+        return
+      }
+      if (next !== 'active') return
+      void (async () => {
+        const stored = await AsyncStorage.getItem(PLAYER_SAVE_PENDING_RETRY_KEY)
+        if (cloudSaveNeedsRetryRef.current || stored === '1') {
+          void flushCloudPlayerSave()
+        }
+      })()
+    })
+    return () => sub.remove()
+  }, [cloudUserId, flushCloudPlayerSave])
+
+  useEffect(() => {
+    void resyncWalletFromServer()
+  }, [resyncWalletFromServer])
+
+  useEffect(() => {
+    void hydrateDailyRewardProgressFromServer()
+  }, [hydrateDailyRewardProgressFromServer])
+
+  useEffect(() => {
+    void hydrateMissionsAndWheelFromServer()
+  }, [hydrateMissionsAndWheelFromServer])
+
+  useEffect(() => {
+    void hydrateOwnedThemesFromServer()
+  }, [hydrateOwnedThemesFromServer])
+
+  useEffect(() => {
+    if (!isServerSpinEnabled() && !isServerEconomyEnabled()) return
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next !== 'active') return
+      void resyncWalletFromServer()
+      void hydrateDailyRewardProgressFromServer()
+      void hydrateMissionsAndWheelFromServer()
+      void hydrateOwnedThemesFromServer()
+    })
+    return () => sub.remove()
+  }, [
+    resyncWalletFromServer,
+    hydrateDailyRewardProgressFromServer,
+    hydrateMissionsAndWheelFromServer,
+    hydrateOwnedThemesFromServer,
+  ])
+
+  /** After login or token refresh, pull wallet + daily ladder when server flags are on. */
+  useEffect(() => {
+    const supabase = getSupabase()
+    if (!supabase) return
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      const id = session?.user?.id
+      setCloudUserId(id && !id.startsWith('guest_') ? id : null)
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        void resyncWalletFromServer()
+        void hydrateDailyRewardProgressFromServer()
+        void hydrateMissionsAndWheelFromServer()
+        void hydrateOwnedThemesFromServer()
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [
+    resyncWalletFromServer,
+    hydrateDailyRewardProgressFromServer,
+    hydrateMissionsAndWheelFromServer,
+    hydrateOwnedThemesFromServer,
+  ])
+
+  // Reset daily wheel and missions at midnight (local) — server economy uses DB UTC + hydrate instead.
   useEffect(() => {
     const checkReset = () => {
+      if (isServerEconomyEnabled()) {
+        void hydrateMissionsAndWheelFromServer()
+        return
+      }
       const today = new Date().toDateString()
-      setState(prev => {
-        const lastWheelDate = prev.dailyWheel.lastWheelSpinAt 
+      setState((prev) => {
+        const lastWheelDate = prev.dailyWheel.lastWheelSpinAt
           ? new Date(prev.dailyWheel.lastWheelSpinAt).toDateString()
           : null
-        
+
         if (lastWheelDate !== today) {
           return {
             ...prev,
@@ -474,17 +962,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
               dailyWheelClaimed: false,
               wheelReward: null,
             },
-            missions: INITIAL_MISSIONS, // Reset missions daily
+            missions: INITIAL_MISSIONS,
           }
         }
         return prev
       })
     }
-    
+
     checkReset()
-    const interval = setInterval(checkReset, 60000) // Check every minute
+    const interval = setInterval(checkReset, 60000)
     return () => clearInterval(interval)
-  }, [])
+  }, [hydrateMissionsAndWheelFromServer])
 
   // Weekly leaderboard reset
   useEffect(() => {
@@ -521,21 +1009,58 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const setCoins = useCallback((coins: number) => {
-    setState(prev => ({ ...prev, coins }))
-  }, [])
-
-  const addCoins = useCallback((amount: number) => {
-    setState(prev => ({ ...prev, coins: prev.coins + amount }))
-  }, [])
-
-  const subtractCoins = useCallback((amount: number): boolean => {
-    let success = false
-    setState(prev => {
-      if (prev.coins >= amount) {
-        success = true
-        return { ...prev, coins: prev.coins - amount }
+    setState((prev) => {
+      const delta = coins - prev.coins
+      if (delta === 0) return { ...prev, coins }
+      return {
+        ...prev,
+        coins,
+        coinLedger: appendCoinLedger(
+          prev.coinLedger,
+          delta,
+          coins,
+          'adjustment',
+          delta > 0 ? `Wallet +${delta.toLocaleString()}` : `Wallet ${delta.toLocaleString()}`
+        ),
       }
-      return prev
+    })
+  }, [])
+
+  const addCoins = useCallback((amount: number, meta?: CoinLedgerMeta) => {
+    if (amount === 0) return
+    setState((prev) => {
+      const bal = prev.coins + amount
+      const m =
+        meta ??
+        ({
+          reason: 'iap_grant',
+          label: amount > 0 ? 'Coins added' : 'Coins removed',
+        } satisfies CoinLedgerMeta)
+      return {
+        ...prev,
+        coins: bal,
+        coinLedger: appendCoinLedger(prev.coinLedger, amount, bal, m.reason, m.label),
+      }
+    })
+  }, [])
+
+  const subtractCoins = useCallback((amount: number, meta?: CoinLedgerMeta): boolean => {
+    let success = false
+    setState((prev) => {
+      if (prev.coins < amount) return prev
+      success = true
+      const bal = prev.coins - amount
+      const m =
+        meta ??
+        ({
+          reason: 'adjustment',
+          label: `Spend −${amount.toLocaleString()}`,
+        } satisfies CoinLedgerMeta)
+      return {
+        ...prev,
+        coins: bal,
+        coinLedger: appendCoinLedger(prev.coinLedger, -amount, bal, m.reason, m.label),
+      }
     })
     return success
   }, [])
@@ -554,10 +1079,18 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setState((prev) => {
       if (prev.coins >= price) {
         ok = true
+        const bal = prev.coins - price
         return {
           ...prev,
-          coins: prev.coins - price,
+          coins: bal,
           freeSpins: prev.freeSpins + spins,
+          coinLedger: appendCoinLedger(
+            prev.coinLedger,
+            -price,
+            bal,
+            'free_spins_bundle',
+            `${spins} free spins (−${price.toLocaleString()} coins)`
+          ),
         }
       }
       return prev
@@ -569,17 +1102,54 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, freeSpins: prev.freeSpins + amount }))
   }, [])
 
-  const buyTheme = useCallback((theme: Theme, price: number): boolean => {
+  const buyTheme = useCallback(async (theme: Theme, price: number): Promise<boolean> => {
+    if (isServerEconomyEnabled()) {
+      try {
+        const out = await requestBuyTheme(theme)
+        setState((prev) => {
+          const newOwnedThemes = prev.ownedThemes.includes(theme)
+            ? prev.ownedThemes
+            : [...prev.ownedThemes, theme]
+          const spent = prev.coins - Number(out.coin_balance)
+          return {
+            ...prev,
+            coins: Number(out.coin_balance),
+            freeSpins: Number(out.free_spin_balance),
+            bonusProgress: Number(out.bonus_meter_progress ?? 0),
+            ownedThemes: newOwnedThemes,
+            coinLedger:
+              spent > 0
+                ? appendCoinLedger(
+                    prev.coinLedger,
+                    -spent,
+                    Number(out.coin_balance),
+                    'theme_unlock',
+                    `Theme: ${theme}`,
+                  )
+                : prev.coinLedger,
+            trophies: checkTrophyUnlocks(prev.trophies, {
+              ownedThemesCount: newOwnedThemes.length,
+            }),
+          }
+        })
+        queueMicrotask(() => track(AnalyticsEvents.THEME_UNLOCKED, { theme }))
+        return true
+      } catch {
+        return false
+      }
+    }
+
     let success = false
-    setState(prev => {
+    setState((prev) => {
       if (prev.coins >= price && !prev.ownedThemes.includes(theme)) {
         success = true
         const newOwnedThemes = [...prev.ownedThemes, theme]
+        const bal = prev.coins - price
         return {
           ...prev,
-          coins: prev.coins - price,
+          coins: bal,
+          coinLedger: appendCoinLedger(prev.coinLedger, -price, bal, 'theme_unlock', `Theme: ${theme}`),
           ownedThemes: newOwnedThemes,
-          // Check for Theme Collector trophy when owning all 3 themes
           trophies: checkTrophyUnlocks(prev.trophies, {
             ownedThemesCount: newOwnedThemes.length,
           }),
@@ -588,24 +1158,24 @@ export function GameProvider({ children }: { children: ReactNode }) {
       return prev
     })
     if (success) {
-      queueMicrotask(() =>
-        track(AnalyticsEvents.THEME_UNLOCKED, { theme }),
-      )
+      queueMicrotask(() => track(AnalyticsEvents.THEME_UNLOCKED, { theme }))
     }
     return success
   }, [])
 
   const setBet = useCallback((bet: number) => {
-    setState(prev => {
+    setState((prev) => {
       const isMaxBet = bet === Math.max(...prev.betOptions)
-      const updatedMissions = prev.missions.map(m => {
-        if (m.id === "maxbet1" && isMaxBet && !m.completed) {
-          return { ...m, progress: 1, completed: true }
-        }
-        return m
-      })
-      return { 
-        ...prev, 
+      const updatedMissions = !isServerEconomyEnabled()
+        ? prev.missions.map((m) => {
+            if (m.id === 'maxbet1' && isMaxBet && !m.completed) {
+              return { ...m, progress: 1, completed: true }
+            }
+            return m
+          })
+        : prev.missions
+      return {
+        ...prev,
         currentBet: bet,
         maxBetUsed: isMaxBet || prev.maxBetUsed,
         missions: updatedMissions,
@@ -615,21 +1185,65 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const spin = useCallback(async (): Promise<SpinResult> => {
-    return new Promise((resolve) => {
+    const snapshot = stateRef.current
+    const betCost = snapshot.freeSpins > 0 ? 0 : snapshot.currentBet
+    if (snapshot.coins < betCost || snapshot.isSpinning) {
+      return emptySpinResult(snapshot)
+    }
+
+    const lineBet = snapshot.freeSpins > 0 ? FREE_SPIN_LINE_BET : snapshot.currentBet
+    spinLineBetRef.current = lineBet
+
+    if (isServerSpinEnabled()) {
+      try {
+        const payload = await requestServerSpin(lineBet)
+        serverSpinPayloadRef.current = payload
+        const usedFreeSpin = snapshot.freeSpins > 0
+        queueMicrotask(() =>
+          track(AnalyticsEvents.SPIN_STARTED, {
+            bet_coins: lineBet,
+            used_free_spin: usedFreeSpin,
+          }),
+        )
+        setState((prev) => ({
+          ...prev,
+          spinSyncDeferred: false,
+          coins: payload.coin_balance,
+          freeSpins: payload.free_spin_balance,
+          bonusProgress: payload.bonus_meter_progress,
+          isSpinning: true,
+          reelsLocked: false,
+          winningLines: [],
+          winningPositions: new Set(),
+          lastWin: 0,
+          lastWinType: 'none',
+          winMultiplier: 0,
+          lastSpinFreeSpinsWon: 0,
+          lastBonusMeterPayout: 0,
+        }))
+        return await new Promise<SpinResult>((resolve) => {
+          spinResolveRef.current = resolve
+        })
+      } catch {
+        setState((prev) => ({ ...prev, spinSyncDeferred: true }))
+        const now = Date.now()
+        if (now - lastServerFallbackToastAtRef.current >= FALLBACK_TOAST_THROTTLE_MS) {
+          lastServerFallbackToastAtRef.current = now
+          Toast.show({
+            type: 'info',
+            text1: 'Playing on device this spin',
+            text2: 'Could not reach server — tap the banner below when online to sync.',
+          })
+        }
+        /* fall through to local RNG spin */
+      }
+    }
+
+    return await new Promise<SpinResult>((resolve) => {
       setState((prev) => {
-        const betCost = prev.freeSpins > 0 ? 0 : prev.currentBet
-        if (prev.coins < betCost || prev.isSpinning) {
-          queueMicrotask(() =>
-            resolve({
-              win: 0,
-              grid: prev.reelGrid,
-              isJackpot: false,
-              freeSpinsWon: 0,
-              winningLines: [],
-              winType: 'none',
-              winMultiplier: 0,
-            })
-          )
+        const bc = prev.freeSpins > 0 ? 0 : prev.currentBet
+        if (prev.coins < bc || prev.isSpinning) {
+          queueMicrotask(() => resolve(emptySpinResult(prev)))
           return prev
         }
 
@@ -638,14 +1252,27 @@ export function GameProvider({ children }: { children: ReactNode }) {
         const usedFreeSpin = prev.freeSpins > 0
         queueMicrotask(() =>
           track(AnalyticsEvents.SPIN_STARTED, {
-            bet_coins: betCost,
+            bet_coins: spinLineBetRef.current,
             used_free_spin: usedFreeSpin,
           }),
         )
 
+        const balanceAfterBet = prev.coins - bc
+        let ledger = prev.coinLedger
+        if (bc > 0) {
+          ledger = appendCoinLedger(
+            ledger,
+            -bc,
+            balanceAfterBet,
+            'spin_bet',
+            `Bet −${bc.toLocaleString()}`,
+          )
+        }
+
         return {
           ...prev,
-          coins: prev.coins - betCost,
+          coins: balanceAfterBet,
+          coinLedger: ledger,
           isSpinning: true,
           reelsLocked: false,
           freeSpins: prev.freeSpins > 0 ? prev.freeSpins - 1 : prev.freeSpins,
@@ -655,16 +1282,154 @@ export function GameProvider({ children }: { children: ReactNode }) {
           lastWinType: 'none',
           winMultiplier: 0,
           lastSpinFreeSpinsWon: 0,
+          lastBonusMeterPayout: 0,
         }
       })
     })
   }, [])
 
   const stopSpin = useCallback(() => {
+    let deferWalletRefresh = false
     setState((prev) => {
       if (!prev.isSpinning) return prev
 
-      // Generate new grid
+      const serverPayload = serverSpinPayloadRef.current
+      if (serverPayload) {
+        serverSpinPayloadRef.current = null
+        const summary = serverPayload.result_summary
+        const newGrid = gridIdsToReelGrid(serverPayload.grid)
+        const totalWin = summary.total_win
+        const freeSpinsWon = summary.free_spins_won
+        const isJackpot = summary.is_jackpot
+        const winMultiplier = summary.win_multiplier
+        const winType = summary.win_type as WinType
+        const bonusMeterPayout = summary.bonus_meter_payout
+        const bonusProgress = summary.bonus_progress_after
+        const jackpotMultiplier = isJackpot ? 10 : 1
+
+        const positions = new Set<string>()
+        const winningLines: WinningLine[] = summary.winning_lines.map((wl) => ({
+          positions: wl.positions,
+          symbol: SYMBOLS.find((s) => s.id === wl.symbol_id) ?? SYMBOLS[3],
+          multiplier: wl.multiplier,
+        }))
+        winningLines.forEach((line) => {
+          line.positions.forEach(([col, row]) => positions.add(`${col}-${row}`))
+        })
+
+        const updatedMissions = prev.missions.map((m) => {
+          if (m.id === 'spin20' && !m.completed) {
+            const newProgress = m.progress + 1
+            return { ...m, progress: newProgress, completed: newProgress >= m.target }
+          }
+          if (m.id === 'win5' && totalWin > 0 && !m.completed) {
+            const newProgress = m.progress + 1
+            return { ...m, progress: newProgress, completed: newProgress >= m.target }
+          }
+          return m
+        })
+
+        const missionsForState = isServerEconomyEnabled() ? prev.missions : updatedMissions
+
+        const result: SpinResult = {
+          win: totalWin,
+          grid: newGrid,
+          isJackpot,
+          freeSpinsWon,
+          winningLines,
+          winType,
+          winMultiplier,
+          bonusMeterPayout,
+        }
+
+        queueMicrotask(() => {
+          track(AnalyticsEvents.SPIN_COMPLETED, {
+            win_coins: totalWin,
+            win_type: winType,
+            free_spins_won: freeSpinsWon,
+            is_jackpot: isJackpot,
+            bet_coins: spinLineBetRef.current,
+          })
+          if (totalWin > 0) {
+            track(AnalyticsEvents.WIN_RECEIVED, {
+              amount: totalWin,
+              win_type: winType,
+            })
+          }
+          if (freeSpinsWon > 0) {
+            track(AnalyticsEvents.BONUS_TRIGGERED, { free_spins_won: freeSpinsWon })
+          }
+          if (bonusMeterPayout > 0) {
+            track(AnalyticsEvents.BONUS_METER_PAID, {
+              coins: bonusMeterPayout,
+              bet: spinLineBetRef.current,
+            })
+          }
+          if (isJackpot) {
+            track(AnalyticsEvents.JACKPOT_HIT, { win_coins: totalWin })
+          }
+          const finish = spinResolveRef.current
+          spinResolveRef.current = null
+          finish?.(result)
+          if (isServerEconomyEnabled()) {
+            void hydrateMissionsAndWheelFromServer()
+          }
+        })
+
+        return {
+          ...prev,
+          spinSyncDeferred: false,
+          isSpinning: false,
+          reelsLocked: true,
+          reelGrid: newGrid,
+          lastWin: totalWin,
+          winMultiplier,
+          lastWinType: winType,
+          winningLines,
+          winningPositions: positions,
+          coins: prev.coins,
+          freeSpins: prev.freeSpins,
+          lastSpinFreeSpinsWon: freeSpinsWon,
+          isJackpotMode: isJackpot,
+          jackpotMultiplier,
+          bonusProgress,
+          lastBonusMeterPayout: bonusMeterPayout,
+          missions: missionsForState,
+          totalSpins: prev.totalSpins + 1,
+          totalWins: totalWin > 0 ? prev.totalWins + 1 : prev.totalWins,
+          biggestWin: Math.max(prev.biggestWin, totalWin),
+          xp: prev.xp + 10 + (totalWin > 0 ? Math.floor(totalWin / 10) : 0),
+          leaderboardStats: {
+            ...prev.leaderboardStats,
+            weeklyBiggestWin: Math.max(prev.leaderboardStats.weeklyBiggestWin, totalWin),
+            weeklyTotalWinnings: prev.leaderboardStats.weeklyTotalWinnings + totalWin,
+            allTimeTotalWinnings: prev.leaderboardStats.allTimeTotalWinnings + totalWin,
+          },
+          recentBigWins:
+            winType !== 'none' && winType !== 'normal'
+              ? [
+                  {
+                    amount: totalWin,
+                    multiplier: winMultiplier,
+                    timestamp: new Date().toISOString(),
+                    type: winType,
+                  },
+                  ...prev.recentBigWins.slice(0, 9),
+                ]
+              : prev.recentBigWins,
+          spinSequence: prev.spinSequence + 1,
+          trophies: checkTrophyUnlocks(prev.trophies, {
+            winType,
+            level: prev.level,
+            allTimeTotalWinnings: prev.leaderboardStats.allTimeTotalWinnings + totalWin,
+            dailyStreak: prev.dailyStreak,
+          }),
+        }
+      }
+
+      deferWalletRefresh = prev.spinSyncDeferred && isServerSpinEnabled()
+
+      // Generate new grid (local RNG)
       const newGrid: ReelGrid = []
       for (let col = 0; col < 5; col++) {
         const column: SlotSymbol[] = []
@@ -689,14 +1454,46 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const jackpotMultiplier = isJackpot ? 10 : 1
 
       // Calculate wins
-      const { totalWin, lines, positions } = checkPaylines(newGrid, prev.currentBet, jackpotMultiplier)
+      const lineBet = spinLineBetRef.current
+      const { totalWin, lines, positions } = checkPaylines(newGrid, lineBet, jackpotMultiplier)
 
-      // Calculate win multiplier (win / bet)
-      const winMultiplier = prev.currentBet > 0 ? totalWin / prev.currentBet : 0
+      // Calculate win multiplier (win / effective line bet)
+      const winMultiplier = lineBet > 0 ? totalWin / lineBet : 0
       const winType = getWinType(winMultiplier)
 
-      // Update bonus progress
-      const bonusProgress = Math.min(100, prev.bonusProgress + (totalWin > 0 ? 10 : 2))
+      // Bonus meter: +10 on any line win, +2 on loss; payout when crossing 100 with carry-over
+      const bonusInc = totalWin > 0 ? 10 : 2
+      const combinedMeter = prev.bonusProgress + bonusInc
+      let bonusMeterPayout = 0
+      let bonusProgress: number
+      if (combinedMeter >= 100) {
+        bonusMeterPayout = bonusMeterPayoutForBet(lineBet)
+        bonusProgress = combinedMeter % 100
+      } else {
+        bonusProgress = combinedMeter
+      }
+
+      let ledger = prev.coinLedger
+      let runningBal = prev.coins + totalWin
+      if (totalWin > 0) {
+        ledger = appendCoinLedger(
+          ledger,
+          totalWin,
+          runningBal,
+          'spin_win',
+          `Spin win (${winType})`
+        )
+      }
+      if (bonusMeterPayout > 0) {
+        runningBal += bonusMeterPayout
+        ledger = appendCoinLedger(
+          ledger,
+          bonusMeterPayout,
+          runningBal,
+          'bonus_meter_full',
+          `Bonus meter +${bonusMeterPayout.toLocaleString()}`
+        )
+      }
 
       // Update missions
       const updatedMissions = prev.missions.map(m => {
@@ -719,6 +1516,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         winningLines: lines,
         winType,
         winMultiplier,
+        bonusMeterPayout,
       }
 
       queueMicrotask(() => {
@@ -727,7 +1525,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           win_type: winType,
           free_spins_won: freeSpinsWon,
           is_jackpot: isJackpot,
-          bet_coins: prev.currentBet,
+          bet_coins: spinLineBetRef.current,
         })
         if (totalWin > 0) {
           track(AnalyticsEvents.WIN_RECEIVED, {
@@ -737,6 +1535,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
         }
         if (freeSpinsWon > 0) {
           track(AnalyticsEvents.BONUS_TRIGGERED, { free_spins_won: freeSpinsWon })
+        }
+        if (bonusMeterPayout > 0) {
+          track(AnalyticsEvents.BONUS_METER_PAID, {
+            coins: bonusMeterPayout,
+            bet: spinLineBetRef.current,
+          })
         }
         if (isJackpot) {
           track(AnalyticsEvents.JACKPOT_HIT, { win_coins: totalWin })
@@ -756,12 +1560,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
         lastWinType: winType,
         winningLines: lines,
         winningPositions: positions,
-        coins: prev.coins + totalWin,
+        coins: runningBal,
+        coinLedger: ledger,
         freeSpins: prev.freeSpins + freeSpinsWon,
         lastSpinFreeSpinsWon: freeSpinsWon,
         isJackpotMode: isJackpot,
         jackpotMultiplier,
         bonusProgress,
+        lastBonusMeterPayout: bonusMeterPayout,
         missions: updatedMissions,
         totalSpins: prev.totalSpins + 1,
         totalWins: totalWin > 0 ? prev.totalWins + 1 : prev.totalWins,
@@ -787,28 +1593,40 @@ export function GameProvider({ children }: { children: ReactNode }) {
           allTimeTotalWinnings: prev.leaderboardStats.allTimeTotalWinnings + totalWin,
           dailyStreak: prev.dailyStreak,
         }),
+        spinSyncDeferred: prev.spinSyncDeferred,
       }
     })
-  }, [])
+    queueMicrotask(() => {
+      if (deferWalletRefresh) void resyncWalletFromServer()
+    })
+  }, [resyncWalletFromServer, hydrateMissionsAndWheelFromServer])
 
-  const claimDailyReward = useCallback((day: number): boolean => {
+  /** Offline / fallback: updates coins only in React state (no Postgres write). */
+  const claimDailyRewardLocal = useCallback((day: number): boolean => {
     let success = false
-    setState(prev => {
+    setState((prev) => {
       const today = new Date().toDateString()
-      const reward = prev.dailyRewards.find(r => r.day === day)
-      
+      const reward = prev.dailyRewards.find((r) => r.day === day)
+
       if (reward && !reward.claimed && day === prev.dailyStreak + 1) {
         success = true
         const newStreak = day
+        const bal = prev.coins + reward.coins
         return {
           ...prev,
-          coins: prev.coins + reward.coins,
+          coins: bal,
+          coinLedger: appendCoinLedger(
+            prev.coinLedger,
+            reward.coins,
+            bal,
+            'daily_reward',
+            `Daily reward day ${day}`,
+          ),
           dailyStreak: newStreak,
-          dailyRewards: prev.dailyRewards.map(r => 
-            r.day === day ? { ...r, claimed: true } : r
+          dailyRewards: prev.dailyRewards.map((r) =>
+            r.day === day ? { ...r, claimed: true } : r,
           ),
           lastClaimDate: today,
-          // Check for 7-day streak trophy
           trophies: checkTrophyUnlocks(prev.trophies, {
             dailyStreak: newStreak,
           }),
@@ -817,23 +1635,88 @@ export function GameProvider({ children }: { children: ReactNode }) {
       return prev
     })
     if (success) {
-      queueMicrotask(() =>
-        track(AnalyticsEvents.DAILY_REWARD_CLAIMED, { day }),
-      )
+      queueMicrotask(() => track(AnalyticsEvents.DAILY_REWARD_CLAIMED, { day }))
     }
     return success
   }, [])
 
-  const spinDailyWheel = useCallback((): number => {
-    let reward = 0
-    setState(prev => {
+  const claimDailyReward = useCallback(
+    async (day: number): Promise<boolean> => {
+      if (isServerEconomyEnabled()) {
+        try {
+          const out = await requestClaimDailyReward(day)
+          const today = new Date().toDateString()
+          setState((prev) => ({
+            ...prev,
+            coins: Number(out.coin_balance),
+            freeSpins: Number(out.free_spin_balance),
+            bonusProgress: Number(out.bonus_meter_progress ?? 0),
+            dailyStreak: out.daily_streak_after,
+            dailyRewards: prev.dailyRewards.map((r) =>
+              r.day === day ? { ...r, claimed: true } : r,
+            ),
+            lastClaimDate: today,
+            trophies: checkTrophyUnlocks(prev.trophies, {
+              dailyStreak: out.daily_streak_after,
+            }),
+          }))
+          queueMicrotask(() => track(AnalyticsEvents.DAILY_REWARD_CLAIMED, { day }))
+          return true
+        } catch {
+          // Do not fall back locally when economy mode is on — avoids double-credit if the server committed.
+          return false
+        }
+      }
+      return claimDailyRewardLocal(day)
+    },
+    [claimDailyRewardLocal],
+  )
+
+  const spinDailyWheel = useCallback(async (): Promise<number> => {
+    if (isServerEconomyEnabled()) {
+      try {
+        const out = await requestSpinDailyWheel()
+        const reward = Number(out.reward_coins)
+        setState((prev) => ({
+          ...prev,
+          coins: Number(out.coin_balance),
+          freeSpins: Number(out.free_spin_balance),
+          bonusProgress: Number(out.bonus_meter_progress ?? 0),
+          coinLedger: appendCoinLedger(
+            prev.coinLedger,
+            reward,
+            Number(out.coin_balance),
+            'daily_wheel',
+            `Daily wheel +${reward.toLocaleString()}`,
+          ),
+          dailyWheel: {
+            lastWheelSpinAt: new Date().toISOString(),
+            dailyWheelClaimed: true,
+            wheelReward: reward,
+          },
+        }))
+        return reward
+      } catch {
+        return 0
+      }
+    }
+
+    const snap = stateRef.current
+    if (snap.dailyWheel.dailyWheelClaimed) return 0
+    const reward = WHEEL_REWARDS[Math.floor(Math.random() * WHEEL_REWARDS.length)]
+    const bal = snap.coins + reward
+    setState((prev) => {
       if (prev.dailyWheel.dailyWheelClaimed) return prev
-      
-      reward = WHEEL_REWARDS[Math.floor(Math.random() * WHEEL_REWARDS.length)]
-      
       return {
         ...prev,
-        coins: prev.coins + reward,
+        coins: bal,
+        coinLedger: appendCoinLedger(
+          prev.coinLedger,
+          reward,
+          bal,
+          'daily_wheel',
+          `Daily wheel +${reward.toLocaleString()}`,
+        ),
         dailyWheel: {
           lastWheelSpinAt: new Date().toISOString(),
           dailyWheelClaimed: true,
@@ -844,26 +1727,54 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return reward
   }, [])
 
-  const claimMissionReward = useCallback((missionId: string): boolean => {
+  const claimMissionReward = useCallback(async (missionId: string): Promise<boolean> => {
+    if (isServerEconomyEnabled()) {
+      try {
+        const out = await requestClaimMissionReward(missionId)
+        setState((prev) => ({
+          ...prev,
+          coins: Number(out.coin_balance),
+          freeSpins: Number(out.free_spin_balance),
+          bonusProgress: Number(out.bonus_meter_progress ?? 0),
+          coinLedger: appendCoinLedger(
+            prev.coinLedger,
+            Number(out.coins_granted),
+            Number(out.coin_balance),
+            'mission_reward',
+            prev.missions.find((m) => m.id === missionId)?.name ?? missionId,
+          ),
+          missions: prev.missions.map((m) => (m.id === missionId ? { ...m, claimed: true } : m)),
+        }))
+        queueMicrotask(() => track(AnalyticsEvents.MISSION_COMPLETED, { mission_id: missionId }))
+        return true
+      } catch {
+        return false
+      }
+    }
+
     let success = false
-    setState(prev => {
-      const mission = prev.missions.find(m => m.id === missionId)
+    setState((prev) => {
+      const mission = prev.missions.find((m) => m.id === missionId)
       if (mission && mission.completed && !mission.claimed) {
         success = true
+        const bal = prev.coins + mission.reward
         return {
           ...prev,
-          coins: prev.coins + mission.reward,
-          missions: prev.missions.map(m => 
-            m.id === missionId ? { ...m, claimed: true } : m
+          coins: bal,
+          coinLedger: appendCoinLedger(
+            prev.coinLedger,
+            mission.reward,
+            bal,
+            'mission_reward',
+            mission.name,
           ),
+          missions: prev.missions.map((m) => (m.id === missionId ? { ...m, claimed: true } : m)),
         }
       }
       return prev
     })
     if (success) {
-      queueMicrotask(() =>
-        track(AnalyticsEvents.MISSION_COMPLETED, { mission_id: missionId }),
-      )
+      queueMicrotask(() => track(AnalyticsEvents.MISSION_COMPLETED, { mission_id: missionId }))
     }
     return success
   }, [])
@@ -878,11 +1789,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const xpNeeded = prev.level * 1000
       if (newXp >= xpNeeded) {
         const newLevel = prev.level + 1
+        const coinBonus = newLevel * 100
+        const bal = prev.coins + coinBonus
         return {
           ...prev,
           xp: newXp - xpNeeded,
           level: newLevel,
-          coins: prev.coins + newLevel * 100,
+          coins: bal,
+          coinLedger: appendCoinLedger(
+            prev.coinLedger,
+            coinBonus,
+            bal,
+            'level_up_bonus',
+            `Level ${newLevel} bonus`
+          ),
           // Check for VIP trophy at level 5
           trophies: checkTrophyUnlocks(prev.trophies, {
             level: newLevel,
@@ -930,9 +1850,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setState(prev => {
       if (prev.coins >= priceCoins && !prev.userVanity.ownedItemIds.includes(itemId)) {
         success = true
+        const bal = prev.coins - priceCoins
+        let ledger = prev.coinLedger
+        if (priceCoins > 0) {
+          ledger = appendCoinLedger(
+            ledger,
+            -priceCoins,
+            bal,
+            'vanity_purchase',
+            `Vanity ${itemId}`
+          )
+        }
         return {
           ...prev,
-          coins: prev.coins - priceCoins,
+          coins: bal,
+          coinLedger: ledger,
           userVanity: {
             ...prev.userVanity,
             ownedItemIds: [...prev.userVanity.ownedItemIds, itemId],
@@ -1045,6 +1977,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setPurchaseLimit,
     toggleCooldown,
     clearLastSpinFreeSpinsBonus,
+    resyncWalletFromServer,
     buyVanityItem,
     equipVanityItem,
     setFeaturedItem,
@@ -1062,4 +1995,4 @@ export function useGame() {
   return context
 }
 
-export { SYMBOLS, BET_OPTIONS, WHEEL_REWARDS }
+export { SYMBOLS, BET_OPTIONS, WHEEL_REWARDS, FREE_SPIN_LINE_BET }

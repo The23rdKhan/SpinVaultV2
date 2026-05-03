@@ -36,6 +36,9 @@ export function Marquee() {
           </View>
           <Text style={[styles.meterPct, { color: t.primary }]}>{bonusProgress}%</Text>
         </View>
+        <Text style={[styles.meterHint, { color: t.mutedForeground }]}>
+          Reach 100 for bonus coins (+10 each winning spin, +2 each loss). Payout scales with bet.
+        </Text>
       </LinearGradient>
     </View>
   )
@@ -88,4 +91,12 @@ const styles = StyleSheet.create({
   },
   meterFill: { height: '100%', borderRadius: 999 },
   meterPct: { fontSize: 10, fontWeight: '800', width: 36, textAlign: 'right' },
+  meterHint: {
+    fontSize: 10,
+    fontWeight: '600',
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+    lineHeight: 14,
+    textAlign: 'center',
+  },
 })

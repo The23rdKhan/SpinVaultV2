@@ -1,23 +1,33 @@
 import { useState } from 'react'
-import { StyleSheet, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, StyleSheet, Text, TextInput, View } from 'react-native'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import Toast from 'react-native-toast-message'
 import { AppButton } from '@/components/ui/AppButton'
+import { useAppearance } from '@/lib/appearance-context'
+import { useNativeSemanticColors } from '@/lib/native-semantic-colors'
 import { track } from '@/lib/analytics/track'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { AnalyticsEvents } from '@shared/analytics/event-names'
+import { submitFeedbackRow, submitSupportTicketRow } from '@/lib/feedback-support-submit'
 
 const EMOJIS = ['😡', '😕', '😐', '🙂', '😍']
 const EMOJI_LABELS = ['Poor', 'Fair', 'Good', 'Great', 'Excellent']
 
 export function HelpFeedback() {
   const t = useCasinoTheme()
+  const { mode } = useAppearance()
+  const native = useNativeSemanticColors(mode)
+  const inputFg = native?.label ?? t.foreground
+  const placeholder = native?.placeholderText ?? t.mutedForeground
+  const inputBorder = native?.separator ?? t.border
+
   const [showForm, setShowForm] = useState(false)
   const [formType, setFormType] = useState<'feedback' | 'bug' | 'feature'>('feedback')
   const [rating, setRating] = useState<number | null>(null)
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
   const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   const onEmoji = (idx: number) => {
     setRating(idx + 1)
@@ -26,22 +36,55 @@ export function HelpFeedback() {
   }
 
   const submitForm = () => {
-    if (!message.trim()) {
-      Toast.show({ type: 'error', text1: 'Add a message first' })
-      return
-    }
-    setSubmitted(true)
-    track(AnalyticsEvents.FEEDBACK_SUBMITTED, {
-      form_type: formType,
-      has_email: Boolean(email.trim()),
-    })
-    Toast.show({ type: 'success', text1: 'Thanks — feedback noted (simulated)' })
-    setTimeout(() => {
-      setShowForm(false)
-      setSubmitted(false)
-      setMessage('')
-      setEmail('')
-    }, 1200)
+    void (async () => {
+      if (!message.trim()) {
+        Toast.show({ type: 'error', text1: 'Add a message first' })
+        return
+      }
+      setSubmitting(true)
+      const okFeedback = await submitFeedbackRow({
+        formType,
+        message: message.trim(),
+        email: email.trim() || undefined,
+        rating,
+        screen: 'profile_help',
+      })
+      let okTicket = true
+      if (formType === 'bug') {
+        okTicket = await submitSupportTicketRow({
+          subject: 'Bug report (mobile)',
+          message: message.trim(),
+          email: email.trim() || undefined,
+          category: 'bug',
+        })
+      }
+      setSubmitting(false)
+      track(AnalyticsEvents.FEEDBACK_SUBMITTED, {
+        form_type: formType,
+        has_email: Boolean(email.trim()),
+        saved_feedback: okFeedback,
+        saved_ticket: okTicket,
+      })
+      if (okFeedback || (formType === 'bug' && okTicket)) {
+        setSubmitted(true)
+        Toast.show({
+          type: 'success',
+          text1: okFeedback ? 'Thanks — sent!' : 'Ticket logged',
+        })
+        setTimeout(() => {
+          setShowForm(false)
+          setSubmitted(false)
+          setMessage('')
+          setEmail('')
+        }, 1200)
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Could not send',
+          text2: 'Sign in and check connection, then try again.',
+        })
+      }
+    })()
   }
 
   return (
@@ -115,8 +158,8 @@ export function HelpFeedback() {
               value={email}
               onChangeText={setEmail}
               placeholder="Email (optional)"
-              placeholderTextColor={t.mutedForeground}
-              style={[styles.input, { color: t.foreground, borderColor: t.border }]}
+              placeholderTextColor={placeholder}
+              style={[styles.input, { color: inputFg, borderColor: inputBorder }]}
               keyboardType="email-address"
               autoCapitalize="none"
             />
@@ -124,11 +167,18 @@ export function HelpFeedback() {
               value={message}
               onChangeText={setMessage}
               placeholder="Your message"
-              placeholderTextColor={t.mutedForeground}
+              placeholderTextColor={placeholder}
               multiline
-              style={[styles.area, { color: t.foreground, borderColor: t.border }]}
+              style={[styles.area, { color: inputFg, borderColor: inputBorder }]}
             />
-            <AppButton label={submitted ? 'Sent!' : 'Submit'} disabled={submitted} onPress={submitForm} />
+            <AppButton
+              label={submitted ? 'Sent!' : submitting ? 'Sending…' : 'Submit'}
+              disabled={submitted || submitting}
+              onPress={submitForm}
+            />
+            {submitting ? (
+              <ActivityIndicator style={{ marginTop: 8 }} color={t.primary} />
+            ) : null}
             <AppButton
               variant="ghost"
               label="Back"

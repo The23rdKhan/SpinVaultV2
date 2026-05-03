@@ -8,6 +8,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import Svg, { Path, Text as SvgText } from 'react-native-svg'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
+import Toast from 'react-native-toast-message'
 import { AppButton } from '@/components/ui/AppButton'
 import { useGame, WHEEL_REWARDS } from '@/lib/game-context'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
@@ -62,11 +63,20 @@ export function DailyWheel() {
     transform: [{ rotate: `${rotation.value}deg` }],
   }))
 
-  const handleSpin = useCallback(() => {
+  const handleSpin = useCallback(async () => {
     if (dailyWheel.dailyWheelClaimed || isSpinning) return
     setIsSpinning(true)
     setDisplayReward(null)
-    const reward = spinDailyWheel()
+    const reward = await spinDailyWheel()
+    if (reward <= 0 || !WHEEL_REWARDS.includes(reward)) {
+      setIsSpinning(false)
+      Toast.show({
+        type: 'error',
+        text1: 'Wheel unavailable',
+        text2: 'Try again or check your connection.',
+      })
+      return
+    }
     const rewardIndex = WHEEL_REWARDS.indexOf(reward)
     const extraRotations = 5
     const targetAngle = rewardIndex * segmentAngle

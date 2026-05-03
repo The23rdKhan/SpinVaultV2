@@ -38,7 +38,10 @@ export function WatchAdCard() {
           const earned = await watchAd()
           if (cancelled) return
           setReward(earned)
-          addCoins(earned)
+          addCoins(earned, {
+            reason: 'rewarded_ad',
+            label: 'Rewarded ad',
+          })
           track(AnalyticsEvents.REWARDED_AD_COMPLETED, { reward_coins: earned })
           setAdState('complete')
         })()

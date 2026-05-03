@@ -9,4 +9,6 @@ export const routes = {
   resetPassword: '/reset-password' as Href,
   /** Play tab — use `/play` not `/index` (root `app/index.tsx` owns `/`; `/index` can mis-resolve to +not-found). */
   tabsIndex: '/play' as Href,
+  shop: '/shop' as Href,
+  rewards: '/rewards' as Href,
 } as const

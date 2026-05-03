@@ -8,6 +8,7 @@ import { HelpFeedback } from '@/components/profile/HelpFeedback'
 import {
   AccountSection,
   AchievementsGridSection,
+  CoinLedgerSection,
   EquippedVanitySection,
   NotificationPrefsSection,
   RecentBigWinsSection,
@@ -56,6 +57,7 @@ export default function ProfileScreen() {
     ownedThemes,
     userVanity,
     recentBigWins,
+    coinLedger,
     soundEnabled,
     musicEnabled,
     hapticsEnabled,
@@ -236,6 +238,8 @@ export default function ProfileScreen() {
         dailyStreak={dailyStreak}
         themesOwned={ownedThemes.length}
       />
+
+      <CoinLedgerSection entries={coinLedger} />
 
       <EquippedVanitySection userVanity={userVanity} />
 

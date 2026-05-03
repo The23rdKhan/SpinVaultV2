@@ -1,11 +1,25 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { PlayerProfileModal } from '@/components/social/PlayerProfileModal'
 import { ALL_VANITY_ITEMS, RARITY_COLORS } from '@/lib/vanity-data'
 import { useGame } from '@/lib/game-context'
+import { getSupabase } from '@/lib/supabase'
+import { isServerSpinEnabled } from '@/lib/server-spin'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import type { CasinoPalette } from '@/theme/tokens'
+
+/**
+ * UTC week starting Monday — keep aligned with `public.week_period_start_utc` in
+ * `supabase/migrations/20260203160000_phase5_leaderboard.sql`.
+ */
+function weekPeriodStartUTC(d = new Date()): string {
+  const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+  const dow = x.getUTCDay()
+  const diff = (dow + 6) % 7
+  x.setUTCDate(x.getUTCDate() - diff)
+  return x.toISOString().slice(0, 10)
+}
 
 type LeaderboardType = 'biggestWin' | 'totalWinnings'
 
@@ -188,13 +202,61 @@ export function WeeklyLeaderboard() {
   const { username, leaderboardStats, userVanity } = useGame()
   const [type, setType] = useState<LeaderboardType>('biggestWin')
   const [pick, setPick] = useState<Entry | null>(null)
+  const [serverEntries, setServerEntries] = useState<Entry[] | null>(null)
 
   const equippedTitleItem = userVanity.equippedTitleId
     ? ALL_VANITY_ITEMS.find((i) => i.id === userVanity.equippedTitleId)
     : null
   const displayTitle = equippedTitleItem?.id
 
-  const entries = useMemo(
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      if (!isServerSpinEnabled()) {
+        setServerEntries(null)
+        return
+      }
+      const supabase = getSupabase()
+      if (!supabase) return
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (!session?.user) {
+        setServerEntries(null)
+        return
+      }
+      const uid = session.user.id
+      const period = weekPeriodStartUTC()
+      const lbType = type === 'biggestWin' ? 'weekly_biggest_win' : 'weekly_total_winnings'
+      const { data, error } = await supabase
+        .from('v_leaderboard_public')
+        .select('rank, username, value, user_id')
+        .eq('period_start', period)
+        .eq('leaderboard_type', lbType)
+        .order('rank', { ascending: true })
+        .limit(40)
+      if (cancelled || error || !data?.length) {
+        if (!cancelled) setServerEntries(null)
+        return
+      }
+      const mapped: Entry[] = data.map((row) => ({
+        rank: Number(row.rank),
+        username: String(row.username ?? 'Player'),
+        value: Number(row.value ?? 0),
+        isCurrentUser: row.user_id === uid,
+        vipTier: 1,
+        frame: 'frame-basic',
+        pet: 'pet-none',
+      }))
+      setServerEntries(mapped)
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [type])
+
+  const mockEntries = useMemo(
     () =>
       generateMockLeaderboard(type, {
         username,
@@ -206,8 +268,42 @@ export function WeeklyLeaderboard() {
         title: displayTitle,
         pet: userVanity.equippedPetId,
       }),
-    [username, type, leaderboardStats, userVanity, displayTitle]
+    [username, type, leaderboardStats, userVanity, displayTitle],
   )
+
+  /** Merge server rows with a synthetic self row when the user is not in the returned page. */
+  const entries = useMemo(() => {
+    if (!serverEntries?.length) return mockEntries
+    const userValue =
+      type === 'biggestWin'
+        ? leaderboardStats.weeklyBiggestWin
+        : leaderboardStats.weeklyTotalWinnings
+    let list = [...serverEntries]
+    if (!list.some((e) => e.isCurrentUser)) {
+      list.push({
+        rank: list.length + 1,
+        username,
+        value: userValue,
+        isCurrentUser: true,
+        vipTier: 1,
+        frame: userVanity.equippedFrameId ?? 'frame-basic',
+        title: displayTitle,
+        pet: userVanity.equippedPetId ?? 'pet-none',
+      })
+    }
+    list = [...list].sort((a, b) => b.value - a.value).map((e, i) => ({ ...e, rank: i + 1 }))
+    return list
+  }, [
+    serverEntries,
+    mockEntries,
+    type,
+    leaderboardStats.weeklyBiggestWin,
+    leaderboardStats.weeklyTotalWinnings,
+    username,
+    userVanity.equippedFrameId,
+    userVanity.equippedPetId,
+    displayTitle,
+  ])
 
   const top = entries.slice(0, 20)
   const self = entries.find((e) => e.isCurrentUser)
@@ -266,7 +362,10 @@ export function WeeklyLeaderboard() {
 
       <View style={[styles.list, { borderColor: t.border, backgroundColor: t.card }]}>
         {top.map((e) => (
-          <View key={`${e.rank}-${e.username}`} style={[styles.listRow, { borderBottomColor: t.border }]}>
+          <View
+            key={`${e.rank}-${e.username}-${e.isCurrentUser ? 'me' : 'row'}`}
+            style={[styles.listRow, { borderBottomColor: t.border }]}
+          >
             <Row entry={e} onPress={() => setPick(e)} t={t} />
           </View>
         ))}

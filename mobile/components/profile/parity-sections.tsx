@@ -1,11 +1,14 @@
 import { useState, type ReactNode } from 'react'
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { AppleSignInButton } from '@/components/apple-sign-in-button'
 import { GoogleSignInButton } from '@/components/social-auth-buttons/google/google-sign-in-button'
 import { AppButton } from '@/components/ui/AppButton'
 import { ItemPreview } from '@/components/shop/ItemPreview'
-import type { AuthProviderKind } from '@/lib/auth-context'
+import type { AuthProviderKind, NotificationPrefs } from '@/lib/auth-context'
+import { useAppearance } from '@/lib/appearance-context'
+import { isExpoUiNativeAvailable } from '@/lib/is-expo-ui-native-available'
+import { useNativeSemanticColors } from '@/lib/native-semantic-colors'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import {
   getProfileAchievementProgress,
@@ -13,7 +16,7 @@ import {
 } from '@/lib/profile-achievements'
 import { openExternalUrl, SUPPORT_URLS } from '@/lib/support-links'
 import type { CasinoPalette } from '@/theme/tokens'
-import type { WinType } from '@/lib/game-context'
+import type { CoinLedgerEntry, WinType } from '@/lib/game-context'
 import {
   ALL_VANITY_ITEMS,
   RARITY_COLORS,
@@ -22,6 +25,19 @@ import {
   type Trophy,
   type UserVanity,
 } from '@/lib/vanity-data'
+
+/** RN fallback rows for notification prefs (same keys as `NotificationPrefs` / Expo UI pilot). */
+const NOTIFICATION_PREFS_ROWS_RN: {
+  key: keyof NotificationPrefs
+  label: string
+  description: string
+  icon: keyof typeof FontAwesome.glyphMap
+}[] = [
+  { key: 'dailyBonus', label: 'Daily Bonus Reminders', description: 'Get notified about unclaimed bonuses', icon: 'gift' },
+  { key: 'giftNotifications', label: 'Gift Notifications', description: 'When you receive a gift', icon: 'gift' },
+  { key: 'eventReminders', label: 'Event Reminders', description: 'Special events and tournaments', icon: 'calendar' },
+  { key: 'promotions', label: 'Promotions', description: 'Deals and special offers', icon: 'bullhorn' },
+]
 
 const EQUIPPED_SLOTS = [
   { key: 'equippedAvatarId' as const, label: 'Avatar' },
@@ -140,7 +156,7 @@ export function AccountSection({
             </Text>
             <Text style={[styles.accountSecondary, { color: t.mutedForeground }]}>
               {isGuest
-                ? 'Your progress is saved locally'
+                ? 'Cloud save enabled — link Apple or Google to use this account on other devices'
                 : 'Progress synced across devices'}
             </Text>
           </View>
@@ -151,7 +167,7 @@ export function AccountSection({
             {showLink ? (
               <View style={{ padding: 14, gap: 10 }}>
                 <Text style={[styles.hint, { color: t.mutedForeground }]}>
-                  Link your account to save progress across devices
+                  Link Apple or Google so you can sign in on a new device with the same progress
                 </Text>
                 <AppleSignInButton
                   navigateToTabs={false}
@@ -252,6 +268,65 @@ export function StatsGridSection({
           <Text style={[styles.statLabel, { color: t.mutedForeground }]}>{c.label}</Text>
         </View>
       ))}
+    </View>
+  )
+}
+
+export function CoinLedgerSection({ entries }: { entries: CoinLedgerEntry[] }) {
+  const t = useCasinoTheme()
+  const [expanded, setExpanded] = useState(false)
+
+  const visible = expanded ? entries.slice(0, 40) : entries.slice(0, 10)
+
+  return (
+    <View style={{ gap: 10 }}>
+      <SectionTitle icon="history" title="Coin activity" />
+      <Text style={[styles.ledgerHint, { color: t.mutedForeground }]}>
+        Recent wins, bets, shop top-ups, and bonuses — saved on this device only.
+      </Text>
+      {entries.length === 0 ? (
+        <Text style={[styles.ledgerEmpty, { color: t.mutedForeground }]}>
+          No entries yet — spin the reels or use the shop to see your history here.
+        </Text>
+      ) : (
+        <View style={[styles.ledgerCard, { borderColor: t.border, backgroundColor: t.card }]}>
+          {visible.map((e, i) => (
+            <View
+              key={e.id}
+              style={[
+                styles.ledgerRow,
+                i === visible.length - 1 && { borderBottomWidth: 0 },
+              ]}
+            >
+              <View style={{ flex: 1, minWidth: 0, paddingRight: 10 }}>
+                <Text style={[styles.ledgerLabel, { color: t.foreground }]} numberOfLines={2}>
+                  {e.label}
+                </Text>
+                <Text style={[styles.ledgerTs, { color: t.mutedForeground }]}>
+                  {new Date(e.ts).toLocaleString()}
+                </Text>
+              </View>
+              <Text
+                style={[
+                  styles.ledgerDelta,
+                  { color: e.delta >= 0 ? t.win : t.destructive },
+                ]}
+              >
+                {e.delta >= 0 ? '+' : ''}
+                {e.delta.toLocaleString()}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+      {entries.length > 10 ? (
+        <AppButton
+          variant="ghost"
+          size="sm"
+          label={expanded ? 'Show fewer' : `Show more (${entries.length})`}
+          onPress={() => setExpanded((x) => !x)}
+        />
+      ) : null}
     </View>
   )
 }
@@ -515,38 +590,50 @@ export function NotificationPrefsSection({
   prefs,
   setPref,
 }: {
-  prefs: {
-    dailyBonus: boolean
-    giftNotifications: boolean
-    eventReminders: boolean
-    promotions: boolean
-  }
-  setPref: (key: keyof typeof prefs, value: boolean) => void
+  prefs: NotificationPrefs
+  setPref: (key: keyof NotificationPrefs, value: boolean) => void
 }) {
   const t = useCasinoTheme()
-  const rows: { key: keyof typeof prefs; label: string; description: string; icon: keyof typeof FontAwesome.glyphMap }[] = [
-    { key: 'dailyBonus', label: 'Daily Bonus Reminders', description: 'Get notified about unclaimed bonuses', icon: 'gift' },
-    { key: 'giftNotifications', label: 'Gift Notifications', description: 'When you receive a gift', icon: 'gift' },
-    { key: 'eventReminders', label: 'Event Reminders', description: 'Special events and tournaments', icon: 'calendar' },
-    { key: 'promotions', label: 'Promotions', description: 'Deals and special offers', icon: 'bullhorn' },
-  ]
+  const { resolvedMode, mode } = useAppearance()
+  const native = useNativeSemanticColors(mode)
+
+  const expoUiReady = isExpoUiNativeAvailable()
+  if ((Platform.OS === 'ios' || Platform.OS === 'android') && expoUiReady) {
+    const { ExpoUiNotificationPrefsPilot } =
+      require('./ExpoUiNotificationPrefsPilot') as typeof import('./ExpoUiNotificationPrefsPilot')
+    return (
+      <View>
+        <SectionTitle icon="bell" title="Notification Preferences" />
+        <ExpoUiNotificationPrefsPilot prefs={prefs} setPref={setPref} resolvedMode={resolvedMode} />
+      </View>
+    )
+  }
+
+  const titleC = native?.label ?? t.foreground
+  const subC = native?.secondaryLabel ?? t.mutedForeground
+  const sep = native?.separator ?? t.border
+  const iconC = native?.rowIcon ?? t.mutedForeground
+
   return (
     <View>
       <SectionTitle icon="bell" title="Notification Preferences" />
       <View style={[styles.card, { borderColor: t.border, backgroundColor: t.card, padding: 0 }]}>
-        {rows.map((row, i) => (
+        {NOTIFICATION_PREFS_ROWS_RN.map((row, i) => (
           <Pressable
             key={row.key}
             onPress={() => setPref(row.key, !prefs[row.key])}
             style={[
               styles.prefRow,
-              i < rows.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.border },
+              i < NOTIFICATION_PREFS_ROWS_RN.length - 1 && {
+                borderBottomWidth: StyleSheet.hairlineWidth,
+                borderBottomColor: sep,
+              },
             ]}
           >
-            <FontAwesome name={row.icon} size={14} color={t.mutedForeground} />
+            <FontAwesome name={row.icon} size={14} color={iconC} />
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={[styles.rowTitle, { color: t.foreground }]}>{row.label}</Text>
-              <Text style={[styles.rowSub, { color: t.mutedForeground }]}>{row.description}</Text>
+              <Text style={[styles.rowTitle, { color: titleC }]}>{row.label}</Text>
+              <Text style={[styles.rowSub, { color: subC }]}>{row.description}</Text>
             </View>
             <View
               style={[
@@ -585,15 +672,22 @@ export function ResponsiblePlaySection({
   toggleCooldown: () => void
 }) {
   const t = useCasinoTheme()
+  const { mode } = useAppearance()
+  const native = useNativeSemanticColors(mode)
+  const titleC = native?.label ?? t.foreground
+  const subC = native?.secondaryLabel ?? t.mutedForeground
+  const sep = native?.separator ?? t.border
+  const iconC = native?.rowIcon ?? t.mutedForeground
+
   return (
     <View>
       <SectionTitle icon="shield" title="Responsible Play" />
       <View style={[styles.card, { borderColor: t.border, backgroundColor: t.card, padding: 0 }]}>
         <View style={[styles.prefRow, { flexWrap: 'wrap', gap: 10 }]}>
-          <FontAwesome name="clock-o" size={14} color={t.mutedForeground} />
+          <FontAwesome name="clock-o" size={14} color={iconC} />
           <View style={{ flex: 1, minWidth: 140 }}>
-            <Text style={[styles.rowTitle, { color: t.foreground }]}>Session Reminder</Text>
-            <Text style={[styles.rowSub, { color: t.mutedForeground }]}>Get reminded after playing</Text>
+            <Text style={[styles.rowTitle, { color: titleC }]}>Session Reminder</Text>
+            <Text style={[styles.rowSub, { color: subC }]}>Get reminded after playing</Text>
           </View>
           <View style={styles.chipRow}>
             {SESSION_CHIPS.map((c) => {
@@ -607,12 +701,12 @@ export function ResponsiblePlaySection({
                   style={[
                     styles.chip,
                     {
-                      borderColor: selected ? t.primary : t.border,
+                      borderColor: selected ? t.primary : sep,
                       backgroundColor: selected ? `${t.primary}33` : 'transparent',
                     },
                   ]}
                 >
-                  <Text style={[styles.chipTxt, { color: selected ? t.primary : t.foreground }]}>
+                  <Text style={[styles.chipTxt, { color: selected ? t.primary : titleC }]}>
                     {c.label}
                   </Text>
                 </Pressable>
@@ -620,11 +714,11 @@ export function ResponsiblePlaySection({
             })}
           </View>
         </View>
-        <Pressable onPress={toggleCooldown} style={[styles.prefRow, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.border }]}>
-          <FontAwesome name="shield" size={14} color={t.mutedForeground} />
+        <Pressable onPress={toggleCooldown} style={[styles.prefRow, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: sep }]}>
+          <FontAwesome name="shield" size={14} color={iconC} />
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={[styles.rowTitle, { color: t.foreground }]}>Cooldown Mode</Text>
-            <Text style={[styles.rowSub, { color: t.mutedForeground }]}>
+            <Text style={[styles.rowTitle, { color: titleC }]}>Cooldown Mode</Text>
+            <Text style={[styles.rowSub, { color: subC }]}>
               30 second delay between spins
             </Text>
           </View>
@@ -641,7 +735,7 @@ export function ResponsiblePlaySection({
           </View>
         </Pressable>
       </View>
-      <Text style={[styles.disclaimer, { color: t.mutedForeground }]}>
+      <Text style={[styles.disclaimer, { color: subC }]}>
         Play responsibly. This is a simulated casino game for entertainment purposes only.
       </Text>
     </View>
@@ -650,6 +744,12 @@ export function ResponsiblePlaySection({
 
 export function SupportSection() {
   const t = useCasinoTheme()
+  const { mode } = useAppearance()
+  const native = useNativeSemanticColors(mode)
+  const titleC = native?.label ?? t.foreground
+  const sep = native?.separator ?? t.border
+  const iconC = native?.rowIcon ?? t.mutedForeground
+
   const row = async (url: string) => {
     await openExternalUrl(url)
   }
@@ -659,16 +759,16 @@ export function SupportSection() {
       <View style={[styles.card, { borderColor: t.border, backgroundColor: t.card, padding: 0 }]}>
         <Pressable
           onPress={() => row(SUPPORT_URLS.helpCenter)}
-          style={[styles.supportRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.border }]}
+          style={[styles.supportRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: sep }]}
         >
-          <FontAwesome name="question-circle" size={14} color={t.mutedForeground} />
-          <Text style={[styles.rowTitle, { color: t.foreground, flex: 1 }]}>Help Center</Text>
-          <FontAwesome name="chevron-right" size={12} color={t.mutedForeground} />
+          <FontAwesome name="question-circle" size={14} color={iconC} />
+          <Text style={[styles.rowTitle, { color: titleC, flex: 1 }]}>Help Center</Text>
+          <FontAwesome name="chevron-right" size={12} color={iconC} />
         </Pressable>
         <Pressable onPress={() => row(SUPPORT_URLS.contactMail)} style={styles.supportRow}>
-          <FontAwesome name="envelope" size={14} color={t.mutedForeground} />
-          <Text style={[styles.rowTitle, { color: t.foreground, flex: 1 }]}>Contact Support</Text>
-          <FontAwesome name="chevron-right" size={12} color={t.mutedForeground} />
+          <FontAwesome name="envelope" size={14} color={iconC} />
+          <Text style={[styles.rowTitle, { color: titleC, flex: 1 }]}>Contact Support</Text>
+          <FontAwesome name="chevron-right" size={12} color={iconC} />
         </Pressable>
       </View>
     </View>
@@ -756,6 +856,25 @@ const styles = StyleSheet.create({
   },
   statValue: { fontSize: 15, fontWeight: '800', textAlign: 'center' },
   statLabel: { fontSize: 9, fontWeight: '600', textAlign: 'center', marginTop: 2 },
+  ledgerHint: { fontSize: 12, lineHeight: 16 },
+  ledgerEmpty: { fontSize: 13, fontStyle: 'italic' },
+  ledgerCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  ledgerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(128,128,128,0.25)',
+  },
+  ledgerLabel: { fontSize: 13, fontWeight: '600' },
+  ledgerTs: { fontSize: 10, marginTop: 2 },
+  ledgerDelta: { fontSize: 14, fontWeight: '800' },
   equippedGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
