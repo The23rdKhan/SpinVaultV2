@@ -1,17 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { PlayerProfileModal } from '@/components/social/PlayerProfileModal'
 import { ALL_VANITY_ITEMS, RARITY_COLORS } from '@/lib/vanity-data'
-import { useGame } from '@/lib/game-context'
 import { getSupabase } from '@/lib/supabase'
 import { isServerSpinEnabled } from '@/lib/server-spin'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import type { CasinoPalette } from '@/theme/tokens'
 
 /**
- * UTC week starting Monday — keep aligned with `public.week_period_start_utc` in
- * `supabase/migrations/20260203160000_phase5_leaderboard.sql`.
+ * UTC week starting Monday — keep aligned with `public.week_period_start_utc`.
  */
 function weekPeriodStartUTC(d = new Date()): string {
   const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
@@ -22,6 +20,7 @@ function weekPeriodStartUTC(d = new Date()): string {
 }
 
 type LeaderboardType = 'biggestWin' | 'totalWinnings'
+type LeaderboardViewState = 'loading' | 'disabled' | 'signed_out' | 'error' | 'empty' | 'ready'
 
 interface Entry {
   rank: number
@@ -34,30 +33,15 @@ interface Entry {
   isCurrentUser?: boolean
 }
 
-const NAMES = [
-  'LuckyAce',
-  'SpinMaster',
-  'JackpotJenny',
-  'GoldenDragon',
-  'HighRoller99',
-  'DiamondQueen',
-  'SlotKing',
-  'FortuneSeeker',
-  'WildWinner',
-  'MegaSpinner',
-  'CyberSlots',
-  'TreasureHunter',
-  'NeonNinja',
-  'VIPVictor',
-  'BonusBoss',
-  'ReelDeal',
-  'CashCow',
-  'BigBetBob',
-  'LadyLuck',
-  'PlatinumPlayer',
-]
-
-const PETS = ['pet-none', 'pet-cat', 'pet-dragon', 'pet-phoenix', 'pet-unicorn', 'pet-robot']
+interface LeaderboardRow {
+  rank: number | string | null
+  username: string | null
+  value: number | string | null
+  user_id: string | null
+  frame: string | null
+  title: string | null
+  pet: string | null
+}
 
 function petEmoji(petId: string): string {
   const pet = ALL_VANITY_ITEMS.find((i) => i.id === petId)
@@ -71,44 +55,17 @@ function petEmoji(petId: string): string {
   return ''
 }
 
-function generateMockLeaderboard(
-  type: LeaderboardType,
-  user: {
-    username: string
-    value: number
-    frame?: string
-    title?: string
-    pet?: string
+function mapRow(row: LeaderboardRow, currentUserId: string): Entry {
+  return {
+    rank: Number(row.rank ?? 0),
+    username: String(row.username ?? 'Player'),
+    value: Number(row.value ?? 0),
+    frame: row.frame ?? 'frame-basic',
+    title: row.title ?? undefined,
+    pet: row.pet ?? 'pet-none',
+    vipTier: undefined,
+    isCurrentUser: row.user_id === currentUserId,
   }
-): Entry[] {
-  const mockEntries: Entry[] = NAMES.slice(0, 20).map((name, i) => ({
-    rank: i + 1,
-    username: name,
-    value:
-      type === 'biggestWin'
-        ? Math.floor(50000 / (i + 1) + Math.random() * 5000)
-        : Math.floor(500000 / (i + 1) + Math.random() * 50000),
-    vipTier: Math.max(1, 5 - Math.floor(i / 4)),
-    frame: i < 3 ? 'frame-diamond' : i < 10 ? 'frame-gold' : 'frame-basic',
-    title: i === 0 ? 'title-jackpot' : i < 5 ? 'title-legend' : 'title-player',
-    pet: i < 5 ? PETS[Math.floor(Math.random() * PETS.length)] : 'pet-none',
-  }))
-
-  const userRank = 21 + Math.floor(Math.random() * 50)
-  const userEntry: Entry = {
-    rank: userRank,
-    username: user.username,
-    value: user.value,
-    isCurrentUser: true,
-    vipTier: 1,
-    frame: user.frame ?? 'frame-basic',
-    title: user.title,
-    pet: user.pet ?? 'pet-none',
-  }
-
-  return [...mockEntries, userEntry]
-    .sort((a, b) => b.value - a.value)
-    .map((e, i) => ({ ...e, rank: i + 1 }))
 }
 
 function Row({
@@ -199,114 +156,138 @@ function Row({
 
 export function WeeklyLeaderboard() {
   const t = useCasinoTheme()
-  const { username, leaderboardStats, userVanity } = useGame()
   const [type, setType] = useState<LeaderboardType>('biggestWin')
   const [pick, setPick] = useState<Entry | null>(null)
-  const [serverEntries, setServerEntries] = useState<Entry[] | null>(null)
-
-  const equippedTitleItem = userVanity.equippedTitleId
-    ? ALL_VANITY_ITEMS.find((i) => i.id === userVanity.equippedTitleId)
-    : null
-  const displayTitle = equippedTitleItem?.id
+  const [viewState, setViewState] = useState<LeaderboardViewState>('loading')
+  const [topEntries, setTopEntries] = useState<Entry[]>([])
+  const [selfEntry, setSelfEntry] = useState<Entry | null>(null)
 
   useEffect(() => {
     let cancelled = false
+
     async function load() {
       if (!isServerSpinEnabled()) {
-        setServerEntries(null)
+        if (!cancelled) {
+          setViewState('disabled')
+          setTopEntries([])
+          setSelfEntry(null)
+        }
         return
       }
+
       const supabase = getSupabase()
-      if (!supabase) return
+      if (!supabase) {
+        if (!cancelled) {
+          setViewState('error')
+        }
+        return
+      }
+
+      setViewState('loading')
+
       const {
         data: { session },
       } = await supabase.auth.getSession()
+
       if (!session?.user) {
-        setServerEntries(null)
+        if (!cancelled) {
+          setViewState('signed_out')
+          setTopEntries([])
+          setSelfEntry(null)
+        }
         return
       }
+
       const uid = session.user.id
       const period = weekPeriodStartUTC()
-      const lbType = type === 'biggestWin' ? 'weekly_biggest_win' : 'weekly_total_winnings'
-      const { data, error } = await supabase
-        .from('v_leaderboard_public')
-        .select('rank, username, value, user_id')
-        .eq('period_start', period)
-        .eq('leaderboard_type', lbType)
-        .order('rank', { ascending: true })
-        .limit(40)
-      if (cancelled || error || !data?.length) {
-        if (!cancelled) setServerEntries(null)
+      const leaderboardType = type === 'biggestWin' ? 'weekly_biggest_win' : 'weekly_total_winnings'
+
+      // Pull the visible leaderboard page and the current user's true weekly row
+      // from the same authoritative server projection.
+      const [topResult, selfResult] = await Promise.all([
+        supabase
+          .from('v_leaderboard_public')
+          .select('rank, username, value, user_id, frame, title, pet')
+          .eq('period_start', period)
+          .eq('leaderboard_type', leaderboardType)
+          .order('rank', { ascending: true })
+          .limit(20),
+        supabase
+          .from('v_leaderboard_public')
+          .select('rank, username, value, user_id, frame, title, pet')
+          .eq('period_start', period)
+          .eq('leaderboard_type', leaderboardType)
+          .eq('user_id', uid)
+          .maybeSingle(),
+      ])
+
+      if (cancelled) return
+
+      if (topResult.error || selfResult.error) {
+        setViewState('error')
+        setTopEntries([])
+        setSelfEntry(null)
         return
       }
-      const mapped: Entry[] = data.map((row) => ({
-        rank: Number(row.rank),
-        username: String(row.username ?? 'Player'),
-        value: Number(row.value ?? 0),
-        isCurrentUser: row.user_id === uid,
-        vipTier: 1,
-        frame: 'frame-basic',
-        pet: 'pet-none',
-      }))
-      setServerEntries(mapped)
+
+      const top = ((topResult.data ?? []) as LeaderboardRow[]).map((row) => mapRow(row, uid))
+      const self = selfResult.data ? mapRow(selfResult.data as LeaderboardRow, uid) : null
+
+      setTopEntries(top)
+      setSelfEntry(self)
+      setViewState(top.length > 0 ? 'ready' : 'empty')
     }
+
     void load()
     return () => {
       cancelled = true
     }
   }, [type])
 
-  const mockEntries = useMemo(
-    () =>
-      generateMockLeaderboard(type, {
-        username,
-        value:
-          type === 'biggestWin'
-            ? leaderboardStats.weeklyBiggestWin
-            : leaderboardStats.weeklyTotalWinnings,
-        frame: userVanity.equippedFrameId,
-        title: displayTitle,
-        pet: userVanity.equippedPetId,
-      }),
-    [username, type, leaderboardStats, userVanity, displayTitle],
-  )
+  const renderState = () => {
+    if (viewState === 'ready') return null
 
-  /** Merge server rows with a synthetic self row when the user is not in the returned page. */
-  const entries = useMemo(() => {
-    if (!serverEntries?.length) return mockEntries
-    const userValue =
-      type === 'biggestWin'
-        ? leaderboardStats.weeklyBiggestWin
-        : leaderboardStats.weeklyTotalWinnings
-    let list = [...serverEntries]
-    if (!list.some((e) => e.isCurrentUser)) {
-      list.push({
-        rank: list.length + 1,
-        username,
-        value: userValue,
-        isCurrentUser: true,
-        vipTier: 1,
-        frame: userVanity.equippedFrameId ?? 'frame-basic',
-        title: displayTitle,
-        pet: userVanity.equippedPetId ?? 'pet-none',
-      })
-    }
-    list = [...list].sort((a, b) => b.value - a.value).map((e, i) => ({ ...e, rank: i + 1 }))
-    return list
-  }, [
-    serverEntries,
-    mockEntries,
-    type,
-    leaderboardStats.weeklyBiggestWin,
-    leaderboardStats.weeklyTotalWinnings,
-    username,
-    userVanity.equippedFrameId,
-    userVanity.equippedPetId,
-    displayTitle,
-  ])
+    const stateMeta =
+      viewState === 'loading'
+        ? {
+            icon: 'refresh' as const,
+            title: 'Loading leaderboard…',
+            body: 'Pulling the latest weekly standings from the server.',
+          }
+        : viewState === 'disabled'
+          ? {
+              icon: 'lock' as const,
+              title: 'Leaderboard disabled',
+              body: 'Weekly rankings appear only when server-tracked spins are enabled.',
+            }
+          : viewState === 'signed_out'
+            ? {
+                icon: 'user' as const,
+                title: 'Sign in to view rankings',
+                body: 'Leaderboard entries are tied to your account and weekly spin history.',
+              }
+            : viewState === 'error'
+              ? {
+                  icon: 'warning' as const,
+                  title: 'Leaderboard unavailable',
+                  body: 'Real rankings could not be loaded right now.',
+                }
+              : {
+                  icon: 'trophy' as const,
+                  title: 'No entries yet',
+                  body: 'Weekly rankings will appear after the first tracked spins land this week.',
+                }
 
-  const top = entries.slice(0, 20)
-  const self = entries.find((e) => e.isCurrentUser)
+    return (
+      <View style={styles.stateBox}>
+        <View style={[styles.stateIcon, { backgroundColor: `${t.primary}18`, borderColor: `${t.primary}33` }]}>
+          <FontAwesome name={stateMeta.icon} size={18} color={t.primary} />
+        </View>
+        <Text style={[styles.stateTitle, { color: t.foreground }]}>{stateMeta.title}</Text>
+        <Text style={[styles.stateSub, { color: t.mutedForeground }]}>{stateMeta.body}</Text>
+      </View>
+    )
+  }
 
   return (
     <View style={styles.wrap}>
@@ -318,10 +299,7 @@ export function WeeklyLeaderboard() {
       <View style={[styles.tabs, { backgroundColor: `${t.muted}55` }]}>
         <Pressable
           onPress={() => setType('biggestWin')}
-          style={[
-            styles.tab,
-            type === 'biggestWin' && { backgroundColor: t.primary },
-          ]}
+          style={[styles.tab, type === 'biggestWin' && { backgroundColor: t.primary }]}
         >
           <FontAwesome
             name="star"
@@ -339,10 +317,7 @@ export function WeeklyLeaderboard() {
         </Pressable>
         <Pressable
           onPress={() => setType('totalWinnings')}
-          style={[
-            styles.tab,
-            type === 'totalWinnings' && { backgroundColor: t.primary },
-          ]}
+          style={[styles.tab, type === 'totalWinnings' && { backgroundColor: t.primary }]}
         >
           <FontAwesome
             name="bar-chart"
@@ -361,20 +336,28 @@ export function WeeklyLeaderboard() {
       </View>
 
       <View style={[styles.list, { borderColor: t.border, backgroundColor: t.card }]}>
-        {top.map((e) => (
-          <View
-            key={`${e.rank}-${e.username}-${e.isCurrentUser ? 'me' : 'row'}`}
-            style={[styles.listRow, { borderBottomColor: t.border }]}
-          >
-            <Row entry={e} onPress={() => setPick(e)} t={t} />
-          </View>
-        ))}
+        {viewState !== 'ready' ? (
+          renderState()
+        ) : (
+          topEntries.map((entry, index) => (
+            <View
+              key={`${entry.rank}-${entry.username}-${entry.isCurrentUser ? 'me' : 'row'}`}
+              style={[
+                styles.listRow,
+                { borderBottomColor: t.border },
+                index === topEntries.length - 1 && styles.lastListRow,
+              ]}
+            >
+              <Row entry={entry} onPress={() => setPick(entry)} t={t} />
+            </View>
+          ))
+        )}
       </View>
 
-      {self && self.rank > 20 ? (
+      {selfEntry && selfEntry.rank > topEntries.length ? (
         <View style={[styles.selfBox, { borderColor: t.primary }]}>
           <Text style={[styles.selfLbl, { color: t.mutedForeground }]}>Your position</Text>
-          <Row entry={self} onPress={() => setPick(self)} t={t} />
+          <Row entry={selfEntry} onPress={() => setPick(selfEntry)} t={t} />
         </View>
       ) : null}
 
@@ -417,6 +400,7 @@ const styles = StyleSheet.create({
   listRow: {
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  lastListRow: { borderBottomWidth: 0 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -466,6 +450,22 @@ const styles = StyleSheet.create({
   titleHint: { fontSize: 11, marginTop: 2 },
   valCol: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   val: { fontSize: 14, fontWeight: '800' },
+  stateBox: {
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    gap: 8,
+  },
+  stateIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stateTitle: { fontSize: 14, fontWeight: '800', textAlign: 'center' },
+  stateSub: { fontSize: 12, textAlign: 'center' },
   selfBox: {
     borderRadius: 14,
     borderWidth: 1,
