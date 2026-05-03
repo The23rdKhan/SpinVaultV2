@@ -504,63 +504,79 @@ function gridIdsToReelGrid(gridIds: string[][]): ReelGrid {
   )
 }
 
-const initialState: GameState = {
-  coins: 5000,
-  currentTheme: "vegas",
-  ownedThemes: ["vegas"],
-  currentBet: 50,
-  betOptions: BET_OPTIONS,
-  isSpinning: false,
-  reelsLocked: false,
-  reelGrid: generateInitialGrid(),
-  lastWin: 0,
-  winMultiplier: 0,
-  lastWinType: "none",
-  winningLines: [],
-  winningPositions: new Set(),
-  freeSpins: 0,
-  lastSpinFreeSpinsWon: 0,
-  isJackpotMode: false,
-  jackpotMultiplier: 1,
-  bonusProgress: 0,
-  lastBonusMeterPayout: 0,
-  coinLedger: [],
-  spinSyncDeferred: false,
-  dailyStreak: 0,
-  dailyRewards: INITIAL_DAILY_REWARDS,
-  lastClaimDate: null,
-  dailyWheel: {
-    lastWheelSpinAt: null,
-    dailyWheelClaimed: false,
-    wheelReward: null,
-  },
-  missions: INITIAL_MISSIONS,
-  soundEnabled: true,
-  musicEnabled: false,
-  hapticsEnabled: true,
-  notificationsEnabled: true,
-  sessionReminderMinutes: null,
-  dailyPurchaseLimit: null,
-  cooldownEnabled: false,
-  username: "Player",
-  level: 1,
-  xp: 0,
-  totalSpins: 0,
-  spinSequence: 0,
-  biggestWin: 0,
-  totalWins: 0,
-  maxBetUsed: false,
-  
-  // Vanity System
-  userVanity: getDefaultUserVanity(),
-  trophies: generateInitialTrophies(),
-  leaderboardStats: {
+function createInitialGameState(): GameState {
+  return {
+    coins: 5000,
+    currentTheme: "vegas",
+    ownedThemes: ["vegas"],
+    currentBet: 50,
+    betOptions: BET_OPTIONS,
+    isSpinning: false,
+    reelsLocked: false,
+    reelGrid: generateInitialGrid(),
+    lastWin: 0,
+    winMultiplier: 0,
+    lastWinType: "none",
+    winningLines: [],
+    winningPositions: new Set(),
+    freeSpins: 0,
+    lastSpinFreeSpinsWon: 0,
+    isJackpotMode: false,
+    jackpotMultiplier: 1,
+    bonusProgress: 0,
+    lastBonusMeterPayout: 0,
+    coinLedger: [],
+    spinSyncDeferred: false,
+    dailyStreak: 0,
+    dailyRewards: INITIAL_DAILY_REWARDS.map((r) => ({ ...r })),
+    lastClaimDate: null,
+    dailyWheel: {
+      lastWheelSpinAt: null,
+      dailyWheelClaimed: false,
+      wheelReward: null,
+    },
+    missions: INITIAL_MISSIONS.map((m) => ({ ...m })),
+    soundEnabled: true,
+    musicEnabled: false,
+    hapticsEnabled: true,
+    notificationsEnabled: true,
+    sessionReminderMinutes: null,
+    dailyPurchaseLimit: null,
+    cooldownEnabled: false,
+    username: "Player",
+    level: 1,
+    xp: 0,
+    totalSpins: 0,
+    spinSequence: 0,
+    biggestWin: 0,
+    totalWins: 0,
+    maxBetUsed: false,
+    userVanity: getDefaultUserVanity(),
+    trophies: generateInitialTrophies(),
+    leaderboardStats: {
+      weeklyBiggestWin: 0,
+      weeklyTotalWinnings: 0,
+      weekStartDate: new Date().toISOString(),
+      allTimeTotalWinnings: 0,
+    },
+    recentBigWins: [],
+  }
+}
+
+/** Defaults for merging cloud payload when fields are missing. */
+const FALLBACK_DAILY_WHEEL: DailyWheelState = {
+  lastWheelSpinAt: null,
+  dailyWheelClaimed: false,
+  wheelReward: null,
+}
+
+function fallbackLeaderboardStats(): LeaderboardStats {
+  return {
     weeklyBiggestWin: 0,
     weeklyTotalWinnings: 0,
     weekStartDate: new Date().toISOString(),
     allTimeTotalWinnings: 0,
-  },
-  recentBigWins: [],
+  }
 }
 
 const GameContext = createContext<(GameState & GameActions) | null>(null)
@@ -571,7 +587,7 @@ const FALLBACK_TOAST_THROTTLE_MS = 3 * 60 * 1000
 const PLAYER_SAVE_PENDING_RETRY_KEY = '@spinvault/player_save_pending_retry'
 
 export function GameProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<GameState>(initialState)
+  const [state, setState] = useState<GameState>(() => createInitialGameState())
   const stateRef = useRef(state)
   stateRef.current = state
   /** Resolves the pending `spin()` promise after reels finish — ref avoids stale closures and setState-in-setState. */
@@ -585,7 +601,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   /** Avoid clearing pending-save storage on cold start before `getSession` resolves. */
   const hadCloudUserSessionRef = useRef(false)
   /** Effective bet for payline + bonus meter (free spins use `FREE_SPIN_LINE_BET`; cost to player is 0). */
-  const spinLineBetRef = useRef(initialState.currentBet)
+  const spinLineBetRef = useRef(50)
 
   const [cloudUserId, setCloudUserId] = useState<string | null>(null)
 
@@ -786,7 +802,24 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (hadCloudUserSessionRef.current) {
       hadCloudUserSessionRef.current = false
       cloudSaveNeedsRetryRef.current = false
+      cloudSaveInFlightRef.current = false
       void AsyncStorage.removeItem(PLAYER_SAVE_PENDING_RETRY_KEY).catch(() => {})
+
+      /* Privacy: clear in-memory progress after Supabase session ends (sign-out). */
+      cloudHydrateGenRef.current += 1
+      const finishSpin = spinResolveRef.current
+      const prevGrid = stateRef.current
+      if (finishSpin) {
+        spinResolveRef.current = null
+        queueMicrotask(() => finishSpin(emptySpinResult(prevGrid)))
+      }
+      serverSpinPayloadRef.current = null
+      suppressCloudSaveUntilRef.current = 0
+      lastServerFallbackToastAtRef.current = 0
+
+      const fresh = createInitialGameState()
+      setState(fresh)
+      spinLineBetRef.current = fresh.currentBet
     }
   }, [cloudUserId])
 
@@ -831,10 +864,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
         createFreshGrid: generateInitialGrid,
         fallbackDailyRewards: INITIAL_DAILY_REWARDS,
         fallbackMissions: INITIAL_MISSIONS,
-        fallbackDailyWheel: initialState.dailyWheel,
+        fallbackDailyWheel: FALLBACK_DAILY_WHEEL,
         fallbackUserVanity: getDefaultUserVanity(),
         fallbackTrophies: generateInitialTrophies(),
-        fallbackLeaderboard: initialState.leaderboardStats,
+        fallbackLeaderboard: fallbackLeaderboardStats(),
       })
 
       setState((prev) => ({ ...prev, ...patch }))

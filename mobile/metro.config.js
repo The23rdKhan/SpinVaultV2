@@ -5,7 +5,9 @@ const { resolve: metroResolve } = require('metro-resolver').default
 
 const projectRoot = __dirname
 const monorepoRoot = path.resolve(projectRoot, '..')
-const sharedRoot = path.join(monorepoRoot, 'shared')
+/** Repo `shared/` (dev). EAS `eas-build-pre-install` may mirror it into `mobile/shared/`. */
+const embeddedSharedRoot = path.join(projectRoot, 'shared')
+const monorepoSharedRoot = path.join(monorepoRoot, 'shared')
 
 function resolveSharedSourceFile(baseWithoutExt) {
   const exts = ['.tsx', '.ts', '.jsx', '.js', '.json']
@@ -45,9 +47,11 @@ const upstreamResolveRequest = config.resolver.resolveRequest
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (moduleName.startsWith('@shared/')) {
     const rel = moduleName.slice('@shared/'.length)
-    const filePath = resolveSharedSourceFile(path.join(sharedRoot, rel))
-    if (filePath) {
-      return { type: 'sourceFile', filePath }
+    for (const root of [embeddedSharedRoot, monorepoSharedRoot]) {
+      const filePath = resolveSharedSourceFile(path.join(root, rel))
+      if (filePath) {
+        return { type: 'sourceFile', filePath }
+      }
     }
   }
   if (upstreamResolveRequest) {

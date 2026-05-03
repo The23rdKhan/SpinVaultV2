@@ -20,3 +20,6 @@ node_modules
 .DS_Store
 *.tsbuildinfo
 mobile/.expo/
+
+# Copied from repo `shared/` during EAS pre-install (see mobile/scripts/eas-copy-shared.cjs)
+mobile/shared/

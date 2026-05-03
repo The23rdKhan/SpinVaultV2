@@ -3,6 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
+    "eas-build-pre-install": "node scripts/eas-copy-shared.cjs",
     "dev": "expo start --dev-client",
     "start": "expo start --dev-client",
     "start:go": "expo start",
@@ -39,6 +40,7 @@
     "expo-status-bar": "~55.0.5",
     "expo-system-ui": "~55.0.16",
     "expo-web-browser": "~55.0.14",
+    "prop-types": "^15.8.1",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-native": "0.83.6",
