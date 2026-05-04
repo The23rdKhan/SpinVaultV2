@@ -69,6 +69,8 @@ export default function ShopScreen() {
     resyncWalletFromServer,
   } = useGame()
   const [tab, setTab] = useState<VanityCategory>('avatar')
+  /** Prevents double-tap launching two purchase sheets simultaneously. */
+  const [isPurchasing, setIsPurchasing] = useState(false)
 
   useFocusEffect(
     useCallback(() => {
@@ -87,6 +89,7 @@ export default function ShopScreen() {
   }, [buyVanityItem, equipVanityItem])
 
   const onCoinPack = (pack: ShopCoinPackRow) => {
+    if (isPurchasing) return
     void (async () => {
       if (!(await isReachable())) {
         Toast.show({
@@ -96,40 +99,42 @@ export default function ShopScreen() {
         })
         return
       }
-      track(AnalyticsEvents.PURCHASE_STARTED, {
-        product_id: pack.id,
-        kind: pack.kind,
-      })
-      if (isRevenueCatConfigured()) {
-        const r = await purchaseConsumableSku(pack.id)
-        if (r.ok) {
-          await resyncWalletFromServer()
-          track(AnalyticsEvents.PURCHASE_COMPLETED, {
-            product_id: pack.id,
-            kind: pack.kind,
-            coins_granted: pack.coins,
-            free_spins_granted: pack.freeSpins,
+      setIsPurchasing(true)
+      try {
+        track(AnalyticsEvents.PURCHASE_STARTED, {
+          product_id: pack.id,
+          kind: pack.kind,
+        })
+        if (isRevenueCatConfigured()) {
+          const r = await purchaseConsumableSku(pack.id)
+          if (r.ok) {
+            await resyncWalletFromServer()
+            track(AnalyticsEvents.PURCHASE_COMPLETED, {
+              product_id: pack.id,
+              kind: pack.kind,
+              coins_granted: pack.coins,
+              free_spins_granted: pack.freeSpins,
+            })
+            msg('Purchase complete — wallet updated')
+            return
+          }
+          if (r.cancelled) return
+          Toast.show({
+            type: 'error',
+            text1: 'Purchase failed',
+            text2: r.message ?? 'Check App Store / Play products and try again.',
           })
-          msg('Purchase complete — wallet updated')
           return
         }
-        if (r.cancelled) return
-        Toast.show({
-          type: 'error',
-          text1: 'Purchase failed',
-          text2: r.message ?? 'Check App Store / Play products and try again.',
+        addCoins(pack.coins, {
+          reason: 'iap_grant',
+          label: `Coin pack (${pack.id})`,
         })
-        return
-      }
-      addCoins(pack.coins, {
-        reason: 'iap_grant',
-        label: `Coin pack (${pack.id})`,
-      })
-      if (pack.freeSpins > 0) {
-        addFreeSpins(pack.freeSpins)
-      }
-      track(AnalyticsEvents.PURCHASE_COMPLETED, {
-        product_id: pack.id,
+        if (pack.freeSpins > 0) {
+          addFreeSpins(pack.freeSpins)
+        }
+        track(AnalyticsEvents.PURCHASE_COMPLETED, {
+          product_id: pack.id,
         kind: pack.kind,
         coins_granted: pack.coins,
         free_spins_granted: pack.freeSpins,
@@ -141,6 +146,9 @@ export default function ShopScreen() {
             ? `Added ${pack.coins.toLocaleString()} coins`
             : `Added ${pack.freeSpins} free spins`,
       )
+      } finally {
+        setIsPurchasing(false)
+      }
     })()
   }
 
@@ -153,6 +161,7 @@ export default function ShopScreen() {
   }
 
   const onStarterPack = () => {
+    if (isPurchasing) return
     void (async () => {
       if (!(await isReachable())) {
         Toast.show({
@@ -162,47 +171,52 @@ export default function ShopScreen() {
         })
         return
       }
-      track(AnalyticsEvents.PURCHASE_STARTED, {
-        product_id: STARTER_BUNDLE_SKU,
-        kind: 'starter_pack',
-      })
-      if (isRevenueCatConfigured()) {
-        const r = await purchaseConsumableSku(STARTER_BUNDLE_SKU)
-        if (r.ok) {
-          await resyncWalletFromServer()
-          grantStarterBundleCosmetics()
-          track(AnalyticsEvents.PURCHASE_COMPLETED, {
-            product_id: STARTER_BUNDLE_SKU,
-            kind: 'starter_pack',
-            coins_granted: STARTER_BUNDLE_GRANT.coins,
-            free_spins_granted: STARTER_BUNDLE_GRANT.freeSpins,
+      setIsPurchasing(true)
+      try {
+        track(AnalyticsEvents.PURCHASE_STARTED, {
+          product_id: STARTER_BUNDLE_SKU,
+          kind: 'starter_pack',
+        })
+        if (isRevenueCatConfigured()) {
+          const r = await purchaseConsumableSku(STARTER_BUNDLE_SKU)
+          if (r.ok) {
+            await resyncWalletFromServer()
+            grantStarterBundleCosmetics()
+            track(AnalyticsEvents.PURCHASE_COMPLETED, {
+              product_id: STARTER_BUNDLE_SKU,
+              kind: 'starter_pack',
+              coins_granted: STARTER_BUNDLE_GRANT.coins,
+              free_spins_granted: STARTER_BUNDLE_GRANT.freeSpins,
+            })
+            msg('Starter pack unlocked — wallet updated + Golden Ring frame')
+            return
+          }
+          if (r.cancelled) return
+          Toast.show({
+            type: 'error',
+            text1: 'Purchase failed',
+            text2: r.message ?? 'Check store setup and try again.',
           })
-          msg('Starter pack unlocked — wallet updated + Golden Ring frame')
           return
         }
-        if (r.cancelled) return
-        Toast.show({
-          type: 'error',
-          text1: 'Purchase failed',
-          text2: r.message ?? 'Check store setup and try again.',
+        addCoins(STARTER_BUNDLE_GRANT.coins, {
+          reason: 'starter_pack',
+          label: 'Starter pack',
         })
-        return
+        addFreeSpins(STARTER_BUNDLE_GRANT.freeSpins)
+        grantStarterBundleCosmetics()
+        track(AnalyticsEvents.PURCHASE_COMPLETED, {
+          product_id: STARTER_BUNDLE_SKU,
+          kind: 'starter_pack',
+          coins_granted: STARTER_BUNDLE_GRANT.coins,
+          free_spins_granted: STARTER_BUNDLE_GRANT.freeSpins,
+        })
+        msg(
+          `Starter pack — ${STARTER_BUNDLE_GRANT.coins.toLocaleString()} coins + ${STARTER_BUNDLE_GRANT.freeSpins} free spins + frame`,
+        )
+      } finally {
+        setIsPurchasing(false)
       }
-      addCoins(STARTER_BUNDLE_GRANT.coins, {
-        reason: 'starter_pack',
-        label: 'Starter pack',
-      })
-      addFreeSpins(STARTER_BUNDLE_GRANT.freeSpins)
-      grantStarterBundleCosmetics()
-      track(AnalyticsEvents.PURCHASE_COMPLETED, {
-        product_id: STARTER_BUNDLE_SKU,
-        kind: 'starter_pack',
-        coins_granted: STARTER_BUNDLE_GRANT.coins,
-        free_spins_granted: STARTER_BUNDLE_GRANT.freeSpins,
-      })
-      msg(
-        `Starter pack — ${STARTER_BUNDLE_GRANT.coins.toLocaleString()} coins + ${STARTER_BUNDLE_GRANT.freeSpins} free spins + frame`,
-      )
     })()
   }
 
@@ -266,7 +280,7 @@ export default function ShopScreen() {
               <Text style={[styles.starterHint, { color: t.win }]}>
                 Best entry offer in the store
               </Text>
-              <AppButton label="$1.99" onPress={onStarterPack} style={styles.starterButton} />
+              <AppButton label="$1.99" onPress={onStarterPack} disabled={isPurchasing} style={styles.starterButton} />
             </View>
           </View>
         </LinearGradient>
@@ -320,8 +334,9 @@ export default function ShopScreen() {
               <Text style={[styles.packCaption, { color: t.mutedForeground }]}>{p.subtitle}</Text>
               <AppButton
                 size="sm"
-                label={p.priceLabel}
+                label={isPurchasing ? '...' : p.priceLabel}
                 variant={p.popular ? 'primary' : 'outline'}
+                disabled={isPurchasing}
                 onPress={() => onCoinPack(p)}
                 style={styles.packButton}
               />

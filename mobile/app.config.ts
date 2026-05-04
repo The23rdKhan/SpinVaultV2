@@ -16,6 +16,27 @@
  * Password reset: add redirect URL `mobile://reset-password` (or EXPO_PUBLIC_SUPABASE_RESET_REDIRECT_URL) under Authentication → URL Configuration.
  */
 import type { ExpoConfig } from 'expo/config'
+import type { ConfigPlugin } from 'expo/config-plugins'
+import { withAndroidManifest } from 'expo/config-plugins'
+
+/**
+ * react-native-purchases v10 ships without an Expo config plugin, so we add the
+ * Android `com.android.vending.BILLING` permission manually.
+ * iOS StoreKit capability is enabled in the Apple Developer portal (App ID →
+ * In-App Purchases) — nothing extra is required in app.config.ts for iOS.
+ */
+const withRevenueCatAndroidBilling: ConfigPlugin = (config) =>
+  withAndroidManifest(config, (c) => {
+    const manifest = c.modResults
+    const perms: Array<{ $: { 'android:name': string } }> =
+      (manifest.manifest['uses-permission'] as typeof manifest.manifest['uses-permission']) ?? []
+    const billingPermission = 'com.android.vending.BILLING'
+    if (!perms.some((p) => p.$['android:name'] === billingPermission)) {
+      perms.push({ $: { 'android:name': billingPermission } })
+      manifest.manifest['uses-permission'] = perms
+    }
+    return c
+  })
 
 const googleIosUrlScheme = process.env.EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME
 
@@ -37,6 +58,8 @@ const plugins: NonNullable<ExpoConfig['plugins']> = [
   ],
   ['expo-notifications', { defaultChannel: 'default' }],
   'expo-system-ui',
+  // Adds com.android.vending.BILLING to AndroidManifest (no plugin shipped with RC v10).
+  withRevenueCatAndroidBilling as unknown as string,
 ]
 
 if (googleIosUrlScheme) {
@@ -64,7 +87,12 @@ const config = {
     supportsTablet: true,
     bundleIdentifier: 'com.spinvault.mobile',
     usesAppleSignIn: true,
-    /** App Store export compliance: standard HTTPS only — avoids manual “encryption” questions when correct. */
+    /**
+     * App Store export compliance: standard HTTPS only (avoids manual encryption questions).
+     * IAP setup: enable the "In-App Purchase" capability in Apple Developer Portal ->
+     * Identifiers -> com.spinvault.mobile. No entitlement key needed in .entitlements
+     * for StoreKit IAP (only Apple Pay / PassKit uses com.apple.developer.in-app-payments).
+     */
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
     },
