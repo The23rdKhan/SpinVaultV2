@@ -17,7 +17,7 @@ import { WatchAdCard } from './WatchAdCard'
 export function RewardsTabContent() {
   const t = useCasinoTheme()
   const insets = useSafeAreaInsets()
-  const { dailyRewards, dailyStreak, claimDailyReward, coins } = useGame()
+  const { dailyRewards, dailyStreak, weeklyStreakCompleted, claimDailyReward, coins } = useGame()
   const [claimFlash, setClaimFlash] = useState<number | null>(null)
 
   const nextClaimableDay = dailyStreak + 1
@@ -68,6 +68,7 @@ export function RewardsTabContent() {
       <DailyLoginRewards
         dailyRewards={dailyRewards}
         dailyStreak={dailyStreak}
+        weeklyStreakCompleted={weeklyStreakCompleted}
         nextClaimableDay={nextClaimableDay}
         claimFlash={claimFlash}
         onClaim={handleClaimDay}

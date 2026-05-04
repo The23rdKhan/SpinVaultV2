@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
+import { BlurView } from 'expo-blur'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import Toast from 'react-native-toast-message'
 import { track } from '@/lib/analytics/track'
 import { useAuth } from '@/lib/auth-context'
 import { useGame } from '@/lib/game-context'
+import { useHaptics } from '@/lib/use-haptics'
 import { AnalyticsEvents } from '@shared/analytics/event-names'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 
@@ -15,6 +17,7 @@ export function WatchAdCard() {
   const t = useCasinoTheme()
   const { canWatchAd, adsWatchedToday, maxDailyAds, watchAd } = useAuth()
   const { addCoins } = useGame()
+  const { wheelSpin, claimTap } = useHaptics()
   const [open, setOpen] = useState(false)
   const [adState, setAdState] = useState<AdState>('ready')
   const [progress, setProgress] = useState(0)
@@ -70,12 +73,14 @@ export function WatchAdCard() {
 
   const startWatch = () => {
     if (!canWatchAd()) return
+    wheelSpin()
     track(AnalyticsEvents.REWARDED_AD_STARTED)
     setAdState('watching')
     setProgress(0)
   }
 
   const onClaimDone = () => {
+    claimTap()
     Toast.show({ type: 'success', text1: `+${reward} coins` })
     resetAndClose()
   }
@@ -138,6 +143,12 @@ export function WatchAdCard() {
         onRequestClose={() => adState !== 'watching' && resetAndClose()}
       >
         <View style={styles.modalRoot}>
+          <BlurView
+            intensity={45}
+            tint="dark"
+            blurMethod="dimezisBlurView"
+            style={StyleSheet.absoluteFill}
+          />
           <Pressable
             style={styles.modalBackdrop}
             onPress={() => adState !== 'watching' && resetAndClose()}
@@ -264,7 +275,6 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.72)',
   },
   sheet: {
     borderRadius: 22,

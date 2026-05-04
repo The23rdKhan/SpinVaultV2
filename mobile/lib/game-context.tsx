@@ -213,6 +213,8 @@ export interface GameState {
   dailyStreak: number
   dailyRewards: DailyReward[]
   lastClaimDate: string | null
+  /** True from the moment day 7 is claimed until midnight of the next day (when the cycle resets). */
+  weeklyStreakCompleted: boolean
   
   // Daily Wheel
   dailyWheel: DailyWheelState
@@ -449,6 +451,7 @@ function createInitialGameState(): GameState {
     dailyStreak: 0,
     dailyRewards: INITIAL_DAILY_REWARDS.map((r) => ({ ...r })),
     lastClaimDate: null,
+    weeklyStreakCompleted: false,
     dailyWheel: {
       lastWheelSpinAt: null,
       dailyWheelClaimed: false,
@@ -893,7 +896,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     hydrateOwnedThemesFromServer,
   ])
 
-  // Reset daily wheel and missions at midnight (local) — server economy uses DB UTC + hydrate instead.
+  // Reset daily wheel, missions, and (on new day after 7-day streak) the daily reward cycle.
+  // Server economy uses DB UTC + hydrate instead.
   useEffect(() => {
     const checkReset = () => {
       if (isServerEconomyEnabled()) {
@@ -906,18 +910,28 @@ export function GameProvider({ children }: { children: ReactNode }) {
           ? new Date(prev.dailyWheel.lastWheelSpinAt).toDateString()
           : null
 
-        if (lastWheelDate !== today) {
-          return {
-            ...prev,
+        const resetWheel = lastWheelDate !== today
+        // Reset the 7-day reward cycle the first midnight after the full week is claimed.
+        const resetWeeklyCycle = prev.weeklyStreakCompleted && prev.lastClaimDate !== today
+
+        if (!resetWheel && !resetWeeklyCycle) return prev
+
+        return {
+          ...prev,
+          ...(resetWheel && {
             dailyWheel: {
               lastWheelSpinAt: null,
               dailyWheelClaimed: false,
               wheelReward: null,
             },
             missions: INITIAL_MISSIONS,
-          }
+          }),
+          ...(resetWeeklyCycle && {
+            dailyStreak: 0,
+            weeklyStreakCompleted: false,
+            dailyRewards: INITIAL_DAILY_REWARDS.map((r) => ({ ...r })),
+          }),
         }
-        return prev
       })
     }
 
@@ -1537,6 +1551,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (reward && !reward.claimed && day === prev.dailyStreak + 1) {
         success = true
         const newStreak = day
+        const weekDone = newStreak >= DAILY_LOGIN_REWARD_COINS.length
         const bal = prev.coins + reward.coins
         return {
           ...prev,
@@ -1549,6 +1564,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             `Daily reward day ${day}`,
           ),
           dailyStreak: newStreak,
+          weeklyStreakCompleted: weekDone,
           dailyRewards: prev.dailyRewards.map((r) =>
             r.day === day ? { ...r, claimed: true } : r,
           ),
@@ -1578,6 +1594,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             freeSpins: Number(out.free_spin_balance),
             bonusProgress: Number(out.bonus_meter_progress ?? 0),
             dailyStreak: out.daily_streak_after,
+            weeklyStreakCompleted: out.daily_streak_after >= DAILY_LOGIN_REWARD_COINS.length,
             dailyRewards: prev.dailyRewards.map((r) =>
               r.day === day ? { ...r, claimed: true } : r,
             ),

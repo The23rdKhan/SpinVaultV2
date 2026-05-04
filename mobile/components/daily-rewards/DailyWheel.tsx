@@ -1,9 +1,11 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import Animated, {
   Easing,
   useAnimatedStyle,
   useSharedValue,
+  withSequence,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated'
 import Svg, { Path, Text as SvgText } from 'react-native-svg'
@@ -11,12 +13,15 @@ import FontAwesome from '@expo/vector-icons/FontAwesome'
 import Toast from 'react-native-toast-message'
 import { AppButton } from '@/components/ui/AppButton'
 import { useGame, WHEEL_REWARDS } from '@/lib/game-context'
+import { useHaptics } from '@/lib/use-haptics'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 
 const W = 200
 const CX = 100
 const CY = 100
 const R = 86
+const SPIN_DURATION_MS = 4000
+
 const SEGMENT_COLORS = [
   '#dc2626',
   '#2563eb',
@@ -53,20 +58,37 @@ function labelPos(i: number, n: number): { x: number; y: number; rot: number } {
 export function DailyWheel() {
   const t = useCasinoTheme()
   const { dailyWheel, spinDailyWheel } = useGame()
+  const { wheelSpin, claimTap } = useHaptics()
   const [isSpinning, setIsSpinning] = useState(false)
   const [displayReward, setDisplayReward] = useState<number | null>(null)
   const rotation = useSharedValue(0)
+  const resultScale = useSharedValue(0)
+  const spinTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Cleanup any pending timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (spinTimerRef.current !== null) clearTimeout(spinTimerRef.current)
+    }
+  }, [])
 
   const segmentAngle = 360 / WHEEL_REWARDS.length
 
-  const animatedStyle = useAnimatedStyle(() => ({
+  const wheelStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value}deg` }],
+  }))
+
+  const resultStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: resultScale.value }],
   }))
 
   const handleSpin = useCallback(async () => {
     if (dailyWheel.dailyWheelClaimed || isSpinning) return
+    wheelSpin()
     setIsSpinning(true)
     setDisplayReward(null)
+    resultScale.value = 0
+
     const reward = await spinDailyWheel()
     if (reward <= 0 || !WHEEL_REWARDS.includes(reward)) {
       setIsSpinning(false)
@@ -77,24 +99,28 @@ export function DailyWheel() {
       })
       return
     }
+
     const rewardIndex = WHEEL_REWARDS.indexOf(reward)
-    const extraRotations = 5
     const targetAngle = rewardIndex * segmentAngle
-    const prev = rotation.value
-    const next =
-      prev + 360 * extraRotations + (360 - targetAngle) + segmentAngle / 2
-    rotation.value = withTiming(next, {
-      duration: 4000,
-      easing: Easing.out(Easing.cubic),
-    })
-    setTimeout(() => {
+    // Normalise accumulated rotation to keep the value from growing unboundedly.
+    const normalisedPrev = rotation.value % 360
+    const next = normalisedPrev + 360 * 5 + (360 - targetAngle) + segmentAngle / 2
+    rotation.value = withTiming(next, { duration: SPIN_DURATION_MS, easing: Easing.out(Easing.cubic) })
+
+    spinTimerRef.current = setTimeout(() => {
+      spinTimerRef.current = null
       setIsSpinning(false)
       setDisplayReward(reward)
-    }, 4000)
-  }, [dailyWheel.dailyWheelClaimed, isSpinning, segmentAngle, spinDailyWheel])
+      claimTap()
+      // Pop the result into view.
+      resultScale.value = withSequence(
+        withSpring(1.15, { damping: 4, stiffness: 260 }),
+        withSpring(1, { damping: 8, stiffness: 200 }),
+      )
+    }, SPIN_DURATION_MS)
+  }, [dailyWheel.dailyWheelClaimed, isSpinning, segmentAngle, spinDailyWheel, wheelSpin, claimTap, rotation, resultScale])
 
   const canSpin = !dailyWheel.dailyWheelClaimed && !isSpinning
-
   const n = WHEEL_REWARDS.length
 
   return (
@@ -111,9 +137,9 @@ export function DailyWheel() {
           <View style={[styles.pointerTri, { borderTopColor: t.primary }]} />
         </View>
 
-        <Animated.View style={[styles.svgWrap, animatedStyle]}>
+        <Animated.View style={[styles.svgWrap, wheelStyle]}>
           <Svg width={W} height={W}>
-            {WHEEL_REWARDS.map((reward, i) => (
+            {WHEEL_REWARDS.map((_, i) => (
               <Path key={i} d={wedgePath(i, n)} fill={SEGMENT_COLORS[i % SEGMENT_COLORS.length]} />
             ))}
             {WHEEL_REWARDS.map((reward, i) => {
@@ -149,19 +175,21 @@ export function DailyWheel() {
 
       <View style={styles.footer}>
         {displayReward !== null ? (
-          <View style={styles.result}>
+          <Animated.View style={[styles.result, resultStyle]}>
             <Text style={[styles.resultHint, { color: t.mutedForeground }]}>You won</Text>
             <View style={styles.resultRow}>
               <FontAwesome name="money" size={22} color={t.win} />
-              <Text style={[styles.resultAmt, { color: t.win }]}>{displayReward}</Text>
+              <Text style={[styles.resultAmt, { color: t.win }]}>
+                {displayReward.toLocaleString()} coins
+              </Text>
             </View>
-          </View>
+          </Animated.View>
         ) : dailyWheel.dailyWheelClaimed ? (
           <View style={styles.result}>
             <Text style={[styles.sub, { color: t.mutedForeground }]}>Come back tomorrow!</Text>
             {dailyWheel.wheelReward != null ? (
               <Text style={[styles.sub, { color: t.mutedForeground }]}>
-                Today&apos;s reward: {dailyWheel.wheelReward} coins
+                Today&apos;s reward: {dailyWheel.wheelReward.toLocaleString()} coins
               </Text>
             ) : null}
           </View>
@@ -171,6 +199,8 @@ export function DailyWheel() {
             disabled={!canSpin}
             onPress={handleSpin}
             style={styles.spinBtn}
+            accessibilityLabel="Spin the daily wheel"
+            accessibilityHint="Awards a random coin prize once per day"
           />
         )}
       </View>

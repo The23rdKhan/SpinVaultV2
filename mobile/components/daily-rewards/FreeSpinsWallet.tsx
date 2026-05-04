@@ -1,4 +1,10 @@
+import { useEffect } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated'
 import { router } from 'expo-router'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { AppButton } from '@/components/ui/AppButton'
@@ -10,6 +16,23 @@ export function FreeSpinsWallet() {
   const t = useCasinoTheme()
   const { freeSpins } = useGame()
   const active = freeSpins > 0
+
+  // Pop the count badge whenever freeSpins increases.
+  const countScale = useSharedValue(1)
+  const prevSpinsRef = { current: freeSpins }
+  useEffect(() => {
+    if (freeSpins > prevSpinsRef.current) {
+      countScale.value = withSpring(1.4, { damping: 4, stiffness: 280 }, () => {
+        countScale.value = withSpring(1, { damping: 8, stiffness: 200 })
+      })
+    }
+    prevSpinsRef.current = freeSpins
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [freeSpins, countScale])
+
+  const countStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: countScale.value }],
+  }))
 
   return (
     <View
@@ -39,13 +62,16 @@ export function FreeSpinsWallet() {
           </View>
         </View>
         <View style={styles.right}>
-          <Text style={[styles.big, { color: active ? t.primary : t.mutedForeground }]}>{freeSpins}</Text>
+          <Animated.Text style={[styles.big, { color: active ? t.primary : t.mutedForeground }, countStyle]}>
+            {freeSpins}
+          </Animated.Text>
           {active ? (
             <AppButton
               size="sm"
               label="Play"
               onPress={() => router.navigate(routes.tabsIndex)}
               style={styles.playBtn}
+              accessibilityLabel="Use free spins on the slot machine"
             />
           ) : null}
         </View>

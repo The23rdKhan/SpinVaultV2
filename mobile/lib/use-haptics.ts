@@ -82,6 +82,18 @@ export function useHaptics() {
     impact(Haptics.ImpactFeedbackStyle.Medium)
   }, [hapticsEnabled])
 
+  /** General reward claim tap (daily reward, mission, wheel result). */
+  const claimTap = useCallback(() => {
+    if (!hapticsEnabled || !isNative()) return
+    notification(Haptics.NotificationFeedbackType.Success)
+  }, [hapticsEnabled])
+
+  /** Light press feedback for initiating a spin (wheel, ad watch). */
+  const wheelSpin = useCallback(() => {
+    if (!hapticsEnabled || !isNative()) return
+    impact(Haptics.ImpactFeedbackStyle.Medium)
+  }, [hapticsEnabled])
+
   const winFeedback = useCallback(
     (winType: WinType) => {
       if (!hapticsEnabled || !isNative()) return
@@ -108,5 +120,5 @@ export function useHaptics() {
     [hapticsEnabled],
   )
 
-  return { reelStop, spinPress, betChange, bonusMeterPayout, winFeedback }
+  return { reelStop, spinPress, betChange, bonusMeterPayout, claimTap, wheelSpin, winFeedback }
 }

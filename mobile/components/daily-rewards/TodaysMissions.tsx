@@ -3,6 +3,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome'
 import Toast from 'react-native-toast-message'
 import { AppButton } from '@/components/ui/AppButton'
 import { useGame } from '@/lib/game-context'
+import { useHaptics } from '@/lib/use-haptics'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 
 const MISSION_ICONS: Record<string, keyof typeof FontAwesome.glyphMap> = {
@@ -14,9 +15,14 @@ const MISSION_ICONS: Record<string, keyof typeof FontAwesome.glyphMap> = {
 export function TodaysMissions() {
   const t = useCasinoTheme()
   const { missions, claimMissionReward } = useGame()
+  const { claimTap } = useHaptics()
 
   const completedCount = missions.filter((m) => m.completed).length
-  const allCompleted = completedCount === missions.length && missions.length > 0
+  // Show the "all done" banner only while missions are completed but not yet all claimed.
+  const allCompleted =
+    missions.length > 0 &&
+    missions.every((m) => m.completed) &&
+    !missions.every((m) => m.claimed)
 
   return (
     <View style={[styles.panel, { borderColor: t.border, backgroundColor: t.card }]}>
@@ -107,11 +113,16 @@ export function TodaysMissions() {
                   onPress={() => {
                     void (async () => {
                       const ok = await claimMissionReward(mission.id)
-                      if (ok) Toast.show({ type: 'success', text1: 'Reward claimed' })
-                      else Toast.show({ type: 'error', text1: 'Could not claim reward' })
+                      if (ok) {
+                        claimTap()
+                        Toast.show({ type: 'success', text1: 'Reward claimed' })
+                      } else {
+                        Toast.show({ type: 'error', text1: 'Could not claim reward' })
+                      }
                     })()
                   }}
                   style={styles.claimBtn}
+                  accessibilityLabel={`Claim reward for ${mission.name}`}
                 />
               ) : null}
             </View>
