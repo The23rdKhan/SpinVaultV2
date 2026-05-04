@@ -20,7 +20,11 @@ import {
 import { routes } from '@/lib/app-routes'
 import { getPasswordResetRedirectUrl, parseRecoveryTokensFromUrl } from '@/lib/password-recovery'
 import { requestIapRestoreFromServer } from '@/lib/iap-restore-client'
-import { isRevenueCatConfigured, syncRevenueCatUser } from '@/lib/revenuecat'
+import {
+  ensureRevenueCatConfigured,
+  isRevenueCatConfigured,
+  syncRevenueCatUser,
+} from '@/lib/revenuecat'
 import Purchases from 'react-native-purchases'
 import {
   pullNotificationPreferences,
@@ -637,6 +641,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const restorePurchases = useCallback(async (): Promise<boolean> => {
     try {
+      await ensureRevenueCatConfigured()
       if (isRevenueCatConfigured()) {
         await Purchases.restorePurchases()
       }

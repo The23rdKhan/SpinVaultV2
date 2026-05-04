@@ -22,7 +22,12 @@ import {
 import { track } from '@/lib/analytics/track'
 import { formatShortCoins } from '@/lib/format-coins'
 import { isReachable } from '@/lib/reachability'
-import { isRevenueCatConfigured, purchaseConsumableSku } from '@/lib/revenuecat'
+import {
+  ensureRevenueCatConfigured,
+  hasRevenueCatPlatformApiKey,
+  isRevenueCatConfigured,
+  purchaseConsumableSku,
+} from '@/lib/revenuecat'
 import {
   SHOP_COIN_PACKS,
   STARTER_BUNDLE_ARTWORK,
@@ -177,6 +182,7 @@ export default function ShopScreen() {
           product_id: STARTER_BUNDLE_SKU,
           kind: 'starter_pack',
         })
+        await ensureRevenueCatConfigured()
         if (isRevenueCatConfigured()) {
           const r = await purchaseConsumableSku(STARTER_BUNDLE_SKU)
           if (r.ok) {
@@ -252,7 +258,7 @@ export default function ShopScreen() {
         ]}
       >
         <Text style={[styles.lead, { color: t.mutedForeground }]}>
-          {isRevenueCatConfigured()
+          {hasRevenueCatPlatformApiKey()
             ? 'Coin packs — App Store / Play Billing (wallet syncs from server).'
             : 'Coin packs & cosmetics — simulated IAP (set RevenueCat keys for real purchases).'}
         </Text>
