@@ -10,7 +10,11 @@ export type ShopCoinPackRow = {
   coins: number
   freeSpins: number
   kind: 'coin_pack' | 'bundle'
-  priceLabel: string
+  /**
+   * Shown until `Purchases.getProducts` provides `priceString` (offline, web, or store not ready).
+   * When changing base prices in App Store Connect, update this fallback to match.
+   */
+  priceLabelFallback: string
   popular: boolean
   subtitle: string
   artwork: ImageSourcePropType
@@ -23,7 +27,7 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     coins: 2500,
     freeSpins: 0,
     kind: 'coin_pack',
-    priceLabel: '$0.99',
+    priceLabelFallback: '$0.99',
     popular: false,
     subtitle: 'Quick Refill',
     artwork: require('@/assets/images/store-offers/quick_refill.png'),
@@ -34,7 +38,7 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     coins: 20000,
     freeSpins: 10,
     kind: 'bundle',
-    priceLabel: '$4.99',
+    priceLabelFallback: '$4.99',
     popular: false,
     subtitle: 'Today only',
     artwork: require('@/assets/images/store-offers/daily_deal.png'),
@@ -45,7 +49,7 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     coins: 15000,
     freeSpins: 5,
     kind: 'coin_pack',
-    priceLabel: '$4.99',
+    priceLabelFallback: '$4.99',
     popular: false,
     subtitle: 'Good Deal',
     artwork: require('@/assets/images/store-offers/basic.png'),
@@ -56,7 +60,7 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     coins: 0,
     freeSpins: 50,
     kind: 'bundle',
-    priceLabel: '$4.99',
+    priceLabelFallback: '$4.99',
     popular: false,
     subtitle: 'Spin boost',
     artwork: require('@/assets/images/store-offers/lucky_spin_bundle.png'),
@@ -67,7 +71,7 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     coins: 40000,
     freeSpins: 15,
     kind: 'coin_pack',
-    priceLabel: '$9.99',
+    priceLabelFallback: '$9.99',
     popular: true,
     subtitle: 'Most Popular',
     artwork: require('@/assets/images/store-offers/popular.png'),
@@ -78,7 +82,7 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     coins: 125000,
     freeSpins: 40,
     kind: 'coin_pack',
-    priceLabel: '$24.99',
+    priceLabelFallback: '$24.99',
     popular: false,
     subtitle: 'Best Value',
     artwork: require('@/assets/images/store-offers/premium.png'),
@@ -89,7 +93,7 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     coins: 350000,
     freeSpins: 100,
     kind: 'coin_pack',
-    priceLabel: '$49.99',
+    priceLabelFallback: '$49.99',
     popular: false,
     subtitle: 'High Roller',
     artwork: require('@/assets/images/store-offers/ultimate.png'),
@@ -100,7 +104,7 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     coins: 1000000,
     freeSpins: 250,
     kind: 'coin_pack',
-    priceLabel: '$99.99',
+    priceLabelFallback: '$99.99',
     popular: false,
     subtitle: 'VIP Choice',
     artwork: require('@/assets/images/store-offers/mega_vault.png'),
@@ -109,6 +113,12 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
 
 /** Store / DB SKU for the starter bundle — same string everywhere (analytics, RC, simulated IAP). */
 export const STARTER_BUNDLE_SKU = 'com.spinvault.bundle.starter' as const
+
+/**
+ * Button / UI fallback before `Purchases.getProducts` returns localized `priceString`.
+ * Update when the starter bundle’s base price in App Store Connect changes.
+ */
+export const STARTER_BUNDLE_PRICE_FALLBACK = '$1.99' as const
 
 export const STARTER_BUNDLE_ARTWORK = require('@/assets/images/store-offers/starter_bundle.png')
 

@@ -1,5 +1,7 @@
 import { Platform } from 'react-native'
 import Purchases from 'react-native-purchases'
+import { track } from '@/lib/analytics/track'
+import { AnalyticsEvents } from '@shared/analytics/event-names'
 
 let didConfigure = false
 let configurePromise: Promise<void> | null = null
@@ -7,6 +9,9 @@ let configurePromise: Promise<void> | null = null
 export type ConsumablePurchaseResult =
   | { ok: true }
   | { ok: false; cancelled: boolean; message?: string }
+
+/** `message` on `purchaseConsumableSku` when the SDK is not configured — use to fall back to simulated grants. */
+export const PURCHASE_ERR_REVENUECAT_NOT_READY = 'revenuecat_not_configured' as const
 
 function platformApiKey(): string | undefined {
   const appleKey = process.env.EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY?.trim()
@@ -69,6 +74,47 @@ export function isRevenueCatConfigured(): boolean {
 }
 
 /**
+ * Fetches App Store / Play localized price strings for consumable SKUs (`priceString` per product).
+ * Missing SKUs are omitted — **caller should fall back** to catalog placeholders.
+ * No-op on web or when the SDK is not configured.
+ * Apple typically allows on the order of ~100 product IDs per `getProducts` call; chunk if the catalog grows.
+ */
+export async function fetchLocalizedPricesForSkus(skus: string[]): Promise<Record<string, string>> {
+  const out: Record<string, string> = {}
+  const ids = [...new Set(skus.map((s) => s.trim()).filter(Boolean))]
+  if (ids.length === 0) return out
+  if (Platform.OS !== 'ios' && Platform.OS !== 'android') return out
+  try {
+    await ensureRevenueCatConfigured()
+  } catch {
+    return out
+  }
+  if (!didConfigure) return out
+  try {
+    const products = await Purchases.getProducts(ids, Purchases.PRODUCT_CATEGORY.NON_SUBSCRIPTION)
+    for (const p of products) {
+      if (p.identifier && p.priceString) out[p.identifier] = p.priceString
+    }
+    if (ids.length > 0 && Object.keys(out).length === 0) {
+      if (__DEV__) {
+        console.warn(
+          '[RevenueCat] getProducts returned no price strings for',
+          ids.length,
+          'requested non-subscription product id(s). Check App Store / Play + RevenueCat product setup.',
+        )
+      }
+      track(AnalyticsEvents.IAP_STORE_PRICES_EMPTY, {
+        requested_count: ids.length,
+        returned_count: 0,
+      })
+    }
+  } catch {
+    return out
+  }
+  return out
+}
+
+/**
  * Purchase a consumable / non-subscription SKU already configured in RevenueCat + stores.
  * Product identifier must match `public.products.sku` for webhook fulfillment.
  */
@@ -76,17 +122,20 @@ export async function purchaseConsumableSku(sku: string): Promise<ConsumablePurc
   try {
     await ensureRevenueCatConfigured()
   } catch {
-    return { ok: false, cancelled: false, message: 'revenuecat_not_configured' }
+    return { ok: false, cancelled: false, message: PURCHASE_ERR_REVENUECAT_NOT_READY }
   }
   if (!didConfigure) {
-    return { ok: false, cancelled: false, message: 'revenuecat_not_configured' }
+    return { ok: false, cancelled: false, message: PURCHASE_ERR_REVENUECAT_NOT_READY }
   }
   const trimmed = sku.trim()
   if (!trimmed) {
     return { ok: false, cancelled: false, message: 'missing_sku' }
   }
   try {
-    const products = await Purchases.getProducts([trimmed])
+    const products = await Purchases.getProducts(
+      [trimmed],
+      Purchases.PRODUCT_CATEGORY.NON_SUBSCRIPTION,
+    )
     const product = products[0]
     if (!product) {
       return { ok: false, cancelled: false, message: 'product_not_found' }

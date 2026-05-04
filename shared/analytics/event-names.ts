@@ -21,6 +21,8 @@ export const AnalyticsEvents = {
   DAILY_REWARD_CLAIMED: 'daily_reward_claimed',
   MISSION_COMPLETED: 'mission_completed',
   SHOP_OPENED: 'shop_opened',
+  /** `getProducts` returned no localized prices for requested consumable SKUs (misconfigured store / RC). */
+  IAP_STORE_PRICES_EMPTY: 'iap_store_prices_empty',
   PURCHASE_STARTED: 'purchase_started',
   PURCHASE_COMPLETED: 'purchase_completed',
   REWARDED_AD_STARTED: 'rewarded_ad_started',

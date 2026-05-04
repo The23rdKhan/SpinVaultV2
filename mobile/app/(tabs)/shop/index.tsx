@@ -1,5 +1,14 @@
 import { useCallback, useState } from 'react'
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native'
+import {
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
@@ -20,18 +29,14 @@ import {
   type VanityCategory,
 } from '@/lib/vanity-data'
 import { track } from '@/lib/analytics/track'
-import { formatShortCoins } from '@/lib/format-coins'
 import { isReachable } from '@/lib/reachability'
-import {
-  ensureRevenueCatConfigured,
-  hasRevenueCatPlatformApiKey,
-  isRevenueCatConfigured,
-  purchaseConsumableSku,
-} from '@/lib/revenuecat'
+import { hasRevenueCatPlatformApiKey, purchaseConsumableSku, PURCHASE_ERR_REVENUECAT_NOT_READY } from '@/lib/revenuecat'
+import { useShopLocalizedPrices } from '@/lib/use-shop-localized-prices'
 import {
   SHOP_COIN_PACKS,
   STARTER_BUNDLE_ARTWORK,
   STARTER_BUNDLE_GRANT,
+  STARTER_BUNDLE_PRICE_FALLBACK,
   STARTER_BUNDLE_SKU,
   type ShopCoinPackRow,
 } from '@/lib/shop-iap-catalog'
@@ -43,6 +48,9 @@ const FREE_SPIN_BUNDLES = [
   { id: 'standard', spins: 15, price: 1200 },
   { id: 'mega', spins: 50, price: 3500 },
 ]
+
+/** `iapBusyKey` sentinel while starter IAP is in flight (distinct from product IDs). */
+const IAP_BUSY_STARTER = '__starter_bundle__' as const
 
 const VANITY_TABS: { id: VanityCategory; label: string }[] = [
   { id: 'avatar', label: 'Avatars' },
@@ -57,7 +65,11 @@ const VANITY_TABS: { id: VanityCategory; label: string }[] = [
 
 export default function ShopScreen() {
   const t = useCasinoTheme()
+  const { width: windowWidth } = useWindowDimensions()
   const insets = useSafeAreaInsets()
+  /** Narrow phones: stack starter image above copy so the hero does not dominate width. */
+  const starterStackVertical = windowWidth < 400
+  const { priceLabelForSku } = useShopLocalizedPrices()
   const {
     coins,
     freeSpins,
@@ -74,8 +86,11 @@ export default function ShopScreen() {
     resyncWalletFromServer,
   } = useGame()
   const [tab, setTab] = useState<VanityCategory>('avatar')
-  /** Prevents double-tap launching two purchase sheets simultaneously. */
-  const [isPurchasing, setIsPurchasing] = useState(false)
+  /** Which IAP row is running (`product id` or starter sentinel); blocks parallel StoreKit flows. */
+  const [iapBusyKey, setIapBusyKey] = useState<string | null>(null)
+  /** Coin pack detail sheet; starter bundle uses separate shape. */
+  const [packPreview, setPackPreview] = useState<ShopCoinPackRow | null>(null)
+  const [starterPreviewOpen, setStarterPreviewOpen] = useState(false)
 
   useFocusEffect(
     useCallback(() => {
@@ -94,7 +109,7 @@ export default function ShopScreen() {
   }, [buyVanityItem, equipVanityItem])
 
   const onCoinPack = (pack: ShopCoinPackRow) => {
-    if (isPurchasing) return
+    if (iapBusyKey) return
     void (async () => {
       if (!(await isReachable())) {
         Toast.show({
@@ -104,55 +119,55 @@ export default function ShopScreen() {
         })
         return
       }
-      setIsPurchasing(true)
+      setIapBusyKey(pack.id)
       try {
         track(AnalyticsEvents.PURCHASE_STARTED, {
           product_id: pack.id,
           kind: pack.kind,
         })
-        if (isRevenueCatConfigured()) {
-          const r = await purchaseConsumableSku(pack.id)
-          if (r.ok) {
-            await resyncWalletFromServer()
-            track(AnalyticsEvents.PURCHASE_COMPLETED, {
-              product_id: pack.id,
-              kind: pack.kind,
-              coins_granted: pack.coins,
-              free_spins_granted: pack.freeSpins,
-            })
-            msg('Purchase complete — wallet updated')
-            return
-          }
-          if (r.cancelled) return
-          Toast.show({
-            type: 'error',
-            text1: 'Purchase failed',
-            text2: r.message ?? 'Check App Store / Play products and try again.',
+        const r = await purchaseConsumableSku(pack.id)
+        if (r.ok) {
+          await resyncWalletFromServer()
+          track(AnalyticsEvents.PURCHASE_COMPLETED, {
+            product_id: pack.id,
+            kind: pack.kind,
+            coins_granted: pack.coins,
+            free_spins_granted: pack.freeSpins,
           })
+          msg('Purchase complete — wallet updated')
           return
         }
-        addCoins(pack.coins, {
-          reason: 'iap_grant',
-          label: `Coin pack (${pack.id})`,
-        })
-        if (pack.freeSpins > 0) {
-          addFreeSpins(pack.freeSpins)
+        if (r.cancelled) return
+        if (r.message === PURCHASE_ERR_REVENUECAT_NOT_READY) {
+          addCoins(pack.coins, {
+            reason: 'iap_grant',
+            label: `Coin pack (${pack.id})`,
+          })
+          if (pack.freeSpins > 0) {
+            addFreeSpins(pack.freeSpins)
+          }
+          track(AnalyticsEvents.PURCHASE_COMPLETED, {
+            product_id: pack.id,
+            kind: pack.kind,
+            coins_granted: pack.coins,
+            free_spins_granted: pack.freeSpins,
+          })
+          msg(
+            pack.coins > 0 && pack.freeSpins > 0
+              ? `Added ${pack.coins.toLocaleString()} coins + ${pack.freeSpins} free spins`
+              : pack.coins > 0
+                ? `Added ${pack.coins.toLocaleString()} coins`
+                : `Added ${pack.freeSpins} free spins`,
+          )
+          return
         }
-        track(AnalyticsEvents.PURCHASE_COMPLETED, {
-          product_id: pack.id,
-        kind: pack.kind,
-        coins_granted: pack.coins,
-        free_spins_granted: pack.freeSpins,
-      })
-      msg(
-        pack.coins > 0 && pack.freeSpins > 0
-          ? `Added ${pack.coins.toLocaleString()} coins + ${pack.freeSpins} free spins`
-          : pack.coins > 0
-            ? `Added ${pack.coins.toLocaleString()} coins`
-            : `Added ${pack.freeSpins} free spins`,
-      )
+        Toast.show({
+          type: 'error',
+          text1: 'Purchase failed',
+          text2: r.message ?? 'Check App Store / Play products and try again.',
+        })
       } finally {
-        setIsPurchasing(false)
+        setIapBusyKey(null)
       }
     })()
   }
@@ -166,7 +181,7 @@ export default function ShopScreen() {
   }
 
   const onStarterPack = () => {
-    if (isPurchasing) return
+    if (iapBusyKey) return
     void (async () => {
       if (!(await isReachable())) {
         Toast.show({
@@ -176,52 +191,51 @@ export default function ShopScreen() {
         })
         return
       }
-      setIsPurchasing(true)
+      setIapBusyKey(IAP_BUSY_STARTER)
       try {
         track(AnalyticsEvents.PURCHASE_STARTED, {
           product_id: STARTER_BUNDLE_SKU,
           kind: 'starter_pack',
         })
-        await ensureRevenueCatConfigured()
-        if (isRevenueCatConfigured()) {
-          const r = await purchaseConsumableSku(STARTER_BUNDLE_SKU)
-          if (r.ok) {
-            await resyncWalletFromServer()
-            grantStarterBundleCosmetics()
-            track(AnalyticsEvents.PURCHASE_COMPLETED, {
-              product_id: STARTER_BUNDLE_SKU,
-              kind: 'starter_pack',
-              coins_granted: STARTER_BUNDLE_GRANT.coins,
-              free_spins_granted: STARTER_BUNDLE_GRANT.freeSpins,
-            })
-            msg('Starter pack unlocked — wallet updated + Golden Ring frame')
-            return
-          }
-          if (r.cancelled) return
-          Toast.show({
-            type: 'error',
-            text1: 'Purchase failed',
-            text2: r.message ?? 'Check store setup and try again.',
+        const r = await purchaseConsumableSku(STARTER_BUNDLE_SKU)
+        if (r.ok) {
+          await resyncWalletFromServer()
+          grantStarterBundleCosmetics()
+          track(AnalyticsEvents.PURCHASE_COMPLETED, {
+            product_id: STARTER_BUNDLE_SKU,
+            kind: 'starter_pack',
+            coins_granted: STARTER_BUNDLE_GRANT.coins,
+            free_spins_granted: STARTER_BUNDLE_GRANT.freeSpins,
           })
+          msg('Starter pack unlocked — wallet updated + Golden Ring frame')
           return
         }
-        addCoins(STARTER_BUNDLE_GRANT.coins, {
-          reason: 'starter_pack',
-          label: 'Starter pack',
+        if (r.cancelled) return
+        if (r.message === PURCHASE_ERR_REVENUECAT_NOT_READY) {
+          addCoins(STARTER_BUNDLE_GRANT.coins, {
+            reason: 'starter_pack',
+            label: 'Starter pack',
+          })
+          addFreeSpins(STARTER_BUNDLE_GRANT.freeSpins)
+          grantStarterBundleCosmetics()
+          track(AnalyticsEvents.PURCHASE_COMPLETED, {
+            product_id: STARTER_BUNDLE_SKU,
+            kind: 'starter_pack',
+            coins_granted: STARTER_BUNDLE_GRANT.coins,
+            free_spins_granted: STARTER_BUNDLE_GRANT.freeSpins,
+          })
+          msg(
+            `Starter pack — ${STARTER_BUNDLE_GRANT.coins.toLocaleString()} coins + ${STARTER_BUNDLE_GRANT.freeSpins} free spins + frame`,
+          )
+          return
+        }
+        Toast.show({
+          type: 'error',
+          text1: 'Purchase failed',
+          text2: r.message ?? 'Check store setup and try again.',
         })
-        addFreeSpins(STARTER_BUNDLE_GRANT.freeSpins)
-        grantStarterBundleCosmetics()
-        track(AnalyticsEvents.PURCHASE_COMPLETED, {
-          product_id: STARTER_BUNDLE_SKU,
-          kind: 'starter_pack',
-          coins_granted: STARTER_BUNDLE_GRANT.coins,
-          free_spins_granted: STARTER_BUNDLE_GRANT.freeSpins,
-        })
-        msg(
-          `Starter pack — ${STARTER_BUNDLE_GRANT.coins.toLocaleString()} coins + ${STARTER_BUNDLE_GRANT.freeSpins} free spins + frame`,
-        )
       } finally {
-        setIsPurchasing(false)
+        setIapBusyKey(null)
       }
     })()
   }
@@ -245,8 +259,8 @@ export default function ShopScreen() {
   }
 
   const items = getItemsByCategory(tab)
-  const bottomPad = Math.max(insets.bottom, 12) + 28 + 56
-  const stickyBottom = Math.max(insets.bottom, 10) + 56
+  const bottomPad = Math.max(insets.bottom, 12) + 24
+  const iapLocked = iapBusyKey !== null
 
   return (
     <View style={[styles.root, { backgroundColor: t.background }]}>
@@ -272,12 +286,31 @@ export default function ShopScreen() {
           <View style={[styles.starterBadge, { backgroundColor: t.primary }]}>
             <Text style={[styles.starterBadgeTxt, { color: t.primaryForeground }]}>LIMITED</Text>
           </View>
-          <View style={styles.starterRow}>
-            <Image
-              source={STARTER_BUNDLE_ARTWORK}
-              resizeMode="cover"
-              style={[styles.starterArtwork, { borderColor: `${t.primary}66` }]}
-            />
+          <View style={[styles.starterRow, starterStackVertical && styles.starterRowStacked]}>
+            <Pressable
+              onPress={() => setStarterPreviewOpen(true)}
+              onLongPress={() => setStarterPreviewOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Starter Bundle — preview details"
+              style={[
+                styles.starterArtPressable,
+                starterStackVertical && styles.starterArtPressableStacked,
+              ]}
+            >
+              <View
+                style={[
+                  styles.starterArtWrap,
+                  { borderColor: `${t.primary}44`, backgroundColor: `${t.primary}10` },
+                  starterStackVertical && styles.starterArtWrapStacked,
+                ]}
+              >
+                <Image
+                  source={STARTER_BUNDLE_ARTWORK}
+                  resizeMode="contain"
+                  style={styles.starterArtworkInner}
+                />
+              </View>
+            </Pressable>
             <View style={styles.starterCopy}>
               <Text style={[styles.starterTitle, { color: t.foreground }]}>Starter Bundle</Text>
               <Text style={[styles.starterSub, { color: t.mutedForeground }]}>
@@ -286,7 +319,12 @@ export default function ShopScreen() {
               <Text style={[styles.starterHint, { color: t.win }]}>
                 Best entry offer in the store
               </Text>
-              <AppButton label="$1.99" onPress={onStarterPack} disabled={isPurchasing} style={styles.starterButton} />
+              <AppButton
+                label={priceLabelForSku(STARTER_BUNDLE_SKU, STARTER_BUNDLE_PRICE_FALLBACK)}
+                onPress={onStarterPack}
+                disabled={iapLocked}
+                style={styles.starterButton}
+              />
             </View>
           </View>
         </LinearGradient>
@@ -315,6 +353,9 @@ export default function ShopScreen() {
           <FontAwesome name="bitcoin" size={16} color={t.primary} />
           <Text style={[styles.h3, { color: t.foreground }]}>Store offers</Text>
         </View>
+        <Text style={[styles.storeHint, { color: t.mutedForeground }]}>
+          Tap artwork for a larger preview. Use the price button to purchase.
+        </Text>
         <View style={styles.packGrid}>
           {SHOP_COIN_PACKS.map((p) => (
             <View
@@ -332,17 +373,37 @@ export default function ShopScreen() {
                   <Text style={[styles.popTagTxt, { color: t.primaryForeground }]}>BEST VALUE</Text>
                 </View>
               ) : null}
-              <Image
-                source={p.artwork}
-                resizeMode="cover"
-                style={[styles.packArtwork, { borderColor: `${t.primary}33` }]}
-              />
-              <Text style={[styles.packCaption, { color: t.mutedForeground }]}>{p.subtitle}</Text>
+              <Pressable
+                onPress={() => setPackPreview(p)}
+                onLongPress={() => setPackPreview(p)}
+                accessibilityRole="button"
+                accessibilityLabel={`${p.title}, preview pack`}
+              >
+                <View
+                  style={[
+                    styles.packArtWrap,
+                    { borderColor: `${t.primary}33`, backgroundColor: `${t.primary}12` },
+                  ]}
+                >
+                  <Image
+                    source={p.artwork}
+                    resizeMode="contain"
+                    style={styles.packArtwork}
+                    accessibilityIgnoresInvertColors
+                  />
+                </View>
+              </Pressable>
+              <Text style={[styles.packTitle, { color: t.foreground }]} numberOfLines={2}>
+                {p.title}
+              </Text>
+              <Text style={[styles.packCaption, { color: t.mutedForeground }]} numberOfLines={2}>
+                {p.subtitle}
+              </Text>
               <AppButton
                 size="sm"
-                label={isPurchasing ? '...' : p.priceLabel}
+                label={priceLabelForSku(p.id, p.priceLabelFallback)}
                 variant={p.popular ? 'primary' : 'outline'}
-                disabled={isPurchasing}
+                disabled={iapLocked}
                 onPress={() => onCoinPack(p)}
                 style={styles.packButton}
               />
@@ -439,27 +500,88 @@ export default function ShopScreen() {
         })}
       </ScrollView>
 
-      <View
-        style={[
-          styles.stickyBalance,
-          {
-            bottom: stickyBottom,
-            borderColor: t.border,
-            backgroundColor: `${t.card}f2`,
-          },
-        ]}
-        pointerEvents="box-none"
+      <Modal
+        visible={packPreview !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPackPreview(null)}
       >
-        <View style={styles.balanceItem}>
-          <FontAwesome name="bitcoin" size={14} color={t.primary} />
-          <Text style={[styles.balanceTxt, { color: t.foreground }]}>{coins.toLocaleString()}</Text>
+        <View style={styles.modalRoot}>
+          <Pressable
+            style={[styles.modalBackdrop, { backgroundColor: 'rgba(0,0,0,0.55)' }]}
+            onPress={() => setPackPreview(null)}
+            accessibilityLabel="Close preview"
+          />
+          {packPreview ? (
+            <View
+              style={[styles.modalCard, { backgroundColor: t.card, borderColor: t.border }]}
+              accessibilityViewIsModal
+            >
+              <Text style={[styles.modalTitle, { color: t.foreground }]}>{packPreview.title}</Text>
+              {packPreview.subtitle.trim() !== packPreview.title.trim() ? (
+                <Text style={[styles.modalSub, { color: t.mutedForeground }]}>{packPreview.subtitle}</Text>
+              ) : null}
+              <Text style={[styles.modalPrice, { color: t.primary }]}>
+                {priceLabelForSku(packPreview.id, packPreview.priceLabelFallback)}
+              </Text>
+              <View style={[styles.packArtWrap, styles.modalArt, { borderColor: `${t.primary}33` }]}>
+                <Image
+                  source={packPreview.artwork}
+                  resizeMode="contain"
+                  style={styles.packArtwork}
+                />
+              </View>
+              <Text style={[styles.modalBody, { color: t.foreground }]}>
+                {packPreview.coins > 0 && packPreview.freeSpins > 0
+                  ? `${packPreview.coins.toLocaleString()} coins · ${packPreview.freeSpins} free spins`
+                  : packPreview.coins > 0
+                    ? `${packPreview.coins.toLocaleString()} coins`
+                    : `${packPreview.freeSpins} free spins`}
+              </Text>
+              <Text style={[styles.modalSku, { color: t.mutedForeground }]}>{packPreview.id}</Text>
+              <AppButton label="Close" variant="outline" onPress={() => setPackPreview(null)} />
+            </View>
+          ) : null}
         </View>
-        <View style={[styles.balanceDivider, { backgroundColor: t.border }]} />
-        <View style={styles.balanceItem}>
-          <FontAwesome name="star" size={14} color={t.primary} />
-          <Text style={[styles.balanceTxt, { color: t.foreground }]}>{freeSpins}</Text>
+      </Modal>
+
+      <Modal
+        visible={starterPreviewOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setStarterPreviewOpen(false)}
+      >
+        <View style={styles.modalRoot}>
+          <Pressable
+            style={[styles.modalBackdrop, { backgroundColor: 'rgba(0,0,0,0.55)' }]}
+            onPress={() => setStarterPreviewOpen(false)}
+          />
+          <View
+            style={[styles.modalCard, { backgroundColor: t.card, borderColor: t.border }]}
+            accessibilityViewIsModal
+          >
+            <Text style={[styles.modalTitle, { color: t.foreground }]}>Starter Bundle</Text>
+            <Text style={[styles.modalSub, { color: t.mutedForeground }]}>
+              One-time offer with coins, free spins, and the Golden Ring frame.
+            </Text>
+            <Text style={[styles.modalPrice, { color: t.primary }]}>
+              {priceLabelForSku(STARTER_BUNDLE_SKU, STARTER_BUNDLE_PRICE_FALLBACK)}
+            </Text>
+            <View style={[styles.packArtWrap, styles.modalArt, { borderColor: `${t.primary}33` }]}>
+              <Image
+                source={STARTER_BUNDLE_ARTWORK}
+                resizeMode="contain"
+                style={styles.packArtwork}
+              />
+            </View>
+            <Text style={[styles.modalBody, { color: t.foreground }]}>
+              {`${STARTER_BUNDLE_GRANT.coins.toLocaleString()} coins · ${STARTER_BUNDLE_GRANT.freeSpins} free spins · Golden Ring frame`}
+            </Text>
+            <Text style={[styles.modalSku, { color: t.mutedForeground }]}>{STARTER_BUNDLE_SKU}</Text>
+            <AppButton label="Close" variant="outline" onPress={() => setStarterPreviewOpen(false)} />
+          </View>
         </View>
-      </View>
+      </Modal>
     </View>
   )
 }
@@ -504,7 +626,7 @@ const styles = StyleSheet.create({
   starter: {
     borderRadius: 18,
     borderWidth: 2,
-    padding: 16,
+    padding: 12,
     overflow: 'hidden',
   },
   starterBadge: {
@@ -516,19 +638,45 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 10,
   },
   starterBadgeTxt: { fontSize: 10, fontWeight: '900' },
-  starterRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 8 },
-  starterArtwork: {
-    width: 148,
-    aspectRatio: 1,
-    borderRadius: 16,
+  starterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 8,
+  },
+  starterRowStacked: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 10,
+  },
+  starterArtPressable: { alignSelf: 'flex-start' },
+  starterArtPressableStacked: { alignSelf: 'center', width: '100%' },
+  starterArtWrap: {
+    width: 96,
+    height: 96,
+    borderRadius: 14,
     borderWidth: 1,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  starterArtWrapStacked: {
+    width: '100%',
+    maxWidth: 220,
+    height: 120,
+    alignSelf: 'center',
+  },
+  starterArtworkInner: {
+    width: '100%',
+    height: '100%',
   },
   starterCopy: { flex: 1, minWidth: 0 },
-  starterTitle: { fontSize: 18, fontWeight: '900' },
+  starterTitle: { fontSize: 17, fontWeight: '900' },
   starterSub: { fontSize: 13, marginTop: 4 },
   starterHint: { fontSize: 11, marginTop: 6, fontWeight: '700' },
   starterButton: { marginTop: 12, alignSelf: 'flex-start' },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  storeHint: { fontSize: 12, fontWeight: '600', marginTop: -4, lineHeight: 16 },
   h3: { fontSize: 17, fontWeight: '800' },
   bundleRow: { flexDirection: 'row', gap: 10 },
   bundleCard: {
@@ -548,33 +696,43 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   packCard: {
-    width: '47%',
-    flexGrow: 1,
+    flexBasis: '48%',
+    flexGrow: 0,
+    maxWidth: '48%',
     borderRadius: 14,
     borderWidth: 2,
     padding: 12,
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     position: 'relative',
     overflow: 'hidden',
   },
   popTag: {
     position: 'absolute',
     top: 8,
+    zIndex: 2,
     alignSelf: 'center',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 999,
   },
   popTagTxt: { fontSize: 9, fontWeight: '900' },
-  packArtwork: {
+  packArtWrap: {
     width: '100%',
-    aspectRatio: 1,
+    aspectRatio: 4 / 5,
     borderRadius: 12,
     borderWidth: 1,
     marginTop: 6,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  packCaption: { fontSize: 10, fontWeight: '700', textAlign: 'center' },
+  packArtwork: {
+    width: '100%',
+    height: '100%',
+  },
+  packTitle: { fontSize: 14, fontWeight: '900', textAlign: 'center' },
+  packCaption: { fontSize: 11, fontWeight: '700', textAlign: 'center', opacity: 0.92 },
   packButton: { width: '100%' },
   card: {
     borderWidth: 1,
@@ -604,20 +762,38 @@ const styles = StyleSheet.create({
   tabWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   tabChip: { marginBottom: 0 },
   rowBtns: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  stickyBalance: {
-    position: 'absolute',
-    left: SCREEN_PAD_H,
-    right: SCREEN_PAD_H,
-    flexDirection: 'row',
-    alignItems: 'center',
+  modalRoot: {
+    flex: 1,
     justifyContent: 'center',
-    gap: 16,
-    paddingVertical: 12,
-    borderRadius: 999,
-    borderWidth: 1,
-    zIndex: 20,
+    alignItems: 'center',
+    paddingHorizontal: SCREEN_PAD_H,
   },
-  balanceItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  balanceDivider: { width: 1, height: 18 },
-  balanceTxt: { fontWeight: '900', fontSize: 15 },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 380,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 20,
+    gap: 12,
+    zIndex: 1,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+  },
+  modalTitle: { fontSize: 20, fontWeight: '900' },
+  modalSub: { fontSize: 14, marginTop: -4 },
+  modalPrice: { fontSize: 18, fontWeight: '900' },
+  modalArt: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 260,
+    marginTop: 4,
+  },
+  modalBody: { fontSize: 15, fontWeight: '700' },
+  modalSku: { fontSize: 11 },
 })
