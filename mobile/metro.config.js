@@ -34,9 +34,10 @@ function resolveSharedSourceFile(baseWithoutExt) {
 const config = getDefaultConfig(projectRoot)
 
 const existingWatch = config.watchFolders ?? []
-config.watchFolders = existingWatch.includes(monorepoRoot)
-  ? existingWatch
-  : [...existingWatch, monorepoRoot]
+const watchAdd = [monorepoRoot, monorepoSharedRoot].filter(
+  (p, i, a) => a.indexOf(p) === i && !existingWatch.includes(p),
+)
+config.watchFolders = watchAdd.length ? [...existingWatch, ...watchAdd] : existingWatch
 
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
@@ -45,6 +46,14 @@ config.resolver.nodeModulesPaths = [
 
 const upstreamResolveRequest = config.resolver.resolveRequest
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  // Matches tsconfig "@/*" -> project root (babel-preset-expo does not always teach Metro these paths).
+  if (moduleName.startsWith('@/')) {
+    const rel = moduleName.slice(2)
+    const filePath = resolveSharedSourceFile(path.join(projectRoot, rel))
+    if (filePath) {
+      return { type: 'sourceFile', filePath }
+    }
+  }
   if (moduleName.startsWith('@shared/')) {
     const rel = moduleName.slice('@shared/'.length)
     for (const root of [embeddedSharedRoot, monorepoSharedRoot]) {
