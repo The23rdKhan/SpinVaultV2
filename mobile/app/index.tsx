@@ -1,4 +1,5 @@
 import { Redirect } from 'expo-router'
+import { BrandedLoadingScreen } from '@/components/ui/BrandedLoadingScreen'
 import { useAuth } from '@/lib/auth-context'
 import { routes } from '@/lib/app-routes'
 
@@ -6,7 +7,7 @@ export default function GateScreen() {
   const { isLoading, hasCompletedOnboarding, isAuthenticated, passwordRecoveryPending } = useAuth()
 
   if (isLoading) {
-    return null
+    return <BrandedLoadingScreen />
   }
 
   if (!hasCompletedOnboarding) {
