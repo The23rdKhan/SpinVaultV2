@@ -10,6 +10,7 @@ import { useGame } from '@/lib/game-context'
 import { useHaptics } from '@/lib/use-haptics'
 import { AnalyticsEvents } from '@shared/analytics/event-names'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { hexWithAlpha } from '@/theme/tokens'
 
 type AdState = 'ready' | 'watching' | 'complete'
 
@@ -81,25 +82,25 @@ export function WatchAdCard() {
 
   const onClaimDone = () => {
     claimTap()
-    Toast.show({ type: 'success', text1: `+${reward} coins` })
+    Toast.show({ type: 'success', text1: `+${reward} virtual coins` })
     resetAndClose()
   }
 
   return (
     <>
       <LinearGradient
-        colors={[`${t.primary}33`, t.card, `${t.primary}22`]}
+        colors={[hexWithAlpha(t.primary, '33'), t.surfaceElevated, hexWithAlpha(t.primary, '22')]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.card, { borderColor: `${t.primary}55` }]}
+        style={[styles.card, { borderColor: hexWithAlpha(t.primary, '55') }]}
       >
         <View style={styles.row}>
-          <View style={[styles.playIcon, { backgroundColor: `${t.primary}33` }]}>
+          <View style={[styles.playIcon, { backgroundColor: hexWithAlpha(t.primary, '33') }]}>
             <FontAwesome name="play" size={26} color={t.primary} />
           </View>
           <View style={styles.mid}>
-            <Text style={[styles.h3, { color: t.foreground }]}>Watch & Earn</Text>
-            <Text style={[styles.sub, { color: t.mutedForeground }]}>
+            <Text style={[styles.h3, { color: t.textPrimary }]}>Watch for rewards</Text>
+            <Text style={[styles.sub, { color: t.textSecondary }]}>
               {canWatchAd()
                 ? `${adsRemaining} of ${maxDailyAds} watches left today`
                 : 'Come back tomorrow for more'}
@@ -118,7 +119,7 @@ export function WatchAdCard() {
           >
             <Text style={[styles.ctaSmall, { color: t.primaryForeground }]}>FREE</Text>
             <View style={styles.ctaCoins}>
-              <FontAwesome name="bitcoin" size={14} color={t.primaryForeground} />
+              <FontAwesome name="circle" size={14} color={t.primaryForeground} />
               <Text style={[styles.ctaAmt, { color: t.primaryForeground }]}>100+</Text>
             </View>
           </Pressable>
@@ -143,6 +144,7 @@ export function WatchAdCard() {
         onRequestClose={() => adState !== 'watching' && resetAndClose()}
       >
         <View style={styles.modalRoot}>
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: t.overlay }]} />
           <BlurView
             intensity={45}
             tint="dark"
@@ -153,9 +155,9 @@ export function WatchAdCard() {
             style={styles.modalBackdrop}
             onPress={() => adState !== 'watching' && resetAndClose()}
           />
-          <View style={[styles.sheet, { backgroundColor: t.card, borderColor: t.border }]}>
+          <View style={[styles.sheet, { backgroundColor: t.surfaceElevated, borderColor: t.border }]}>
             <LinearGradient
-              colors={[t.primary, `${t.primary}99`, t.primary]}
+              colors={[t.primary, hexWithAlpha(t.primary, '99'), t.primary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.sheetHero}
@@ -165,27 +167,27 @@ export function WatchAdCard() {
                 disabled={adState === 'watching'}
                 style={[styles.sheetClose, { opacity: adState === 'watching' ? 0.4 : 1 }]}
               >
-                <FontAwesome name="times" size={18} color="#fff" />
+                <FontAwesome name="times" size={18} color={t.primaryForeground} />
               </Pressable>
-              <View style={styles.heroIcon}>
+              <View style={[styles.heroIcon, { backgroundColor: hexWithAlpha(t.primaryForeground, '33') }]}>
                 {adState === 'complete' ? (
-                  <FontAwesome name="check" size={28} color="#fff" />
+                  <FontAwesome name="check" size={28} color={t.primaryForeground} />
                 ) : adState === 'watching' ? (
-                  <ActivityIndicator size="large" color="#fff" />
+                  <ActivityIndicator size="large" color={t.primaryForeground} />
                 ) : (
-                  <FontAwesome name="gift" size={28} color="#fff" />
+                  <FontAwesome name="gift" size={28} color={t.primaryForeground} />
                 )}
               </View>
-              <Text style={styles.heroTitle}>
+              <Text style={[styles.heroTitle, { color: t.primaryForeground }]}>
                 {adState === 'complete'
-                  ? 'Reward earned!'
+                  ? 'Reward unlocked!'
                   : adState === 'watching'
                     ? 'Watching ad…'
                     : 'Rewarded video'}
               </Text>
-              <Text style={styles.heroSub}>
+              <Text style={[styles.heroSub, { color: hexWithAlpha(t.primaryForeground, 'DD') }]}>
                 {adState === 'complete'
-                  ? `You earned ${reward.toLocaleString()} coins`
+                  ? `You received ${reward.toLocaleString()} virtual coins`
                   : 'Simulated sponsor message — thanks for your support!'}
               </Text>
             </LinearGradient>
@@ -221,7 +223,7 @@ export function WatchAdCard() {
               ) : null}
 
               {adState === 'watching' ? (
-                <Text style={[styles.hint, { color: t.mutedForeground }]}>
+                <Text style={[styles.hint, { color: t.textSecondary }]}>
                   Please wait — reward unlocks when the bar finishes.
                 </Text>
               ) : null}
@@ -297,19 +299,16 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#ffffff33',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
   },
   heroTitle: {
-    color: '#fff',
     fontSize: 20,
     fontWeight: '900',
     textAlign: 'center',
   },
   heroSub: {
-    color: '#ffffffdd',
     fontSize: 13,
     textAlign: 'center',
     marginTop: 8,

@@ -101,23 +101,23 @@ export function Marquee() {
             jackpotPillStyle,
           ]}
         >
-          <Text style={styles.jackpotText}>MEGA JACKPOT</Text>
+          <Text style={[styles.jackpotText, { color: t.textPrimary }]}>MEGA JACKPOT</Text>
         </Animated.View>
 
-        <View style={[styles.ticker, { backgroundColor: t.cabinetBg }]}>
+        <View style={[styles.ticker, { backgroundColor: t.cabinetBg, borderTopColor: t.separator }]}>
           {freeSpins > 0 ? (
-            <Text style={[styles.tickerText, { color: t.win }]}>
+            <Text style={[styles.tickerText, { color: t.freeSpin }]}>
               FREE SPINS: {freeSpins} REMAINING!
             </Text>
           ) : (
-            <Text style={[styles.tickerText, { color: t.mutedForeground }]} numberOfLines={1}>
+            <Text style={[styles.tickerText, { color: t.textSecondary }]} numberOfLines={1}>
               Match 5 SEVENS • 3 SCATTERS = 10 FREE SPINS • WILD substitutes
             </Text>
           )}
         </View>
 
         <View style={styles.meterRow}>
-          <Text style={[styles.meterLabel, { color: t.mutedForeground }]}>Bonus</Text>
+          <Text style={[styles.meterLabel, { color: t.textMuted }]}>Bonus</Text>
           <View style={[styles.meterTrack, { backgroundColor: t.muted, borderColor: t.border }]}>
             <Animated.View style={[styles.meterFill, fillStyle]} />
           </View>
@@ -128,8 +128,9 @@ export function Marquee() {
             </Animated.Text>
           </View>
         </View>
-        <Text style={[styles.meterHint, { color: t.mutedForeground }]}>
-          Reach 100 for bonus coins (+10 each winning spin, +2 each loss). Payout scales with bet.
+        <Text style={[styles.meterHint, { color: t.textMuted }]}>
+          Reach 100 for bonus virtual coins (+10 each winning spin, +2 when no line win). Rewards scale with your
+          spin amount.
         </Text>
       </LinearGradient>
     </View>
@@ -154,7 +155,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   jackpotText: {
-    color: '#fff',
     fontWeight: '900',
     letterSpacing: 1,
     fontSize: 14,
@@ -163,7 +163,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignItems: 'center',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.08)',
   },
   tickerText: { fontSize: 12, fontWeight: '600', paddingHorizontal: 12 },
   meterRow: {

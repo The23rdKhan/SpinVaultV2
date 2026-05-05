@@ -48,7 +48,7 @@ export type WinType = 'none' | 'normal' | 'bigWin' | 'megaWin' | 'jackpot'
 export interface WinningLineSerialized {
   positions: [number, number][]
   symbol_id: string
-  /** Display multiplier (1 | 2.5 | 5). Payout uses `match_count`, not float equality. */
+  /** Display multiplier (1 | 2.5 | 5). Coin reward calc uses `match_count`, not float equality. */
   multiplier: number
   /** Symbols matched along the payline (source of truth for `lineWinCoins`). */
   match_count: 3 | 4 | 5

@@ -5,6 +5,7 @@ import { AppButton } from '@/components/ui/AppButton'
 import { useGame } from '@/lib/game-context'
 import { useHaptics } from '@/lib/use-haptics'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { hexWithAlpha } from '@/theme/tokens'
 
 const MISSION_ICONS: Record<string, keyof typeof FontAwesome.glyphMap> = {
   spin20: 'bolt',
@@ -25,13 +26,13 @@ export function TodaysMissions() {
     !missions.every((m) => m.claimed)
 
   return (
-    <View style={[styles.panel, { borderColor: t.border, backgroundColor: t.card }]}>
+    <View style={[styles.panel, { borderColor: t.border, backgroundColor: t.surfaceElevated }]}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <FontAwesome name="bullseye" size={18} color={t.primary} />
-          <Text style={[styles.title, { color: t.foreground }]}>Today&apos;s Missions</Text>
+          <Text style={[styles.title, { color: t.textPrimary }]}>Today&apos;s missions</Text>
         </View>
-        <Text style={[styles.count, { color: t.mutedForeground }]}>
+        <Text style={[styles.count, { color: t.textMuted }]}>
           {completedCount}/{missions.length} complete
         </Text>
       </View>
@@ -49,9 +50,9 @@ export function TodaysMissions() {
                 styles.row,
                 {
                   borderColor:
-                    mission.completed && !mission.claimed ? t.win : t.cabinetBorder,
+                    mission.completed && !mission.claimed ? t.win : t.border,
                   backgroundColor:
-                    mission.completed && !mission.claimed ? `${t.win}18` : `${t.cabinetBg}88`,
+                    mission.completed && !mission.claimed ? hexWithAlpha(t.win, '18') : t.cardSoft,
                 },
               ]}
             >
@@ -59,7 +60,7 @@ export function TodaysMissions() {
                 style={[
                   styles.iconBox,
                   {
-                    backgroundColor: mission.completed ? `${t.win}33` : `${t.primary}33`,
+                    backgroundColor: mission.completed ? hexWithAlpha(t.win, '33') : hexWithAlpha(t.primary, '33'),
                   },
                 ]}
               >
@@ -75,19 +76,19 @@ export function TodaysMissions() {
                   <Text
                     style={[
                       styles.name,
-                      { color: t.foreground },
-                      mission.claimed && { color: t.mutedForeground, textDecorationLine: 'line-through' },
+                      { color: t.textPrimary },
+                      mission.claimed && { color: t.textMuted, textDecorationLine: 'line-through' },
                     ]}
                     numberOfLines={1}
                   >
                     {mission.name}
                   </Text>
                   <View style={styles.rewardPill}>
-                    <FontAwesome name="bitcoin" size={11} color={t.primary} />
-                    <Text style={[styles.rewardTxt, { color: t.foreground }]}>{mission.reward}</Text>
+                    <FontAwesome name="circle" size={11} color={t.gold} />
+                    <Text style={[styles.rewardTxt, { color: t.textPrimary }]}>{mission.reward}</Text>
                   </View>
                 </View>
-                <Text style={[styles.desc, { color: t.mutedForeground }]}>{mission.description}</Text>
+                <Text style={[styles.desc, { color: t.textSecondary }]}>{mission.description}</Text>
                 <View style={styles.progressRow}>
                   <View style={[styles.track, { backgroundColor: t.muted }]}>
                     <View
@@ -100,7 +101,7 @@ export function TodaysMissions() {
                       ]}
                     />
                   </View>
-                  <Text style={[styles.progressTxt, { color: t.mutedForeground }]}>
+                  <Text style={[styles.progressTxt, { color: t.textMuted }]}>
                     {progress}/{mission.target}
                   </Text>
                 </View>
@@ -131,9 +132,9 @@ export function TodaysMissions() {
       </View>
 
       {allCompleted ? (
-        <View style={[styles.doneBanner, { borderColor: `${t.win}55` }]}>
+        <View style={[styles.doneBanner, { borderColor: hexWithAlpha(t.win, '55') }]}>
           <Text style={[styles.doneTitle, { color: t.win }]}>All missions completed!</Text>
-          <Text style={[styles.doneSub, { color: t.mutedForeground }]}>New missions tomorrow</Text>
+          <Text style={[styles.doneSub, { color: t.textSecondary }]}>New missions tomorrow</Text>
         </View>
       ) : null}
     </View>

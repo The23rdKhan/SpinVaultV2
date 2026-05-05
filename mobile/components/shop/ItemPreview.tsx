@@ -2,7 +2,9 @@ import { StyleSheet, Text, View } from 'react-native'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { LinearGradient } from 'expo-linear-gradient'
 import type { VanityItem } from '@/lib/vanity-data'
-import { RARITY_COLORS } from '@/lib/vanity-data'
+import { rarityPresentation } from '@/lib/rarity-from-theme'
+import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { hexWithAlpha } from '@/theme/tokens'
 
 type PreviewSize = 'sm' | 'md'
 
@@ -62,27 +64,28 @@ function carEmoji(previewImage: string): string {
   }
 }
 
-function cabinetGradient(previewImage: string): [string, string] {
+function cabinetGradient(t: ReturnType<typeof useCasinoTheme>, previewImage: string): [string, string] {
   switch (previewImage) {
     case 'gold':
-      return ['#fbbf24', '#d97706']
+      return [t.gold, hexWithAlpha(t.accent, 'EE')]
     case 'neon':
-      return ['#22d3ee', '#c026d3']
+      return [t.freeSpin, t.bonus]
     case 'royal':
-      return ['#c084fc', '#6b21a8']
+      return [hexWithAlpha(t.bonus, 'EE'), hexWithAlpha(t.bonus, '99')]
     case 'cosmic':
-      return ['#818cf8', '#ec4899']
+      return [t.primarySoft, t.accent]
     case 'diamond':
-      return ['#e0f2fe', '#ffffff']
+      return [t.surfaceElevated, t.card]
     case 'void':
-      return ['#1e1b4b', '#0f172a']
+      return [t.background, t.surfaceElevated]
     default:
-      return ['#dc2626', '#991b1b']
+      return [t.destructive, hexWithAlpha(t.destructive, 'AA')]
   }
 }
 
 export function ItemPreview({ item, size = 'md' }: { item: VanityItem; size?: PreviewSize }) {
-  const rarity = RARITY_COLORS[item.rarity]
+  const t = useCasinoTheme()
+  const rarity = rarityPresentation(t, item.rarity)
   const sm = size === 'sm'
 
   switch (item.category) {
@@ -95,7 +98,10 @@ export function ItemPreview({ item, size = 'md' }: { item: VanityItem; size?: Pr
             { borderColor: rarity.border },
           ]}
         >
-          <LinearGradient colors={['#6366f155', '#a855f755']} style={styles.avatarFill}>
+          <LinearGradient
+            colors={[hexWithAlpha(t.primary, '44'), hexWithAlpha(t.accent, '44')]}
+            style={styles.avatarFill}
+          >
             <FontAwesome name="user" size={sm ? 16 : 20} color={rarity.text} />
           </LinearGradient>
         </View>
@@ -106,10 +112,10 @@ export function ItemPreview({ item, size = 'md' }: { item: VanityItem; size?: Pr
           style={[
             styles.frameOuter,
             sm ? styles.frameSm : styles.frameMd,
-            { borderColor: rarity.border },
+            { borderColor: rarity.border, backgroundColor: t.cardSoft },
           ]}
         >
-          <FontAwesome name="user" size={sm ? 12 : 14} color="#71717a" />
+          <FontAwesome name="user" size={sm ? 12 : 14} color={t.textMuted} />
         </View>
       )
     case 'title':
@@ -121,9 +127,16 @@ export function ItemPreview({ item, size = 'md' }: { item: VanityItem; size?: Pr
     case 'pet':
       return <Text style={sm ? styles.emojiSm : styles.emojiMd}>{petEmoji(item.previewImage)}</Text>
     case 'cabinet': {
-      const g = cabinetGradient(item.previewImage)
+      const g = cabinetGradient(t, item.previewImage)
       return (
-        <LinearGradient colors={g} style={[styles.cabinet, sm ? styles.cabinetSm : styles.cabinetMd]}>
+        <LinearGradient
+          colors={g}
+          style={[
+            styles.cabinet,
+            sm ? styles.cabinetSm : styles.cabinetMd,
+            { borderColor: hexWithAlpha(t.border, '66') },
+          ]}
+        >
           <View />
         </LinearGradient>
       )
@@ -143,7 +156,7 @@ export function ItemPreview({ item, size = 'md' }: { item: VanityItem; size?: Pr
               : item.previewImage === 'trophy'
                 ? 'trophy'
                 : item.previewImage === 'coins'
-                  ? 'bitcoin'
+                  ? 'circle'
                   : 'star'
       return (
         <View style={[styles.badge, { borderColor: rarity.border, backgroundColor: rarity.bg }]}>
@@ -167,7 +180,6 @@ const styles = StyleSheet.create({
   avatarFill: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   frameOuter: {
     borderRadius: 999,
-    backgroundColor: '#27272a',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -177,7 +189,7 @@ const styles = StyleSheet.create({
   titleSm: { fontSize: 11 },
   emojiSm: { fontSize: 22 },
   emojiMd: { fontSize: 28 },
-  cabinet: { borderRadius: 6, borderWidth: 2, borderColor: '#ffffff44' },
+  cabinet: { borderRadius: 6, borderWidth: 2 },
   cabinetSm: { width: 28, height: 40 },
   cabinetMd: { width: 36, height: 52 },
   badge: {

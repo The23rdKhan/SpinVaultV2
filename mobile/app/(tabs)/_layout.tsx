@@ -27,9 +27,9 @@ export default function TabLayout() {
     <ThemeProvider value={resolvedMode === 'dark' ? DarkTheme : DefaultTheme}>
       <NativeTabs
         tintColor={t.primary}
-        backgroundColor={t.card}
-        labelStyle={{ color: t.mutedForeground }}
-        iconColor={{ default: t.mutedForeground, selected: t.primary }}
+        backgroundColor={t.tabBar}
+        labelStyle={{ color: t.textMuted }}
+        iconColor={{ default: t.textMuted, selected: t.primary }}
         disableTransparentOnScrollEdge
         screenListeners={{
           tabPress: () => {

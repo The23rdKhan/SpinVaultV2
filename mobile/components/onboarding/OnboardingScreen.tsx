@@ -67,107 +67,143 @@ export function OnboardingScreen() {
     }
   }
 
+  const inputStyle = [
+    styles.input,
+    {
+      color: t.textPrimary,
+      backgroundColor: t.inputBackground,
+      borderColor: t.border,
+    },
+  ]
+
   return (
     <KeyboardAvoidingView
       style={[styles.flex, { backgroundColor: t.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        {step === 'welcome' ? (
-          <View style={styles.block}>
-            <Text style={[styles.hero, { color: t.primary }]}>Lucky Slots</Text>
-            <Text style={[styles.sub, { color: t.mutedForeground }]}>
-              Spin, win jackpots, and collect daily rewards.
-            </Text>
-            <AppButton label="Continue" onPress={() => setStep('age')} style={styles.btn} />
-          </View>
-        ) : null}
-
-        {step === 'age' ? (
-          <View style={styles.block}>
-            <Text style={[styles.title, { color: t.foreground }]}>Age verification</Text>
-            <Text style={[styles.sub, { color: t.mutedForeground }]}>
-              You must be 18+ to play simulated casino games.
-            </Text>
-            <AppButton
-              variant={ageOk ? 'primary' : 'outline'}
-              label={ageOk ? 'I am 18 or older ✓' : 'I am 18 or older'}
-              onPress={() => setAgeOk((v) => !v)}
-              style={styles.btn}
-            />
-            <AppButton
-              label="Continue"
-              disabled={!ageOk}
-              onPress={() => setStep('signup')}
-              style={styles.btn}
-            />
-            <AppButton variant="ghost" label="Back" onPress={() => setStep('welcome')} />
-          </View>
-        ) : null}
-
-        {step === 'signup' ? (
-          <View style={styles.block}>
-            <Text style={[styles.title, { color: t.foreground }]}>Save progress</Text>
-            <TextInput
-              placeholder="Username"
-              placeholderTextColor={t.mutedForeground}
-              value={username}
-              onChangeText={setUsername}
-              style={[styles.input, { color: t.foreground, borderColor: t.border }]}
-            />
-            <TextInput
-              placeholder="Email"
-              placeholderTextColor={t.mutedForeground}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-              style={[styles.input, { color: t.foreground, borderColor: t.border }]}
-            />
-            <TextInput
-              placeholder="Password"
-              placeholderTextColor={t.mutedForeground}
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-              style={[styles.input, { color: t.foreground, borderColor: t.border }]}
-            />
-            {formError ? (
-              <Text style={[styles.error, { color: t.destructive }]} accessibilityLiveRegion="polite">
-                {formError}
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: t.card,
+              borderColor: t.border,
+            },
+          ]}
+        >
+          {step === 'welcome' ? (
+            <View style={styles.block}>
+              <Text style={[styles.kicker, { color: t.accent }]}>Collect · Rewards · Themes</Text>
+              <Text style={[styles.hero, { color: t.textPrimary }]} accessibilityRole="header">
+                Welcome to SpinVault
               </Text>
-            ) : null}
-            <AppButton
-              label="Create account"
-              loading={loading}
-              onPress={onEmailSignup}
-              style={styles.btn}
-            />
-            <AppleSignInButton
-              navigateToTabs={false}
-              onSuccess={() => {
-                completeOnboarding()
-                track(AnalyticsEvents.ONBOARDING_COMPLETED, { path: 'apple' })
-              }}
-            />
-            <GoogleSignInButton
-              navigateToTabs={false}
-              onSuccess={() => {
-                completeOnboarding()
-                track(AnalyticsEvents.ONBOARDING_COMPLETED, { path: 'google' })
-              }}
-            />
-            <AppButton
-              variant="outline"
-              label="Play as guest"
-              loading={guestBusy}
-              disabled={loading || guestBusy}
-              onPress={() => void onGuest()}
-              style={styles.btn}
-            />
-            <AppButton variant="ghost" label="Back" onPress={() => setStep('age')} />
-          </View>
-        ) : null}
+              <Text style={[styles.subtitleBrand, { color: t.gold }]}>Lucky Slots</Text>
+              <Text style={[styles.sub, { color: t.textSecondary }]}>
+                Virtual coins, daily rewards, and collectible themes — entertainment only.
+              </Text>
+              <Text style={[styles.disclosure, { color: t.textMuted }]}>
+                Coins are for in-game entertainment only and have no cash value.
+              </Text>
+              <AppButton label="Start Spinning" onPress={() => setStep('age')} style={styles.btn} />
+            </View>
+          ) : null}
+
+          {step === 'age' ? (
+            <View style={styles.block}>
+              <Text style={[styles.title, { color: t.textPrimary }]}>Before you continue</Text>
+              <Text style={[styles.sub, { color: t.textSecondary }]}>
+                SpinVault is for adults (18+). Virtual coins and rewards are for entertainment only — no cash value.
+                SpinVault does not offer real-money gambling or cash prizes.
+              </Text>
+              <AppButton
+                variant={ageOk ? 'primary' : 'outline'}
+                label={ageOk ? 'I am 18 or older ✓' : 'I am 18 or older'}
+                onPress={() => setAgeOk((v) => !v)}
+                style={styles.btn}
+              />
+              <AppButton
+                label="Continue"
+                disabled={!ageOk}
+                onPress={() => setStep('signup')}
+                style={styles.btn}
+              />
+              <AppButton variant="ghost" label="Back" onPress={() => setStep('welcome')} />
+            </View>
+          ) : null}
+
+          {step === 'signup' ? (
+            <View style={styles.block}>
+              <Text style={[styles.title, { color: t.textPrimary }]}>Create your profile</Text>
+              <Text style={[styles.sub, { color: t.textSecondary }]}>
+                Save progress across devices. Or continue as a guest anytime.
+              </Text>
+              <TextInput
+                placeholder="Username"
+                placeholderTextColor={t.textMuted}
+                value={username}
+                onChangeText={setUsername}
+                style={inputStyle}
+                accessibilityLabel="Username"
+              />
+              <TextInput
+                placeholder="Email"
+                placeholderTextColor={t.textMuted}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
+                style={inputStyle}
+                accessibilityLabel="Email"
+              />
+              <TextInput
+                placeholder="Password"
+                placeholderTextColor={t.textMuted}
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+                style={inputStyle}
+                accessibilityLabel="Password"
+              />
+              {formError ? (
+                <Text
+                  style={[styles.error, { color: t.destructive }]}
+                  accessibilityLiveRegion="polite"
+                >
+                  {formError}
+                </Text>
+              ) : null}
+              <AppButton
+                label="Create account"
+                loading={loading}
+                onPress={onEmailSignup}
+                style={styles.btn}
+              />
+              <AppleSignInButton
+                navigateToTabs={false}
+                onSuccess={() => {
+                  completeOnboarding()
+                  track(AnalyticsEvents.ONBOARDING_COMPLETED, { path: 'apple' })
+                }}
+              />
+              <GoogleSignInButton
+                navigateToTabs={false}
+                onSuccess={() => {
+                  completeOnboarding()
+                  track(AnalyticsEvents.ONBOARDING_COMPLETED, { path: 'google' })
+                }}
+              />
+              <AppButton
+                variant="outline"
+                label="Continue as Guest"
+                loading={guestBusy}
+                disabled={loading || guestBusy}
+                onPress={() => void onGuest()}
+                style={styles.btn}
+              />
+              <AppButton variant="ghost" label="Back" onPress={() => setStep('age')} />
+            </View>
+          ) : null}
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   )
@@ -180,17 +216,40 @@ const styles = StyleSheet.create({
     padding: 24,
     justifyContent: 'center',
   },
-  block: { gap: 14 },
-  hero: { fontSize: 36, fontWeight: '900', textAlign: 'center' },
-  title: { fontSize: 24, fontWeight: '800' },
-  sub: { fontSize: 15, lineHeight: 22 },
-  btn: { alignSelf: 'stretch' },
-  input: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
+  card: {
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 22,
+    maxWidth: 440,
+    alignSelf: 'center',
+    width: '100%',
   },
-  error: { fontSize: 14, lineHeight: 20 },
+  block: { gap: 14 },
+  kicker: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+  },
+  hero: { fontSize: 28, fontWeight: '700', textAlign: 'center', lineHeight: 34 },
+  subtitleBrand: {
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  title: { fontSize: 22, fontWeight: '700' },
+  sub: { fontSize: 16, lineHeight: 24 },
+  disclosure: { fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: 4 },
+  btn: { alignSelf: 'stretch', minHeight: 48 },
+  input: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 17,
+    minHeight: 48,
+  },
+  error: { fontSize: 15, lineHeight: 22 },
 })

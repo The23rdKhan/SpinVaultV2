@@ -15,32 +15,34 @@ export function InfoModal({ open, onClose }: Props) {
 
   return (
     <Modal visible={open} animationType="slide" transparent onRequestClose={onClose}>
-      <BlurView
-        intensity={45}
-        tint="dark"
-        blurMethod="dimezisBlurView"
-        style={StyleSheet.absoluteFill}
-      />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: t.overlay }]}>
+        <BlurView
+          intensity={45}
+          tint="dark"
+          blurMethod="dimezisBlurView"
+          style={StyleSheet.absoluteFill}
+        />
+      </View>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable
-          style={[styles.sheet, { backgroundColor: t.card, borderColor: t.border }]}
+          style={[styles.sheet, { backgroundColor: t.surfaceElevated, borderColor: t.border }]}
           onPress={(e) => e.stopPropagation()}
         >
-          <Text style={[styles.title, { color: t.foreground }]}>Paytable</Text>
+          <Text style={[styles.title, { color: t.textPrimary }]}>Win table</Text>
           <ScrollView style={styles.scroll}>
             {regular.map((s) => (
               <View key={s.id} style={styles.row}>
-                <Text style={[styles.emoji, { color: t.foreground }]}>{s.emoji}</Text>
+                <Text style={[styles.emoji, { color: t.textPrimary }]}>{s.emoji}</Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.name, { color: t.foreground }]}>{s.name}</Text>
-                  <Text style={[styles.meta, { color: t.mutedForeground }]}>Value × bet</Text>
+                  <Text style={[styles.name, { color: t.textPrimary }]}>{s.name}</Text>
+                  <Text style={[styles.meta, { color: t.textSecondary }]}>Multiplier × spin amount</Text>
                 </View>
                 <Text style={[styles.val, { color: t.primary }]}>{s.value}</Text>
               </View>
             ))}
             <Text style={[styles.section, { color: t.primary }]}>Special</Text>
-            <Text style={[styles.body, { color: t.mutedForeground }]}>
-              Wild substitutes for any regular symbol. Scatter pays anywhere; 3+ trigger 10 free spins.
+            <Text style={[styles.body, { color: t.textSecondary }]}>
+              Wild substitutes for any regular symbol. Scatter matches anywhere; 3+ trigger 10 free spins.
             </Text>
           </ScrollView>
           <AppButton label="Close" onPress={onClose} style={{ marginTop: 12 }} />

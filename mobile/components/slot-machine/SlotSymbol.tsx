@@ -11,6 +11,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated'
 import type { SlotSymbol as SlotSymbolType } from '@/lib/game-context'
+import { hexWithAlpha } from '@/theme/tokens'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 
 interface Props {
@@ -51,15 +52,24 @@ function SlotSymbolInner({ symbol, isWinning, isSpinning }: Props) {
 
   if (symbol.isWild) {
     return (
-      <Animated.View style={[styles.badge, { backgroundColor: '#059669' }, animStyle]}>
-        <Text style={styles.badgeText}>W</Text>
+      <Animated.View style={[styles.badge, { backgroundColor: t.win }, animStyle]}>
+        <Text style={[styles.badgeText, { color: t.primaryForeground }]}>W</Text>
       </Animated.View>
     )
   }
   if (symbol.isScatter) {
     return (
-      <Animated.View style={[styles.scatter, { borderColor: t.primary }, animStyle]}>
-        <Text style={styles.scatterText}>S</Text>
+      <Animated.View
+        style={[
+          styles.scatter,
+          {
+            borderColor: t.jackpot,
+            backgroundColor: hexWithAlpha(t.jackpot, '33'),
+          },
+          animStyle,
+        ]}
+      >
+        <Text style={[styles.scatterText, { color: t.jackpot }]}>S</Text>
       </Animated.View>
     )
   }
@@ -68,7 +78,7 @@ function SlotSymbolInner({ symbol, isWinning, isSpinning }: Props) {
     <Animated.Text
       style={[
         styles.emoji,
-        { color: t.foreground },
+        { color: t.textPrimary },
         isWinning && { color: t.win, fontWeight: '900' },
         animStyle,
       ]}
@@ -90,7 +100,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
   },
-  badgeText: { color: '#fff', fontWeight: '900', fontSize: 14 },
+  badgeText: { fontWeight: '900', fontSize: 14 },
   scatter: {
     width: 36,
     height: 36,
@@ -98,7 +108,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(234,179,8,0.25)',
   },
-  scatterText: { fontWeight: '900', fontSize: 14, color: '#ca8a04' },
+  scatterText: { fontWeight: '900', fontSize: 14 },
 })

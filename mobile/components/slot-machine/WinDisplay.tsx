@@ -11,6 +11,7 @@ import Animated, {
 import { BlurView } from 'expo-blur'
 import type { WinType } from '@/lib/game-context'
 import { useGame } from '@/lib/game-context'
+import { useAppearance } from '@/lib/appearance-context'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { useHaptics } from '@/lib/use-haptics'
 
@@ -37,6 +38,7 @@ const WIN_CONFIG: Record<
 
 export function WinDisplay({ show, amount, winType, freeSpins, onClose }: WinDisplayProps) {
   const t = useCasinoTheme()
+  const { resolvedMode } = useAppearance()
   const { winMultiplier } = useGame()
   const [visible, setVisible] = useState(false)
   const [displayAmount, setDisplayAmount] = useState(0)
@@ -153,7 +155,11 @@ export function WinDisplay({ show, amount, winType, freeSpins, onClose }: WinDis
   const inner = (
     <Animated.View style={cardStyle}>
       <Pressable
-        style={[styles.card, { borderColor: accent, backgroundColor: t.card }, cfg.fullscreen && styles.cardFs]}
+        style={[
+          styles.card,
+          { borderColor: accent, backgroundColor: t.surfaceElevated },
+          cfg.fullscreen && styles.cardFs,
+        ]}
         onPress={requestClose}
         accessibilityRole="button"
         accessibilityLabel={spinsOnly ? 'Free spins awarded' : lineWin ? 'Win' : 'Result'}
@@ -169,24 +175,33 @@ export function WinDisplay({ show, amount, winType, freeSpins, onClose }: WinDis
           <Text style={[styles.amt, { color: accent }]}>{displayAmount.toLocaleString()} coins</Text>
         ) : null}
         {freeSpins > 0 ? (
-          <Text style={[styles.fsBonus, { color: t.primary }]}>
+          <Text style={[styles.fsBonus, { color: t.freeSpin }]}>
             {spinsOnly ? `${freeSpins} free spins awarded!` : `+${freeSpins} free spins`}
           </Text>
         ) : null}
         {cfg.fullscreen ? (
-          <Text style={[styles.hint, { color: t.mutedForeground }]}>Tap to continue</Text>
+          <Text style={[styles.hint, { color: t.textSecondary }]}>Tap to continue</Text>
         ) : null}
         {!cfg.fullscreen && lineWin && allowDismiss ? (
-          <Text style={[styles.hint, { color: t.mutedForeground }]}>Tap to skip</Text>
+          <Text style={[styles.hint, { color: t.textSecondary }]}>Tap to skip</Text>
         ) : null}
       </Pressable>
     </Animated.View>
   )
 
+  const blurTint = resolvedMode === 'dark' ? 'dark' : 'light'
+
   if (!cfg.fullscreen) {
     return (
       <Modal transparent visible={visible} animationType="fade">
-      <BlurView intensity={30} tint="dark" blurMethod="dimezisBlurView" style={StyleSheet.absoluteFill} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: t.overlay }]}>
+          <BlurView
+            intensity={30}
+            tint={blurTint}
+            blurMethod="dimezisBlurView"
+            style={StyleSheet.absoluteFill}
+          />
+        </View>
         <View style={styles.center}>{inner}</View>
       </Modal>
     )
@@ -194,7 +209,14 @@ export function WinDisplay({ show, amount, winType, freeSpins, onClose }: WinDis
 
   return (
     <Modal transparent visible={visible} animationType="fade">
-      <BlurView intensity={55} tint="dark" blurMethod="dimezisBlurView" style={StyleSheet.absoluteFill} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: t.overlay }]}>
+        <BlurView
+          intensity={55}
+          tint={blurTint}
+          blurMethod="dimezisBlurView"
+          style={StyleSheet.absoluteFill}
+        />
+      </View>
       <Pressable
         style={styles.fsBackdrop}
         onPress={requestClose}

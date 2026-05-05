@@ -56,7 +56,7 @@ export function useAudio() {
     playOnce(SPIN_SFX)
   }, [])
 
-  /** Plays when the bonus meter fills and a payout is awarded. */
+  /** Plays when the bonus meter fills and a virtual coin reward is awarded. */
   const bonusDing = useCallback(() => {
     if (!soundEnabledRef.current) return
     playOnce(WIN_SFX)

@@ -34,7 +34,7 @@ export const PROFILE_ACHIEVEMENT_DEFINITIONS: ProfileAchievementDefinition[] = [
   {
     id: 'big-winner',
     name: 'Big Winner',
-    description: 'Win 1,000+ coins in one spin',
+    description: 'Best spin of 1,000+ virtual coins',
     icon: 'trophy',
   },
   {
@@ -52,7 +52,7 @@ export const PROFILE_ACHIEVEMENT_DEFINITIONS: ProfileAchievementDefinition[] = [
   {
     id: 'millionaire',
     name: 'Millionaire',
-    description: 'Have 100,000+ coins',
+    description: 'Hold 100,000+ virtual coins',
     icon: 'coins',
   },
 ]

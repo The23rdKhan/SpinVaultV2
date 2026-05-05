@@ -12,6 +12,7 @@ import { useKeepAwake } from 'expo-keep-awake'
 import Toast from 'react-native-toast-message'
 import { useGame } from '@/lib/game-context'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { hexWithAlpha } from '@/theme/tokens'
 import { ControlDeck } from './ControlDeck'
 import { SpinSyncBanner } from './SpinSyncBanner'
 import { InfoModal } from './InfoModal'
@@ -86,7 +87,7 @@ export function SlotMachine() {
     Toast.show({
       type: 'success',
       text1: 'Bonus meter full!',
-      text2: `+${lastBonusMeterPayout.toLocaleString()} coins`,
+      text2: `+${lastBonusMeterPayout.toLocaleString()} virtual coins`,
     })
   }, [spinSequence, isSpinning, lastBonusMeterPayout])
 
@@ -144,7 +145,7 @@ export function SlotMachine() {
           style={[
             styles.cornerLight,
             styles.cornerTL,
-            { opacity: cornerPulse, backgroundColor: t.primary },
+            { opacity: cornerPulse, backgroundColor: t.machineAccent },
           ]}
         />
         <Animated.View
@@ -165,7 +166,7 @@ export function SlotMachine() {
           style={[
             styles.cornerLight,
             styles.cornerBR,
-            { opacity: cornerPulse, backgroundColor: t.primary },
+            { opacity: cornerPulse, backgroundColor: t.machineAccent },
           ]}
         />
         <Marquee />
@@ -173,25 +174,25 @@ export function SlotMachine() {
           <ReelGrid />
         </View>
         <View style={styles.legend}>
-          <Text style={[styles.legendMeta, { color: t.mutedForeground }]}>9 active paylines</Text>
+          <Text style={[styles.legendMeta, { color: t.textMuted }]}>9 active paylines</Text>
           <View style={styles.legendBadges}>
-            <View style={[styles.symBadge, { borderColor: `${t.primary}88` }]}>
+            <View style={[styles.symBadge, { borderColor: hexWithAlpha(t.primary, '88'), backgroundColor: hexWithAlpha(t.overlay, '33') }]}>
               <Text style={[styles.symGlyph, { color: t.win }]}>W</Text>
-              <Text style={[styles.symLbl, { color: t.mutedForeground }]}>Wild</Text>
+              <Text style={[styles.symLbl, { color: t.textMuted }]}>Wild</Text>
             </View>
-            <View style={[styles.symBadge, { borderColor: `${t.jackpot}66` }]}>
+            <View style={[styles.symBadge, { borderColor: hexWithAlpha(t.jackpot, '66'), backgroundColor: hexWithAlpha(t.overlay, '33') }]}>
               <Text style={[styles.symGlyph, { color: t.jackpot }]}>S</Text>
-              <Text style={[styles.symLbl, { color: t.mutedForeground }]}>Scatter</Text>
+              <Text style={[styles.symLbl, { color: t.textMuted }]}>Scatter</Text>
             </View>
           </View>
         </View>
         {freeSpins > 0 ? (
           <Animated2.View style={[styles.fsBanner, fsBannerStyle]}>
-            <Text style={[styles.fsText, { color: t.win }]}>{freeSpins} FREE SPINS!</Text>
+            <Text style={[styles.fsText, { color: t.freeSpin, textShadowColor: t.shadow }]}>{freeSpins} FREE SPINS!</Text>
           </Animated2.View>
         ) : null}
         {isJackpotMode ? (
-          <View style={styles.jackpotBadge}>
+          <View style={[styles.jackpotBadge, { backgroundColor: hexWithAlpha(t.overlay, 'AA') }]}>
             <Text style={[styles.jackpotText, { color: t.jackpot }]}>JACKPOT MODE</Text>
           </View>
         ) : null}
@@ -261,7 +262,6 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 999,
     borderWidth: 1,
-    backgroundColor: '#00000022',
   },
   symGlyph: { fontWeight: '900', fontSize: 13 },
   symLbl: { fontWeight: '700', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.6 },
@@ -276,7 +276,6 @@ const styles = StyleSheet.create({
   fsText: {
     fontWeight: '900',
     fontSize: 18,
-    textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowRadius: 6,
     textShadowOffset: { width: 0, height: 1 },
   },
@@ -287,7 +286,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
-    backgroundColor: 'rgba(0,0,0,0.35)',
   },
   jackpotText: { fontWeight: '900', fontSize: 11 },
 })

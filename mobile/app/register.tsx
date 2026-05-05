@@ -1,9 +1,13 @@
+import { ActivityIndicator, StyleSheet, View } from 'react-native'
 import { Redirect } from 'expo-router'
+import { useAppearance } from '@/lib/appearance-context'
 import { useAuth } from '@/lib/auth-context'
 import { routes } from '@/lib/app-routes'
 import { RegisterScreen } from '@/components/auth/register-screen'
+import { getSpinVaultShellBackground, getSpinVaultShellPrimary } from '@/theme/tokens'
 
 export default function RegisterRoute() {
+  const { resolvedMode } = useAppearance()
   const {
     isLoading,
     hasCompletedOnboarding,
@@ -12,7 +16,14 @@ export default function RegisterRoute() {
   } = useAuth()
 
   if (isLoading) {
-    return null
+    return (
+      <View
+        style={[styles.loading, { backgroundColor: getSpinVaultShellBackground(resolvedMode) }]}
+        accessibilityLabel="Loading"
+      >
+        <ActivityIndicator size="large" color={getSpinVaultShellPrimary(resolvedMode)} />
+      </View>
+    )
   }
 
   if (!hasCompletedOnboarding) {
@@ -28,3 +39,11 @@ export default function RegisterRoute() {
 
   return <RegisterScreen />
 }
+
+const styles = StyleSheet.create({
+  loading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+})

@@ -41,7 +41,7 @@ function AppButtonInner({
       primary: { bg: t.primary, fg: t.primaryForeground, border: t.primary },
       outline: { bg: 'transparent', fg: t.foreground, border: t.border },
       ghost: { bg: hexWithAlpha(t.card, 'CC'), fg: t.foreground, border: t.border },
-      destructive: { bg: t.destructive, fg: '#fff', border: t.destructive },
+      destructive: { bg: t.destructive, fg: t.destructiveForeground, border: t.destructive },
     }[variant]
   }, [t, variant])
 

@@ -16,22 +16,15 @@ import { useGame, WHEEL_REWARDS } from '@/lib/game-context'
 import { useHaptics } from '@/lib/use-haptics'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 
+function wheelSegmentFills(t: ReturnType<typeof useCasinoTheme>): string[] {
+  return [t.primary, t.win, t.freeSpin, t.jackpot, t.bonus, t.accent, t.gold, t.destructive]
+}
+
 const W = 200
 const CX = 100
 const CY = 100
 const R = 86
 const SPIN_DURATION_MS = 4000
-
-const SEGMENT_COLORS = [
-  '#dc2626',
-  '#2563eb',
-  '#16a34a',
-  '#ca8a04',
-  '#9333ea',
-  '#db2777',
-  '#0891b2',
-  '#ea580c',
-]
 
 function wedgePath(i: number, n: number): string {
   const seg = (2 * Math.PI) / n
@@ -122,13 +115,14 @@ export function DailyWheel() {
 
   const canSpin = !dailyWheel.dailyWheelClaimed && !isSpinning
   const n = WHEEL_REWARDS.length
+  const segmentFills = wheelSegmentFills(t)
 
   return (
-    <View style={[styles.panel, { borderColor: t.border, backgroundColor: t.card }]}>
+    <View style={[styles.panel, { borderColor: t.border, backgroundColor: t.surfaceElevated }]}>
       <View style={styles.row}>
-        <Text style={[styles.title, { color: t.foreground }]}>Daily Wheel</Text>
+        <Text style={[styles.title, { color: t.textPrimary }]}>Daily Wheel</Text>
         {dailyWheel.dailyWheelClaimed ? (
-          <Text style={[styles.sub, { color: t.mutedForeground }]}>Spun today</Text>
+          <Text style={[styles.sub, { color: t.textMuted }]}>Spun today</Text>
         ) : null}
       </View>
 
@@ -140,7 +134,7 @@ export function DailyWheel() {
         <Animated.View style={[styles.svgWrap, wheelStyle]}>
           <Svg width={W} height={W}>
             {WHEEL_REWARDS.map((_, i) => (
-              <Path key={i} d={wedgePath(i, n)} fill={SEGMENT_COLORS[i % SEGMENT_COLORS.length]} />
+              <Path key={i} d={wedgePath(i, n)} fill={segmentFills[i % segmentFills.length]} />
             ))}
             {WHEEL_REWARDS.map((reward, i) => {
               const { x, y, rot } = labelPos(i, n)
@@ -149,7 +143,7 @@ export function DailyWheel() {
                   key={`l-${i}`}
                   x={x}
                   y={y}
-                  fill="#ffffff"
+                  fill={t.spinButtonLabel}
                   fontSize={11}
                   fontWeight="700"
                   textAnchor="middle"
@@ -166,30 +160,30 @@ export function DailyWheel() {
         <View
           style={[
             styles.centerIcon,
-            { borderColor: t.primary, backgroundColor: t.card, left: (W - 52) / 2, top: (W - 52) / 2 },
+            { borderColor: t.primary, backgroundColor: t.surfaceElevated, left: (W - 52) / 2, top: (W - 52) / 2 },
           ]}
         >
-          <FontAwesome name="bitcoin" size={20} color={t.primary} />
+          <FontAwesome name="circle" size={20} color={t.gold} />
         </View>
       </View>
 
       <View style={styles.footer}>
         {displayReward !== null ? (
           <Animated.View style={[styles.result, resultStyle]}>
-            <Text style={[styles.resultHint, { color: t.mutedForeground }]}>You won</Text>
+            <Text style={[styles.resultHint, { color: t.textSecondary }]}>You won</Text>
             <View style={styles.resultRow}>
-              <FontAwesome name="money" size={22} color={t.win} />
+              <FontAwesome name="gift" size={22} color={t.win} />
               <Text style={[styles.resultAmt, { color: t.win }]}>
-                {displayReward.toLocaleString()} coins
+                {displayReward.toLocaleString()} virtual coins
               </Text>
             </View>
           </Animated.View>
         ) : dailyWheel.dailyWheelClaimed ? (
           <View style={styles.result}>
-            <Text style={[styles.sub, { color: t.mutedForeground }]}>Come back tomorrow!</Text>
+            <Text style={[styles.sub, { color: t.textMuted }]}>Come back tomorrow!</Text>
             {dailyWheel.wheelReward != null ? (
-              <Text style={[styles.sub, { color: t.mutedForeground }]}>
-                Today&apos;s reward: {dailyWheel.wheelReward.toLocaleString()} coins
+              <Text style={[styles.sub, { color: t.textMuted }]}>
+                Today&apos;s reward: {dailyWheel.wheelReward.toLocaleString()} virtual coins
               </Text>
             ) : null}
           </View>
@@ -200,7 +194,7 @@ export function DailyWheel() {
             onPress={handleSpin}
             style={styles.spinBtn}
             accessibilityLabel="Spin the daily wheel"
-            accessibilityHint="Awards a random coin prize once per day"
+            accessibilityHint="Awards a random virtual coin prize once per day"
           />
         )}
       </View>

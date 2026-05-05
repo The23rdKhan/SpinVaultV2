@@ -2,11 +2,19 @@ import { useEffect, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { PlayerProfileModal } from '@/components/social/PlayerProfileModal'
-import { ALL_VANITY_ITEMS, RARITY_COLORS } from '@/lib/vanity-data'
+import { ALL_VANITY_ITEMS } from '@/lib/vanity-data'
+import { rarityPresentation } from '@/lib/rarity-from-theme'
 import { getSupabase } from '@/lib/supabase'
 import { isServerSpinEnabled } from '@/lib/server-spin'
-import { useCasinoTheme } from '@/lib/use-casino-theme'
-import type { CasinoPalette } from '@/theme/tokens'
+import { useCasinoTheme, type AppTheme } from '@/lib/use-casino-theme'
+import { hexWithAlpha } from '@/theme/tokens'
+
+function rankAccent(t: AppTheme, rank: number) {
+  if (rank === 1) return { bg: hexWithAlpha(t.gold, '33'), border: t.gold, fg: t.gold }
+  if (rank === 2) return { bg: hexWithAlpha(t.textMuted, '33'), border: t.textMuted, fg: t.textSecondary }
+  if (rank === 3) return { bg: hexWithAlpha(t.accent, '33'), border: t.accent, fg: t.accent }
+  return { bg: hexWithAlpha(t.cardSoft, 'EE'), border: 'transparent' as const, fg: t.textMuted }
+}
 
 /**
  * UTC week starting Monday — keep aligned with `public.week_period_start_utc`.
@@ -75,20 +83,13 @@ function Row({
 }: {
   entry: Entry
   onPress: () => void
-  t: CasinoPalette
+  t: AppTheme
 }) {
   const frameItem = entry.frame ? ALL_VANITY_ITEMS.find((i) => i.id === entry.frame) : null
-  const frameParts = frameItem ? RARITY_COLORS[frameItem.rarity] : null
+  const frameParts = frameItem ? rarityPresentation(t, frameItem.rarity) : null
   const petE = entry.pet ? petEmoji(entry.pet) : ''
 
-  const rankStyle =
-    entry.rank === 1
-      ? { bg: '#f59e0b33', border: '#f59e0b', fg: '#fbbf24' }
-      : entry.rank === 2
-        ? { bg: '#a1a1aa33', border: '#a1a1aa', fg: '#d4d4d8' }
-        : entry.rank === 3
-          ? { bg: '#ea580c33', border: '#ea580c', fg: '#fb923c' }
-          : { bg: `${t.muted}44`, border: 'transparent', fg: t.mutedForeground }
+  const rankStyle = rankAccent(t, entry.rank)
 
   return (
     <Pressable
@@ -113,14 +114,14 @@ function Row({
             styles.avatar,
             {
               borderColor: frameParts?.border ?? t.border,
-              backgroundColor: t.muted,
+              backgroundColor: t.cardSoft,
             },
           ]}
         >
-          <FontAwesome name="user" size={16} color={t.mutedForeground} />
+          <FontAwesome name="user" size={16} color={t.textMuted} />
         </View>
         {petE ? (
-          <Text style={styles.petMini} accessibilityLabel="pet">
+          <Text style={[styles.petMini, { backgroundColor: hexWithAlpha(t.overlay, '44') }]} accessibilityLabel="pet">
             {petE}
           </Text>
         ) : null}
@@ -129,27 +130,34 @@ function Row({
       <View style={styles.mid}>
         <View style={styles.nameRow}>
           <Text
-            style={[styles.name, { color: entry.isCurrentUser ? t.primary : t.foreground }]}
+            style={[styles.name, { color: entry.isCurrentUser ? t.primary : t.textPrimary }]}
             numberOfLines={1}
           >
             {entry.username}
           </Text>
           {entry.vipTier != null && entry.vipTier >= 3 ? (
-            <Text style={styles.vip}>VIP {entry.vipTier}</Text>
+            <Text
+              style={[
+                styles.vip,
+                { color: t.gold, backgroundColor: hexWithAlpha(t.gold, '22') },
+              ]}
+            >
+              VIP {entry.vipTier}
+            </Text>
           ) : null}
         </View>
         {entry.title ? (
-          <Text style={[styles.titleHint, { color: t.mutedForeground }]} numberOfLines={1}>
+          <Text style={[styles.titleHint, { color: t.textMuted }]} numberOfLines={1}>
             {ALL_VANITY_ITEMS.find((i) => i.id === entry.title)?.name ?? entry.title}
           </Text>
         ) : null}
       </View>
 
       <View style={styles.valCol}>
-        <FontAwesome name="bitcoin" size={12} color={t.primary} />
-        <Text style={[styles.val, { color: t.foreground }]}>{entry.value.toLocaleString()}</Text>
+        <FontAwesome name="circle" size={12} color={t.gold} />
+        <Text style={[styles.val, { color: t.textPrimary }]}>{entry.value.toLocaleString()}</Text>
       </View>
-      <FontAwesome name="chevron-right" size={12} color={t.mutedForeground} />
+      <FontAwesome name="chevron-right" size={12} color={t.textMuted} />
     </Pressable>
   )
 }
@@ -283,8 +291,8 @@ export function WeeklyLeaderboard() {
         <View style={[styles.stateIcon, { backgroundColor: `${t.primary}18`, borderColor: `${t.primary}33` }]}>
           <FontAwesome name={stateMeta.icon} size={18} color={t.primary} />
         </View>
-        <Text style={[styles.stateTitle, { color: t.foreground }]}>{stateMeta.title}</Text>
-        <Text style={[styles.stateSub, { color: t.mutedForeground }]}>{stateMeta.body}</Text>
+        <Text style={[styles.stateTitle, { color: t.textPrimary }]}>{stateMeta.title}</Text>
+        <Text style={[styles.stateSub, { color: t.textSecondary }]}>{stateMeta.body}</Text>
       </View>
     )
   }
@@ -293,10 +301,10 @@ export function WeeklyLeaderboard() {
     <View style={styles.wrap}>
       <View style={styles.head}>
         <FontAwesome name="trophy" size={18} color={t.primary} />
-        <Text style={[styles.h3, { color: t.foreground }]}>Weekly Leaderboard</Text>
+        <Text style={[styles.h3, { color: t.textPrimary }]}>Weekly leaderboard</Text>
       </View>
 
-      <View style={[styles.tabs, { backgroundColor: `${t.muted}55` }]}>
+      <View style={[styles.tabs, { backgroundColor: t.cardSoft }]}>
         <Pressable
           onPress={() => setType('biggestWin')}
           style={[styles.tab, type === 'biggestWin' && { backgroundColor: t.primary }]}
@@ -304,15 +312,15 @@ export function WeeklyLeaderboard() {
           <FontAwesome
             name="star"
             size={14}
-            color={type === 'biggestWin' ? t.primaryForeground : t.mutedForeground}
+            color={type === 'biggestWin' ? t.primaryForeground : t.textMuted}
           />
           <Text
             style={[
               styles.tabTxt,
-              { color: type === 'biggestWin' ? t.primaryForeground : t.mutedForeground },
+              { color: type === 'biggestWin' ? t.primaryForeground : t.textMuted },
             ]}
           >
-            Biggest Win
+            Best spin
           </Text>
         </Pressable>
         <Pressable
@@ -322,20 +330,20 @@ export function WeeklyLeaderboard() {
           <FontAwesome
             name="bar-chart"
             size={14}
-            color={type === 'totalWinnings' ? t.primaryForeground : t.mutedForeground}
+            color={type === 'totalWinnings' ? t.primaryForeground : t.textMuted}
           />
           <Text
             style={[
               styles.tabTxt,
-              { color: type === 'totalWinnings' ? t.primaryForeground : t.mutedForeground },
+              { color: type === 'totalWinnings' ? t.primaryForeground : t.textMuted },
             ]}
           >
-            Total Winnings
+            Weekly coin rewards
           </Text>
         </Pressable>
       </View>
 
-      <View style={[styles.list, { borderColor: t.border, backgroundColor: t.card }]}>
+      <View style={[styles.list, { borderColor: t.border, backgroundColor: t.surfaceElevated }]}>
         {viewState !== 'ready' ? (
           renderState()
         ) : (
@@ -356,7 +364,7 @@ export function WeeklyLeaderboard() {
 
       {selfEntry && selfEntry.rank > topEntries.length ? (
         <View style={[styles.selfBox, { borderColor: t.primary }]}>
-          <Text style={[styles.selfLbl, { color: t.mutedForeground }]}>Your position</Text>
+          <Text style={[styles.selfLbl, { color: t.textMuted }]}>Your position</Text>
           <Row entry={selfEntry} onPress={() => setPick(selfEntry)} t={t} />
         </View>
       ) : null}
@@ -364,7 +372,7 @@ export function WeeklyLeaderboard() {
       {pick != null ? (
         <PlayerProfileModal
           player={pick}
-          metricLabel={type === 'biggestWin' ? 'Biggest win (weekly)' : 'Total winnings (weekly)'}
+          metricLabel={type === 'biggestWin' ? 'Best spin (weekly)' : 'Total coins won (weekly)'}
           onClose={() => setPick(null)}
         />
       ) : null}
@@ -430,7 +438,6 @@ const styles = StyleSheet.create({
     right: -4,
     bottom: -2,
     fontSize: 12,
-    backgroundColor: '#00000022',
     borderRadius: 8,
     paddingHorizontal: 2,
   },
@@ -440,8 +447,6 @@ const styles = StyleSheet.create({
   vip: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#fbbf24',
-    backgroundColor: '#f59e0b22',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,

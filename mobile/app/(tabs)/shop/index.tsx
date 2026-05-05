@@ -24,10 +24,10 @@ import { THEME_CONFIGS } from '@/lib/theme-config'
 import {
   ALL_VANITY_ITEMS,
   getItemsByCategory,
-  RARITY_COLORS,
   RARITY_LABELS,
   type VanityCategory,
 } from '@/lib/vanity-data'
+import { rarityPresentation } from '@/lib/rarity-from-theme'
 import { track } from '@/lib/analytics/track'
 import { isReachable } from '@/lib/reachability'
 import { hasRevenueCatPlatformApiKey, purchaseConsumableSku, PURCHASE_ERR_REVENUECAT_NOT_READY } from '@/lib/revenuecat'
@@ -41,6 +41,7 @@ import {
   type ShopCoinPackRow,
 } from '@/lib/shop-iap-catalog'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { hexWithAlpha } from '@/theme/tokens'
 import { AnalyticsEvents } from '@shared/analytics/event-names'
 
 const FREE_SPIN_BUNDLES = [
@@ -115,7 +116,7 @@ export default function ShopScreen() {
         Toast.show({
           type: 'error',
           text1: 'No connection',
-          text2: 'Reconnect to the internet to purchase coin packs.',
+          text2: 'Reconnect to the internet to purchase virtual coin packs.',
         })
         return
       }
@@ -134,7 +135,7 @@ export default function ShopScreen() {
             coins_granted: pack.coins,
             free_spins_granted: pack.freeSpins,
           })
-          msg('Purchase complete — wallet updated')
+          msg('Purchase complete — balance updated')
           return
         }
         if (r.cancelled) return
@@ -154,9 +155,9 @@ export default function ShopScreen() {
           })
           msg(
             pack.coins > 0 && pack.freeSpins > 0
-              ? `Added ${pack.coins.toLocaleString()} coins + ${pack.freeSpins} free spins`
+              ? `Added ${pack.coins.toLocaleString()} virtual coins + ${pack.freeSpins} free spins`
               : pack.coins > 0
-                ? `Added ${pack.coins.toLocaleString()} coins`
+                ? `Added ${pack.coins.toLocaleString()} virtual coins`
                 : `Added ${pack.freeSpins} free spins`,
           )
           return
@@ -176,7 +177,7 @@ export default function ShopScreen() {
     if (buyFreeSpinsWithCoins(bundle.price, bundle.spins)) {
       msg(`+${bundle.spins} free spins`)
     } else {
-      msg('Not enough coins')
+      msg('Not enough virtual coins')
     }
   }
 
@@ -207,7 +208,7 @@ export default function ShopScreen() {
             coins_granted: STARTER_BUNDLE_GRANT.coins,
             free_spins_granted: STARTER_BUNDLE_GRANT.freeSpins,
           })
-          msg('Starter pack unlocked — wallet updated + Golden Ring frame')
+          msg('Starter pack unlocked — balance updated + Golden Ring frame')
           return
         }
         if (r.cancelled) return
@@ -225,7 +226,7 @@ export default function ShopScreen() {
             free_spins_granted: STARTER_BUNDLE_GRANT.freeSpins,
           })
           msg(
-            `Starter pack — ${STARTER_BUNDLE_GRANT.coins.toLocaleString()} coins + ${STARTER_BUNDLE_GRANT.freeSpins} free spins + frame`,
+            `Starter pack — ${STARTER_BUNDLE_GRANT.coins.toLocaleString()} virtual coins + ${STARTER_BUNDLE_GRANT.freeSpins} free spins + frame`,
           )
           return
         }
@@ -253,7 +254,7 @@ export default function ShopScreen() {
         setTheme(theme)
         msg(`${THEME_CONFIGS[theme].name} unlocked`)
       } else {
-        msg('Not enough coins')
+        msg('Not enough virtual coins')
       }
     })()
   }
@@ -271,14 +272,14 @@ export default function ShopScreen() {
           { paddingHorizontal: SCREEN_PAD_H, paddingBottom: bottomPad },
         ]}
       >
-        <Text style={[styles.lead, { color: t.mutedForeground }]}>
+        <Text style={[styles.lead, { color: t.textSecondary }]}>
           {hasRevenueCatPlatformApiKey()
-            ? 'Coin packs — App Store / Play Billing (wallet syncs from server).'
-            : 'Coin packs & cosmetics — simulated IAP (set RevenueCat keys for real purchases).'}
+            ? 'Virtual coin packs — checkout uses your app store; your SpinVault vault syncs from the server.'
+            : 'Virtual coin packs & collectibles — simulated checkout (add RevenueCat keys for live purchases).'}
         </Text>
 
         <LinearGradient
-          colors={[`${t.primary}44`, t.card, `${t.primary}33`]}
+          colors={[hexWithAlpha(t.primary, '44'), t.card, hexWithAlpha(t.primary, '33')]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[styles.starter, { borderColor: t.primary }]}
@@ -300,7 +301,7 @@ export default function ShopScreen() {
               <View
                 style={[
                   styles.starterArtWrap,
-                  { borderColor: `${t.primary}44`, backgroundColor: `${t.primary}10` },
+                  { borderColor: hexWithAlpha(t.primary, '44'), backgroundColor: hexWithAlpha(t.primary, '10') },
                   starterStackVertical && styles.starterArtWrapStacked,
                 ]}
               >
@@ -312,9 +313,9 @@ export default function ShopScreen() {
               </View>
             </Pressable>
             <View style={styles.starterCopy}>
-              <Text style={[styles.starterTitle, { color: t.foreground }]}>Starter Bundle</Text>
-              <Text style={[styles.starterSub, { color: t.mutedForeground }]}>
-                One-time offer with coins, free spins, and the Golden Ring frame.
+              <Text style={[styles.starterTitle, { color: t.textPrimary }]}>Starter Bundle</Text>
+              <Text style={[styles.starterSub, { color: t.textSecondary }]}>
+                One-time offer with virtual coins, free spins, and the Golden Ring frame.
               </Text>
               <Text style={[styles.starterHint, { color: t.win }]}>
                 Best entry offer in the store
@@ -331,7 +332,7 @@ export default function ShopScreen() {
 
         <View style={styles.sectionHead}>
           <FontAwesome name="bolt" size={16} color={t.primary} />
-          <Text style={[styles.h3, { color: t.foreground }]}>Free Spin Bundles</Text>
+          <Text style={[styles.h3, { color: t.textPrimary }]}>Free spin bundles</Text>
         </View>
         <View style={styles.bundleRow}>
           {FREE_SPIN_BUNDLES.map((b) => {
@@ -350,11 +351,11 @@ export default function ShopScreen() {
         </View>
 
         <View style={styles.sectionHead}>
-          <FontAwesome name="bitcoin" size={16} color={t.primary} />
-          <Text style={[styles.h3, { color: t.foreground }]}>Store offers</Text>
+          <FontAwesome name="gift" size={16} color={t.primary} />
+          <Text style={[styles.h3, { color: t.textPrimary }]}>Virtual coin packs</Text>
         </View>
-        <Text style={[styles.storeHint, { color: t.mutedForeground }]}>
-          Tap artwork for a larger preview. Use the price button to purchase.
+        <Text style={[styles.storeHint, { color: t.textMuted }]}>
+          Tap artwork for a larger preview. Use the price button to complete checkout.
         </Text>
         <View style={styles.packGrid}>
           {SHOP_COIN_PACKS.map((p) => (
@@ -364,7 +365,7 @@ export default function ShopScreen() {
                 styles.packCard,
                 {
                   borderColor: p.popular ? t.primary : t.border,
-                  backgroundColor: t.card,
+                  backgroundColor: t.surfaceElevated,
                 },
               ]}
             >
@@ -382,7 +383,10 @@ export default function ShopScreen() {
                 <View
                   style={[
                     styles.packArtWrap,
-                    { borderColor: `${t.primary}33`, backgroundColor: `${t.primary}12` },
+                    {
+                      borderColor: hexWithAlpha(t.primary, '33'),
+                      backgroundColor: hexWithAlpha(t.primary, '12'),
+                    },
                   ]}
                 >
                   <Image
@@ -393,10 +397,10 @@ export default function ShopScreen() {
                   />
                 </View>
               </Pressable>
-              <Text style={[styles.packTitle, { color: t.foreground }]} numberOfLines={2}>
+              <Text style={[styles.packTitle, { color: t.textPrimary }]} numberOfLines={2}>
                 {p.title}
               </Text>
-              <Text style={[styles.packCaption, { color: t.mutedForeground }]} numberOfLines={2}>
+              <Text style={[styles.packCaption, { color: t.textSecondary }]} numberOfLines={2}>
                 {p.subtitle}
               </Text>
               <AppButton
@@ -411,12 +415,12 @@ export default function ShopScreen() {
           ))}
         </View>
 
-        <Text style={[styles.h3, { color: t.foreground }]}>Base theme</Text>
-        <View style={[styles.card, { borderColor: t.border, backgroundColor: t.card }]}>
-          <Text style={[styles.title, { color: t.foreground }]}>{THEME_CONFIGS.vegas.name}</Text>
-          <Text style={[styles.muted, { color: t.mutedForeground }]}>{THEME_CONFIGS.vegas.description}</Text>
-          <Text style={[styles.muted, { color: t.mutedForeground, fontSize: 11, marginTop: 6 }]}>
-            Always free — your default casino look.
+        <Text style={[styles.h3, { color: t.textPrimary }]}>Base theme</Text>
+        <View style={[styles.card, { borderColor: t.border, backgroundColor: t.surfaceElevated }]}>
+          <Text style={[styles.title, { color: t.textPrimary }]}>{THEME_CONFIGS.vegas.name}</Text>
+          <Text style={[styles.muted, { color: t.textSecondary }]}>{THEME_CONFIGS.vegas.description}</Text>
+          <Text style={[styles.muted, { color: t.textMuted, fontSize: 11, marginTop: 6 }]}>
+            Always free — your default machine style.
           </Text>
           <AppButton
             label={currentTheme === 'vegas' ? 'Active' : 'Use Vegas'}
@@ -431,10 +435,10 @@ export default function ShopScreen() {
 
         <View style={styles.sectionHead}>
           <FontAwesome name="star" size={16} color={t.primary} />
-          <Text style={[styles.h3, { color: t.foreground }]}>Vanity store</Text>
+          <Text style={[styles.h3, { color: t.textPrimary }]}>Collectibles</Text>
         </View>
-        <Text style={[styles.muted, { color: t.mutedForeground, marginTop: -6 }]}>
-          {ALL_VANITY_ITEMS.length} items — buy, equip, and feature your favorites.
+        <Text style={[styles.muted, { color: t.textSecondary, marginTop: -6 }]}>
+          {ALL_VANITY_ITEMS.length} items — unlock with virtual coins, equip, and feature your favorites.
         </Text>
         <View style={styles.tabWrap}>
           {VANITY_TABS.map((c) => (
@@ -452,7 +456,7 @@ export default function ShopScreen() {
         {items.map((item) => {
           const owned = userVanity.ownedItemIds.includes(item.id)
           const canBuy = !owned && coins >= item.priceCoins
-          const rarity = RARITY_COLORS[item.rarity]
+          const rarity = rarityPresentation(t, item.rarity)
           return (
             <View
               key={item.id}
@@ -460,7 +464,7 @@ export default function ShopScreen() {
                 styles.vanityCard,
                 {
                   borderColor: rarity.border,
-                  backgroundColor: t.card,
+                  backgroundColor: t.surfaceElevated,
                 },
               ]}
             >
@@ -469,22 +473,22 @@ export default function ShopScreen() {
                   <ItemPreview item={item} size="sm" />
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={[styles.title, { color: t.foreground }]}>{item.name}</Text>
+                  <Text style={[styles.title, { color: t.textPrimary }]}>{item.name}</Text>
                   <Text style={[styles.rarityLbl, { color: rarity.text }]}>
                     {RARITY_LABELS[item.rarity]}
                   </Text>
-                  <Text style={[styles.muted, { color: t.mutedForeground }]}>{item.description}</Text>
+                  <Text style={[styles.muted, { color: t.textSecondary }]}>{item.description}</Text>
                 </View>
               </View>
               <View style={styles.rowBtns}>
                 <AppButton
                   size="sm"
                   variant="outline"
-                  label={owned ? 'Owned' : `${item.priceCoins.toLocaleString()} coins`}
+                  label={owned ? 'Owned' : `${item.priceCoins.toLocaleString()} virtual coins`}
                   disabled={owned || !canBuy}
                   onPress={() => {
-                    if (buyVanityItem(item.id, item.priceCoins)) msg(`Bought ${item.name}`)
-                    else msg('Not enough coins')
+                    if (buyVanityItem(item.id, item.priceCoins)) msg(`Unlocked ${item.name}`)
+                    else msg('Not enough virtual coins')
                   }}
                 />
                 {owned && item.category !== 'badge' ? (
@@ -508,37 +512,44 @@ export default function ShopScreen() {
       >
         <View style={styles.modalRoot}>
           <Pressable
-            style={[styles.modalBackdrop, { backgroundColor: 'rgba(0,0,0,0.55)' }]}
+            style={[styles.modalBackdrop, { backgroundColor: t.overlay }]}
             onPress={() => setPackPreview(null)}
             accessibilityLabel="Close preview"
           />
           {packPreview ? (
             <View
-              style={[styles.modalCard, { backgroundColor: t.card, borderColor: t.border }]}
+              style={[
+                styles.modalCard,
+                {
+                  backgroundColor: t.surfaceElevated,
+                  borderColor: t.border,
+                  shadowColor: t.shadow,
+                },
+              ]}
               accessibilityViewIsModal
             >
-              <Text style={[styles.modalTitle, { color: t.foreground }]}>{packPreview.title}</Text>
+              <Text style={[styles.modalTitle, { color: t.textPrimary }]}>{packPreview.title}</Text>
               {packPreview.subtitle.trim() !== packPreview.title.trim() ? (
-                <Text style={[styles.modalSub, { color: t.mutedForeground }]}>{packPreview.subtitle}</Text>
+                <Text style={[styles.modalSub, { color: t.textSecondary }]}>{packPreview.subtitle}</Text>
               ) : null}
               <Text style={[styles.modalPrice, { color: t.primary }]}>
                 {priceLabelForSku(packPreview.id, packPreview.priceLabelFallback)}
               </Text>
-              <View style={[styles.packArtWrap, styles.modalArt, { borderColor: `${t.primary}33` }]}>
+              <View style={[styles.packArtWrap, styles.modalArt, { borderColor: hexWithAlpha(t.primary, '33') }]}>
                 <Image
                   source={packPreview.artwork}
                   resizeMode="contain"
                   style={styles.packArtwork}
                 />
               </View>
-              <Text style={[styles.modalBody, { color: t.foreground }]}>
+              <Text style={[styles.modalBody, { color: t.textPrimary }]}>
                 {packPreview.coins > 0 && packPreview.freeSpins > 0
-                  ? `${packPreview.coins.toLocaleString()} coins · ${packPreview.freeSpins} free spins`
+                  ? `${packPreview.coins.toLocaleString()} virtual coins · ${packPreview.freeSpins} free spins`
                   : packPreview.coins > 0
-                    ? `${packPreview.coins.toLocaleString()} coins`
+                    ? `${packPreview.coins.toLocaleString()} virtual coins`
                     : `${packPreview.freeSpins} free spins`}
               </Text>
-              <Text style={[styles.modalSku, { color: t.mutedForeground }]}>{packPreview.id}</Text>
+              <Text style={[styles.modalSku, { color: t.textMuted }]}>{packPreview.id}</Text>
               <AppButton label="Close" variant="outline" onPress={() => setPackPreview(null)} />
             </View>
           ) : null}
@@ -553,31 +564,38 @@ export default function ShopScreen() {
       >
         <View style={styles.modalRoot}>
           <Pressable
-            style={[styles.modalBackdrop, { backgroundColor: 'rgba(0,0,0,0.55)' }]}
+            style={[styles.modalBackdrop, { backgroundColor: t.overlay }]}
             onPress={() => setStarterPreviewOpen(false)}
           />
           <View
-            style={[styles.modalCard, { backgroundColor: t.card, borderColor: t.border }]}
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: t.surfaceElevated,
+                borderColor: t.border,
+                shadowColor: t.shadow,
+              },
+            ]}
             accessibilityViewIsModal
           >
-            <Text style={[styles.modalTitle, { color: t.foreground }]}>Starter Bundle</Text>
-            <Text style={[styles.modalSub, { color: t.mutedForeground }]}>
-              One-time offer with coins, free spins, and the Golden Ring frame.
+            <Text style={[styles.modalTitle, { color: t.textPrimary }]}>Starter Bundle</Text>
+            <Text style={[styles.modalSub, { color: t.textSecondary }]}>
+              One-time offer with virtual coins, free spins, and the Golden Ring frame.
             </Text>
             <Text style={[styles.modalPrice, { color: t.primary }]}>
               {priceLabelForSku(STARTER_BUNDLE_SKU, STARTER_BUNDLE_PRICE_FALLBACK)}
             </Text>
-            <View style={[styles.packArtWrap, styles.modalArt, { borderColor: `${t.primary}33` }]}>
+            <View style={[styles.packArtWrap, styles.modalArt, { borderColor: hexWithAlpha(t.primary, '33') }]}>
               <Image
                 source={STARTER_BUNDLE_ARTWORK}
                 resizeMode="contain"
                 style={styles.packArtwork}
               />
             </View>
-            <Text style={[styles.modalBody, { color: t.foreground }]}>
-              {`${STARTER_BUNDLE_GRANT.coins.toLocaleString()} coins · ${STARTER_BUNDLE_GRANT.freeSpins} free spins · Golden Ring frame`}
+            <Text style={[styles.modalBody, { color: t.textPrimary }]}>
+              {`${STARTER_BUNDLE_GRANT.coins.toLocaleString()} virtual coins · ${STARTER_BUNDLE_GRANT.freeSpins} free spins · Golden Ring frame`}
             </Text>
-            <Text style={[styles.modalSku, { color: t.mutedForeground }]}>{STARTER_BUNDLE_SKU}</Text>
+            <Text style={[styles.modalSku, { color: t.textMuted }]}>{STARTER_BUNDLE_SKU}</Text>
             <AppButton label="Close" variant="outline" onPress={() => setStarterPreviewOpen(false)} />
           </View>
         </View>
@@ -604,15 +622,15 @@ function PressableBundle({
       variant="outline"
       disabled={disabled}
       onPress={onPress}
-      style={[styles.bundleCard, { borderColor: disabled ? t.border : `${t.primary}88` }]}
-      accessibilityLabel={`${spins} spins for ${price} coins`}
+      style={[styles.bundleCard, { borderColor: disabled ? t.border : hexWithAlpha(t.primary, '88') }]}
+      accessibilityLabel={`${spins} spins for ${price.toLocaleString()} virtual coins`}
     >
       <FontAwesome name="bolt" size={20} color={t.primary} />
-      <Text style={[styles.bundleSpins, { color: t.foreground }]}>{spins}</Text>
-      <Text style={[styles.bundleLbl, { color: t.mutedForeground }]}>spins</Text>
+      <Text style={[styles.bundleSpins, { color: t.textPrimary }]}>{spins}</Text>
+      <Text style={[styles.bundleLbl, { color: t.textMuted }]}>spins</Text>
       <View style={styles.bundlePrice}>
-        <FontAwesome name="bitcoin" size={11} color={t.primary} />
-        <Text style={[styles.bundlePriceTxt, { color: t.foreground }]}>{price.toLocaleString()}</Text>
+        <FontAwesome name="circle" size={11} color={t.gold} />
+        <Text style={[styles.bundlePriceTxt, { color: t.textPrimary }]}>{price.toLocaleString()}</Text>
       </View>
     </AppButton>
   )

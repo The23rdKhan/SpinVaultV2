@@ -57,9 +57,9 @@ function ReelColumn({
               styles.cell,
               { borderColor: t.border },
               isWin && {
-                borderColor: t.primary,
-                shadowColor: t.primary,
-                shadowOpacity: 0.7,
+                borderColor: t.machineAccent,
+                shadowColor: t.machineAccent,
+                shadowOpacity: 0.55,
                 shadowRadius: 8,
                 elevation: 4,
               },
@@ -182,7 +182,7 @@ export function ReelGrid({ onSpinComplete }: ReelGridProps) {
   return (
     <View style={styles.wrap}>
       <View style={[styles.inner, { backgroundColor: t.reelBg, borderColor: t.reelBorder }]}>
-        <View style={[styles.payline, { backgroundColor: t.primary }]} />
+        <View style={[styles.payline, { backgroundColor: t.machineAccent }]} />
         <View style={styles.grid}>
           {displayGrid.map((column, colIndex) => (
             <ReelColumn

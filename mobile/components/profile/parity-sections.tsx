@@ -9,17 +9,17 @@ import type { AuthProviderKind, NotificationPrefs } from '@/lib/auth-context'
 import { useAppearance } from '@/lib/appearance-context'
 import { isExpoUiNativeAvailable } from '@/lib/is-expo-ui-native-available'
 import { useNativeSemanticColors } from '@/lib/native-semantic-colors'
-import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { useCasinoTheme, type AppTheme } from '@/lib/use-casino-theme'
+import { rarityPresentation } from '@/lib/rarity-from-theme'
 import {
   getProfileAchievementProgress,
   type ProfileAchievementIconId,
 } from '@/lib/profile-achievements'
 import { openExternalUrl, SUPPORT_URLS } from '@/lib/support-links'
-import type { CasinoPalette } from '@/theme/tokens'
+import { hexWithAlpha } from '@/theme/tokens'
 import type { CoinLedgerEntry, WinType } from '@/lib/game-context'
 import {
   ALL_VANITY_ITEMS,
-  RARITY_COLORS,
   RARITY_LABELS,
   TROPHY_DEFINITIONS,
   type Trophy,
@@ -52,7 +52,7 @@ const TROPHY_FA: Record<string, keyof typeof FontAwesome.glyphMap> = {
   star: 'star',
   zap: 'bolt',
   crown: 'star',
-  coins: 'bitcoin',
+  coins: 'circle',
   palette: 'paint-brush',
   flame: 'fire',
   gem: 'diamond',
@@ -69,7 +69,7 @@ const ACHIEVEMENT_FA: Record<
   trophy: 'trophy',
   sparkles: 'star',
   flame: 'fire',
-  coins: 'bitcoin',
+  coins: 'circle',
 }
 
 function SectionTitle({
@@ -86,7 +86,7 @@ function SectionTitle({
     <View style={styles.sectionTitleRow}>
       <View style={styles.sectionTitleLeft}>
         <FontAwesome name={icon} size={16} color={t.primary} />
-        <Text style={[styles.sectionTitle, { color: t.foreground }]}>{title}</Text>
+        <Text style={[styles.sectionTitle, { color: t.textPrimary }]}>{title}</Text>
       </View>
       {right}
     </View>
@@ -134,27 +134,27 @@ export function AccountSection({
   return (
     <View>
       <SectionTitle icon="user" title="Account" />
-      <View style={[styles.card, { borderColor: t.border, backgroundColor: t.card }]}>
+      <View style={[styles.card, { borderColor: t.border, backgroundColor: t.surfaceElevated }]}>
         <View style={[styles.cardRow, { borderBottomColor: t.border }]}>
           <View
             style={[
               styles.accountIconWrap,
               {
-                backgroundColor: isGuest ? '#f59e0b33' : `${t.win}33`,
+                backgroundColor: isGuest ? hexWithAlpha(t.accent, '22') : hexWithAlpha(t.win, '33'),
               },
             ]}
           >
             <FontAwesome
               name="user"
               size={22}
-              color={isGuest ? '#f59e0b' : t.win}
+              color={isGuest ? t.accent : t.win}
             />
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={[styles.accountPrimary, { color: t.foreground }]}>
+            <Text style={[styles.accountPrimary, { color: t.textPrimary }]}>
               {isGuest ? 'Guest Account' : userEmail || 'Signed In'}
             </Text>
-            <Text style={[styles.accountSecondary, { color: t.mutedForeground }]}>
+            <Text style={[styles.accountSecondary, { color: t.textSecondary }]}>
               {isGuest
                 ? 'Cloud save enabled — link Apple or Google to use this account on other devices'
                 : 'Progress synced across devices'}
@@ -166,7 +166,7 @@ export function AccountSection({
           <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.border }}>
             {showLink ? (
               <View style={{ padding: 14, gap: 10 }}>
-                <Text style={[styles.hint, { color: t.mutedForeground }]}>
+                <Text style={[styles.hint, { color: t.textMuted }]}>
                   Link Apple or Google so you can sign in on a new device with the same progress
                 </Text>
                 <AppleSignInButton
@@ -194,12 +194,12 @@ export function AccountSection({
               >
                 <FontAwesome name="link" size={14} color={t.primary} />
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.rowTitle, { color: t.foreground }]}>Link Account</Text>
-                  <Text style={[styles.rowSub, { color: t.mutedForeground }]}>
+                  <Text style={[styles.rowTitle, { color: t.textPrimary }]}>Link Account</Text>
+                  <Text style={[styles.rowSub, { color: t.textMuted }]}>
                     Save your progress to the cloud
                   </Text>
                 </View>
-                <FontAwesome name="chevron-right" size={12} color={t.mutedForeground} />
+                <FontAwesome name="chevron-right" size={12} color={t.textMuted} />
               </Pressable>
             )}
           </View>
@@ -213,12 +213,12 @@ export function AccountSection({
           <FontAwesome
             name="refresh"
             size={14}
-            color={t.mutedForeground}
+            color={t.textMuted}
             style={restoring ? { opacity: 0.5 } : undefined}
           />
           <View style={{ flex: 1 }}>
-            <Text style={[styles.rowTitle, { color: t.foreground }]}>Restore Purchases</Text>
-            <Text style={[styles.rowSub, { color: t.mutedForeground }]}>
+            <Text style={[styles.rowTitle, { color: t.textPrimary }]}>Restore Purchases</Text>
+            <Text style={[styles.rowSub, { color: t.textMuted }]}>
               Recover previously purchased items
             </Text>
           </View>
@@ -226,9 +226,19 @@ export function AccountSection({
         </Pressable>
 
         {!isGuest ? (
-          <Pressable onPress={onSignOut} style={styles.signOutRow}>
-            <FontAwesome name="sign-out" size={14} color="#ef4444" />
-            <Text style={styles.signOutTxt}>Sign Out ({providerLabel})</Text>
+          <Pressable
+            onPress={onSignOut}
+            style={({ pressed }) => [
+              styles.signOutRow,
+              {
+                borderTopColor: hexWithAlpha(t.destructive, '44'),
+                backgroundColor: hexWithAlpha(t.destructive, '0C'),
+                opacity: pressed ? 0.9 : 1,
+              },
+            ]}
+          >
+            <FontAwesome name="sign-out" size={14} color={t.destructive} />
+            <Text style={[styles.signOutTxt, { color: t.destructive }]}>Sign Out ({providerLabel})</Text>
           </Pressable>
         ) : null}
       </View>
@@ -251,26 +261,33 @@ export function StatsGridSection({
 }) {
   const t = useCasinoTheme()
   const cells = [
-    { label: 'Total Spins', value: totalSpins.toLocaleString(), icon: 'crosshairs' as const },
-    { label: 'Total Wins', value: totalWins.toLocaleString(), icon: 'check-circle' as const },
-    { label: 'Biggest Win', value: `$${biggestWin.toLocaleString()}`, icon: 'trophy' as const },
-    { label: 'Day Streak', value: dailyStreak.toString(), icon: 'fire' as const },
-    { label: 'Themes Owned', value: themesOwned.toString(), icon: 'star' as const },
+    { label: 'Total spins', value: totalSpins.toLocaleString(), icon: 'crosshairs' as const },
+    { label: 'Spin wins', value: totalWins.toLocaleString(), icon: 'check-circle' as const },
+    {
+      label: 'Best spin (coins)',
+      value: biggestWin.toLocaleString(),
+      icon: 'trophy' as const,
+    },
+    { label: 'Streak', value: dailyStreak.toString(), icon: 'fire' as const },
+    { label: 'Themes', value: themesOwned.toString(), icon: 'star' as const },
   ]
   return (
-    <View style={styles.statsGrid}>
-      {cells.map((c) => (
-        <View
-          key={c.label}
-          style={[styles.statCell, { borderColor: t.border, backgroundColor: t.card }]}
-        >
-          <FontAwesome name={c.icon} size={14} color={t.primary} style={{ marginBottom: 4 }} />
-          <Text style={[styles.statValue, { color: t.foreground }]} numberOfLines={2}>
-            {c.value}
-          </Text>
-          <Text style={[styles.statLabel, { color: t.mutedForeground }]}>{c.label}</Text>
-        </View>
-      ))}
+    <View style={{ gap: 10 }}>
+      <SectionTitle icon="bar-chart" title="Progress & stats" />
+      <View style={styles.statsGrid}>
+        {cells.map((c) => (
+          <View
+            key={c.label}
+            style={[styles.statCell, { borderColor: t.border, backgroundColor: t.cardSoft }]}
+          >
+            <FontAwesome name={c.icon} size={14} color={t.primary} style={{ marginBottom: 4 }} />
+            <Text style={[styles.statValue, { color: t.textPrimary }]} numberOfLines={2}>
+              {c.value}
+            </Text>
+            <Text style={[styles.statLabel, { color: t.textMuted }]}>{c.label}</Text>
+          </View>
+        ))}
+      </View>
     </View>
   )
 }
@@ -284,28 +301,29 @@ export function CoinLedgerSection({ entries }: { entries: CoinLedgerEntry[] }) {
   return (
     <View style={{ gap: 10 }}>
       <SectionTitle icon="history" title="Coin activity" />
-      <Text style={[styles.ledgerHint, { color: t.mutedForeground }]}>
-        Recent wins, bets, shop top-ups, and bonuses — saved on this device only.
+      <Text style={[styles.ledgerHint, { color: t.textMuted }]}>
+        Recent rewards, spins, and bonuses — saved on this device for reference only.
       </Text>
       {entries.length === 0 ? (
-        <Text style={[styles.ledgerEmpty, { color: t.mutedForeground }]}>
+        <Text style={[styles.ledgerEmpty, { color: t.textMuted }]}>
           No entries yet — spin the reels or use the shop to see your history here.
         </Text>
       ) : (
-        <View style={[styles.ledgerCard, { borderColor: t.border, backgroundColor: t.card }]}>
+        <View style={[styles.ledgerCard, { borderColor: t.border, backgroundColor: t.surfaceElevated }]}>
           {visible.map((e, i) => (
             <View
               key={e.id}
               style={[
                 styles.ledgerRow,
+                { borderBottomColor: t.border },
                 i === visible.length - 1 && { borderBottomWidth: 0 },
               ]}
             >
               <View style={{ flex: 1, minWidth: 0, paddingRight: 10 }}>
-                <Text style={[styles.ledgerLabel, { color: t.foreground }]} numberOfLines={2}>
+                <Text style={[styles.ledgerLabel, { color: t.textPrimary }]} numberOfLines={2}>
                   {e.label}
                 </Text>
-                <Text style={[styles.ledgerTs, { color: t.mutedForeground }]}>
+                <Text style={[styles.ledgerTs, { color: t.textMuted }]}>
                   {new Date(e.ts).toLocaleString()}
                 </Text>
               </View>
@@ -338,12 +356,12 @@ export function EquippedVanitySection({ userVanity }: { userVanity: UserVanity }
   const t = useCasinoTheme()
   return (
     <View>
-      <SectionTitle icon="star" title="Equipped Items" />
+      <SectionTitle icon="star" title="Showcase loadout" />
       <View style={styles.equippedGrid}>
         {EQUIPPED_SLOTS.map(({ key, label }) => {
           const itemId = userVanity[key]
           const item = itemId ? ALL_VANITY_ITEMS.find((i) => i.id === itemId) : undefined
-          const rarity = item ? RARITY_COLORS[item.rarity] : null
+          const rarity = item ? rarityPresentation(t, item.rarity) : null
           return (
             <View
               key={key}
@@ -351,7 +369,7 @@ export function EquippedVanitySection({ userVanity }: { userVanity: UserVanity }
                 styles.equippedCell,
                 {
                   borderColor: rarity?.border ?? t.border,
-                  backgroundColor: rarity ? rarity.bg : `${t.muted}44`,
+                  backgroundColor: rarity ? rarity.bg : hexWithAlpha(t.locked, '22'),
                 },
               ]}
             >
@@ -359,19 +377,19 @@ export function EquippedVanitySection({ userVanity }: { userVanity: UserVanity }
                 {item ? (
                   <ItemPreview item={item} size="sm" />
                 ) : (
-                  <Text style={{ color: t.mutedForeground, fontSize: 18 }}>—</Text>
+                  <Text style={{ color: t.textMuted, fontSize: 18 }}>—</Text>
                 )}
               </View>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={[styles.equippedCat, { color: t.mutedForeground }]}>{label}</Text>
+                <Text style={[styles.equippedCat, { color: t.textMuted }]}>{label}</Text>
                 <Text
-                  style={[styles.equippedName, { color: rarity?.text ?? t.mutedForeground }]}
+                  style={[styles.equippedName, { color: rarity?.text ?? t.textMuted }]}
                   numberOfLines={1}
                 >
                   {item ? item.name : 'None'}
                 </Text>
-                {item ? (
-                  <Text style={[styles.equippedRarity, { color: rarity!.text }]}>
+                {item && rarity ? (
+                  <Text style={[styles.equippedRarity, { color: rarity.text }]}>
                     {RARITY_LABELS[item.rarity]}
                   </Text>
                 ) : null}
@@ -393,31 +411,32 @@ export function TrophyCaseSection({ trophies }: { trophies: Trophy[] }) {
         icon="trophy"
         title="Trophy Case"
         right={
-          <Text style={[styles.sectionRight, { color: t.mutedForeground }]}>
+          <Text style={[styles.sectionRight, { color: t.textMuted }]}>
             {unlocked}/{trophies.length} unlocked
           </Text>
         }
       />
       <View style={styles.trophyGrid}>
         {trophies.map((tr) => (
-          <TrophyParityCell key={tr.id} trophy={tr} palette={t} />
+          <TrophyParityCell key={tr.id} trophy={tr} t={t} />
         ))}
       </View>
     </View>
   )
 }
 
-function TrophyParityCell({ trophy, palette }: { trophy: Trophy; palette: CasinoPalette }) {
+function TrophyParityCell({ trophy, t }: { trophy: Trophy; t: AppTheme }) {
   const def = TROPHY_DEFINITIONS.find((d) => d.id === trophy.id)
   const fa = TROPHY_FA[trophy.icon] ?? 'certificate'
   const unlocked = trophy.unlocked
+  const prestige = t.gold
   return (
     <View
       style={[
         styles.trophyCell,
         {
-          borderColor: unlocked ? '#f59e0b' : palette.border,
-          backgroundColor: unlocked ? '#f59e0b18' : palette.card,
+          borderColor: unlocked ? prestige : t.border,
+          backgroundColor: unlocked ? hexWithAlpha(prestige, '18') : t.cardSoft,
           opacity: unlocked ? 1 : 0.85,
         },
       ]}
@@ -425,13 +444,15 @@ function TrophyParityCell({ trophy, palette }: { trophy: Trophy; palette: Casino
       <View
         style={[
           styles.trophyIconRing,
-          { backgroundColor: unlocked ? '#f59e0b33' : `${palette.muted}44` },
+          {
+            backgroundColor: unlocked ? hexWithAlpha(prestige, '33') : hexWithAlpha(t.muted, '44'),
+          },
         ]}
       >
-        <FontAwesome name={fa} size={22} color={unlocked ? '#fbbf24' : palette.mutedForeground} />
+        <FontAwesome name={fa} size={22} color={unlocked ? prestige : t.textMuted} />
       </View>
       <Text
-        style={[styles.trophyName, { color: unlocked ? '#fbbf24' : palette.mutedForeground }]}
+        style={[styles.trophyName, { color: unlocked ? prestige : t.textMuted }]}
         numberOfLines={2}
       >
         {unlocked ? trophy.name : '???'}
@@ -440,7 +461,7 @@ function TrophyParityCell({ trophy, palette }: { trophy: Trophy; palette: Casino
         <Text
           style={[
             styles.trophyDesc,
-            { color: palette.mutedForeground, opacity: unlocked ? 1 : 0.7 },
+            { color: t.textMuted, opacity: unlocked ? 1 : 0.7 },
           ]}
           numberOfLines={unlocked ? 2 : 3}
         >
@@ -451,16 +472,20 @@ function TrophyParityCell({ trophy, palette }: { trophy: Trophy; palette: Casino
   )
 }
 
-function winTypeMeta(type: WinType): { label: string; bg: string; fg: string } {
+function winTypeMeta(theme: AppTheme, type: WinType): { label: string; bg: string; fg: string } {
   switch (type) {
     case 'jackpot':
-      return { label: 'Jackpot', bg: '#a855f733', fg: '#c084fc' }
+      return { label: 'Jackpot', bg: hexWithAlpha(theme.jackpot, '33'), fg: theme.jackpot }
     case 'megaWin':
-      return { label: 'Mega', bg: '#f59e0b33', fg: '#fbbf24' }
+      return { label: 'Mega', bg: hexWithAlpha(theme.gold, '33'), fg: theme.gold }
     case 'bigWin':
-      return { label: 'Big', bg: '#22c55e33', fg: '#4ade80' }
+      return { label: 'Big', bg: hexWithAlpha(theme.win, '33'), fg: theme.win }
     default:
-      return { label: String(type), bg: '#71717a33', fg: '#a1a1aa' }
+      return {
+        label: String(type),
+        bg: hexWithAlpha(theme.textMuted, '33'),
+        fg: theme.textMuted,
+      }
   }
 }
 
@@ -474,10 +499,10 @@ export function RecentBigWinsSection({
   const slice = wins.slice(0, 5)
   return (
     <View>
-      <SectionTitle icon="area-chart" title="Recent Big Wins" />
-      <View style={[styles.card, { borderColor: t.border, backgroundColor: t.card, padding: 0 }]}>
+      <SectionTitle icon="area-chart" title="Recent showcase wins" />
+      <View style={[styles.card, { borderColor: t.border, backgroundColor: t.surfaceElevated, padding: 0 }]}>
         {slice.map((win, i) => {
-          const meta = winTypeMeta(win.type)
+          const meta = winTypeMeta(t, win.type)
           return (
             <View
               key={`${win.timestamp}-${win.amount}-${i}`}
@@ -490,13 +515,13 @@ export function RecentBigWinsSection({
                 <View style={[styles.winBadge, { backgroundColor: meta.bg }]}>
                   <Text style={[styles.winBadgeTxt, { color: meta.fg }]}>{meta.label}</Text>
                 </View>
-                <Text style={[styles.winMult, { color: t.mutedForeground }]}>
+                <Text style={[styles.winMult, { color: t.textMuted }]}>
                   {win.multiplier.toFixed(1)}x
                 </Text>
               </View>
               <View style={styles.winRight}>
-                <FontAwesome name="bitcoin" size={14} color={t.primary} />
-                <Text style={[styles.winAmt, { color: t.foreground }]}>
+                <FontAwesome name="circle" size={14} color={t.gold} />
+                <Text style={[styles.winAmt, { color: t.textPrimary }]}>
                   {win.amount.toLocaleString()}
                 </Text>
               </View>
@@ -543,7 +568,7 @@ export function AchievementsGridSection({
                 styles.achCard,
                 {
                   borderColor: a.unlocked ? t.win : t.border,
-                  backgroundColor: a.unlocked ? `${t.win}14` : t.card,
+                  backgroundColor: a.unlocked ? hexWithAlpha(t.win, '14') : t.cardSoft,
                 },
               ]}
             >
@@ -559,14 +584,14 @@ export function AchievementsGridSection({
                   <FontAwesome
                     name={fa}
                     size={14}
-                    color={a.unlocked ? '#fff' : t.mutedForeground}
+                    color={a.unlocked ? t.background : t.textMuted}
                   />
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={[styles.achName, { color: t.foreground }]} numberOfLines={1}>
+                  <Text style={[styles.achName, { color: t.textPrimary }]} numberOfLines={1}>
                     {a.name}
                   </Text>
-                  <Text style={[styles.achDesc, { color: t.mutedForeground }]} numberOfLines={2}>
+                  <Text style={[styles.achDesc, { color: t.textMuted }]} numberOfLines={2}>
                     {a.description}
                   </Text>
                   {!a.unlocked ? (
@@ -574,7 +599,7 @@ export function AchievementsGridSection({
                       <View style={[styles.progressTrack, { backgroundColor: t.muted }]}>
                         <View style={[styles.progressFill, { width: `${pct}%`, backgroundColor: t.primary }]} />
                       </View>
-                      <Text style={[styles.progressLbl, { color: t.mutedForeground }]}>
+                      <Text style={[styles.progressLbl, { color: t.textMuted }]}>
                         {a.progress.toLocaleString()}/{a.target.toLocaleString()}
                       </Text>
                     </View>
@@ -612,15 +637,15 @@ export function NotificationPrefsSection({
     )
   }
 
-  const titleC = native?.label ?? t.foreground
-  const subC = native?.secondaryLabel ?? t.mutedForeground
+  const titleC = native?.label ?? t.textPrimary
+  const subC = native?.secondaryLabel ?? t.textSecondary
   const sep = native?.separator ?? t.border
-  const iconC = native?.rowIcon ?? t.mutedForeground
+  const iconC = native?.rowIcon ?? t.textMuted
 
   return (
     <View>
       <SectionTitle icon="bell" title="Notification Preferences" />
-      <View style={[styles.card, { borderColor: t.border, backgroundColor: t.card, padding: 0 }]}>
+      <View style={[styles.card, { borderColor: t.border, backgroundColor: t.surfaceElevated, padding: 0 }]}>
         {NOTIFICATION_PREFS_ROWS_RN.map((row, i) => (
           <Pressable
             key={row.key}
@@ -647,7 +672,7 @@ export function NotificationPrefsSection({
                 },
               ]}
             >
-              <View style={styles.switchKnob} />
+              <View style={[styles.switchKnob, { backgroundColor: t.surfaceElevated }]} />
             </View>
           </Pressable>
         ))}
@@ -665,9 +690,9 @@ const SESSION_CHIPS: { label: string; value: number | null }[] = [
 
 const PURCHASE_LIMIT_CHIPS: { label: string; value: number | null }[] = [
   { label: 'Off', value: null },
-  { label: '$5', value: 5 },
-  { label: '$10', value: 10 },
-  { label: '$25', value: 25 },
+  { label: 'Low', value: 5 },
+  { label: 'Med', value: 10 },
+  { label: 'High', value: 25 },
 ]
 
 export function ResponsiblePlaySection({
@@ -688,15 +713,15 @@ export function ResponsiblePlaySection({
   const t = useCasinoTheme()
   const { mode } = useAppearance()
   const native = useNativeSemanticColors(mode)
-  const titleC = native?.label ?? t.foreground
-  const subC = native?.secondaryLabel ?? t.mutedForeground
+  const titleC = native?.label ?? t.textPrimary
+  const subC = native?.secondaryLabel ?? t.textSecondary
   const sep = native?.separator ?? t.border
-  const iconC = native?.rowIcon ?? t.mutedForeground
+  const iconC = native?.rowIcon ?? t.textMuted
 
   return (
     <View>
       <SectionTitle icon="shield" title="Responsible Play" />
-      <View style={[styles.card, { borderColor: t.border, backgroundColor: t.card, padding: 0 }]}>
+      <View style={[styles.card, { borderColor: t.border, backgroundColor: t.surfaceElevated, padding: 0 }]}>
         <View style={[styles.prefRow, { flexWrap: 'wrap', gap: 10 }]}>
           <FontAwesome name="clock-o" size={14} color={iconC} />
           <View style={{ flex: 1, minWidth: 140 }}>
@@ -716,7 +741,7 @@ export function ResponsiblePlaySection({
                     styles.chip,
                     {
                       borderColor: selected ? t.primary : sep,
-                      backgroundColor: selected ? `${t.primary}33` : 'transparent',
+                      backgroundColor: selected ? hexWithAlpha(t.primary, '33') : 'transparent',
                     },
                   ]}
                 >
@@ -745,14 +770,16 @@ export function ResponsiblePlaySection({
               },
             ]}
           >
-            <View style={styles.switchKnob} />
+            <View style={[styles.switchKnob, { backgroundColor: t.surfaceElevated }]} />
           </View>
         </Pressable>
         <View style={[styles.prefRow, { flexWrap: 'wrap', gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: sep }]}>
           <FontAwesome name="credit-card" size={14} color={iconC} />
           <View style={{ flex: 1, minWidth: 140 }}>
             <Text style={[styles.rowTitle, { color: titleC }]}>Daily Purchase Limit</Text>
-            <Text style={[styles.rowSub, { color: subC }]}>Cap in-app spending per day</Text>
+            <Text style={[styles.rowSub, { color: subC }]}>
+              Optional daily cap on in-app purchases (Low / Med / High).
+            </Text>
           </View>
           <View style={styles.chipRow}>
             {PURCHASE_LIMIT_CHIPS.map((c) => {
@@ -767,7 +794,7 @@ export function ResponsiblePlaySection({
                     styles.chip,
                     {
                       borderColor: selected ? t.primary : sep,
-                      backgroundColor: selected ? `${t.primary}33` : 'transparent',
+                      backgroundColor: selected ? hexWithAlpha(t.primary, '33') : 'transparent',
                     },
                   ]}
                 >
@@ -781,7 +808,8 @@ export function ResponsiblePlaySection({
         </View>
       </View>
       <Text style={[styles.disclaimer, { color: subC }]}>
-        Play responsibly. This is a simulated casino game for entertainment purposes only.
+        Play responsibly. Coins are for in-game entertainment only and have no cash value. SpinVault does not offer
+        real-money gambling or cash prizes.
       </Text>
     </View>
   )
@@ -791,9 +819,9 @@ export function SupportSection() {
   const t = useCasinoTheme()
   const { mode } = useAppearance()
   const native = useNativeSemanticColors(mode)
-  const titleC = native?.label ?? t.foreground
+  const titleC = native?.label ?? t.textPrimary
   const sep = native?.separator ?? t.border
-  const iconC = native?.rowIcon ?? t.mutedForeground
+  const iconC = native?.rowIcon ?? t.textMuted
 
   const row = async (url: string) => {
     await openExternalUrl(url)
@@ -801,7 +829,7 @@ export function SupportSection() {
   return (
     <View>
       <SectionTitle icon="question-circle" title="Support" />
-      <View style={[styles.card, { borderColor: t.border, backgroundColor: t.card, padding: 0 }]}>
+      <View style={[styles.card, { borderColor: t.border, backgroundColor: t.surfaceElevated, padding: 0 }]}>
         <Pressable
           onPress={() => row(SUPPORT_URLS.helpCenter)}
           style={[styles.supportRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: sep }]}
@@ -879,10 +907,8 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 14,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#fecaca55',
-    backgroundColor: '#ef444411',
   },
-  signOutTxt: { color: '#ef4444', fontWeight: '700', fontSize: 14 },
+  signOutTxt: { fontWeight: '700', fontSize: 14 },
   rowTitle: { fontSize: 14, fontWeight: '600' },
   rowSub: { fontSize: 11, marginTop: 2 },
   statsGrid: {
@@ -915,7 +941,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(128,128,128,0.25)',
   },
   ledgerLabel: { fontSize: 13, fontWeight: '600' },
   ledgerTs: { fontSize: 10, marginTop: 2 },
@@ -1029,7 +1054,6 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#fff',
   },
   chipRow: {
     flexDirection: 'row',

@@ -8,6 +8,7 @@ import { WinnerFeedStrip } from '@/components/social/WinnerFeedStrip'
 import { SCREEN_PAD_H } from '@/lib/screen-edge'
 import { useGame } from '@/lib/game-context'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { hexWithAlpha } from '@/theme/tokens'
 import { DailyLoginRewards } from './DailyLoginRewards'
 import { DailyWheel } from './DailyWheel'
 import { FreeSpinsWallet } from './FreeSpinsWallet'
@@ -49,18 +50,20 @@ export function RewardsTabContent() {
     >
       <View style={styles.hero}>
         <View>
-          <Text style={[styles.tagline, { color: t.mutedForeground }]}>Collect daily bonuses!</Text>
+          <Text style={[styles.tagline, { color: t.textSecondary }]}>
+            Daily quests & virtual coin bonuses
+          </Text>
         </View>
-        <View style={[styles.pill, { borderColor: t.border, backgroundColor: t.card }]}>
-          <FontAwesome name="bitcoin" size={14} color={t.primary} />
-          <Text style={[styles.pillText, { color: t.foreground }]}>{coins.toLocaleString()}</Text>
+        <View style={[styles.pill, { borderColor: t.border, backgroundColor: t.surfaceElevated }]}>
+          <FontAwesome name="circle" size={14} color={t.gold} />
+          <Text style={[styles.pillText, { color: t.textPrimary }]}>{coins.toLocaleString()}</Text>
         </View>
       </View>
 
-      <View style={[styles.streak, { borderColor: t.border, backgroundColor: `${t.card}ee` }]}>
+      <View style={[styles.streak, { borderColor: t.border, backgroundColor: hexWithAlpha(t.surfaceElevated, 'EE') }]}>
         <FontAwesome name="fire" size={22} color={t.primary} />
-        <Text style={[styles.streakNum, { color: t.foreground }]}>{dailyStreak}</Text>
-        <Text style={[styles.streakLbl, { color: t.mutedForeground }]}>day streak</Text>
+        <Text style={[styles.streakNum, { color: t.textPrimary }]}>{dailyStreak}</Text>
+        <Text style={[styles.streakLbl, { color: t.textMuted }]}>day streak</Text>
       </View>
 
       <WatchAdCard />
@@ -76,13 +79,13 @@ export function RewardsTabContent() {
       <TodaysMissions />
       <FreeSpinsWallet />
 
-      <View style={[styles.inbox, { borderColor: t.border, backgroundColor: t.card, opacity: 0.85 }]}>
-        <View style={[styles.inboxIcon, { backgroundColor: t.muted }]}>
-          <FontAwesome name="gift" size={22} color={t.mutedForeground} />
+      <View style={[styles.inbox, { borderColor: t.border, backgroundColor: t.surfaceElevated, opacity: 0.95 }]}>
+        <View style={[styles.inboxIcon, { backgroundColor: t.cardSoft }]}>
+          <FontAwesome name="gift" size={22} color={t.textMuted} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.inboxTitle, { color: t.foreground }]}>Gift Inbox</Text>
-          <Text style={[styles.inboxSub, { color: t.mutedForeground }]}>No gifts yet — check back soon!</Text>
+          <Text style={[styles.inboxTitle, { color: t.textPrimary }]}>Reward inbox</Text>
+          <Text style={[styles.inboxSub, { color: t.textSecondary }]}>No deliveries yet — check back soon!</Text>
         </View>
       </View>
 

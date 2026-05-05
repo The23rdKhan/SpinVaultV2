@@ -15,7 +15,10 @@ export default function PlayScreen() {
       contentContainerStyle={[styles.content, { paddingBottom: bottomPad, paddingHorizontal: SCREEN_PAD_H }]}
       keyboardShouldPersistTaps="handled"
     >
-      <View collapsable={false}>
+      <View
+        collapsable={false}
+        style={[styles.playSurface, { backgroundColor: t.surface, borderColor: t.border }]}
+      >
         <SlotMachine />
       </View>
     </ScrollView>
@@ -25,4 +28,9 @@ export default function PlayScreen() {
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingTop: 8 },
+  playSurface: {
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+  },
 })

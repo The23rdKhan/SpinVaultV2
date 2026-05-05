@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import Toast from 'react-native-toast-message'
 import { useGame } from '@/lib/game-context'
 import { isServerSpinEnabled } from '@/lib/server-spin'
+import { hexWithAlpha } from '@/theme/tokens'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 
 export function SpinSyncBanner() {
@@ -19,7 +20,7 @@ export function SpinSyncBanner() {
       Toast.show({
         type: 'success',
         text1: 'Synced',
-        text2: 'Wallet matches the server.',
+        text2: 'Virtual coin balance matches the server.',
       })
     } else {
       Toast.show({
@@ -35,14 +36,14 @@ export function SpinSyncBanner() {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Sync wallet with server"
+      accessibilityLabel="Sync vault balance with server"
       onPress={onSync}
-      style={[styles.wrap, { borderColor: t.primary, backgroundColor: `${t.primary}18` }]}
+      style={[styles.wrap, { borderColor: t.primary, backgroundColor: hexWithAlpha(t.primary, '18') }]}
     >
       <View style={styles.textCol}>
-        <Text style={[styles.title, { color: t.foreground }]}>Device-only spins</Text>
-        <Text style={[styles.body, { color: t.mutedForeground }]}>
-          Balance may differ until synced with the server.
+        <Text style={[styles.title, { color: t.textPrimary }]}>Device-only spins</Text>
+        <Text style={[styles.body, { color: t.textSecondary }]}>
+          Coin balance may differ until synced with the server.
         </Text>
       </View>
       {busy ? (

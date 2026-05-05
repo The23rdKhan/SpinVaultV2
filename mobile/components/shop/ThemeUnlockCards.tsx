@@ -13,12 +13,18 @@ import { AppButton } from '@/components/ui/AppButton'
 import { useGame, type Theme } from '@/lib/game-context'
 import { THEME_CONFIGS, type ThemeConfig } from '@/lib/theme-config'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { hexWithAlpha } from '@/theme/tokens'
 
 const EXTRA_THEMES = ['cyber', 'treasure'] as const
 
-const CARD_GRADIENT: Record<(typeof EXTRA_THEMES)[number], [string, string]> = {
-  cyber: ['#0f172a', '#0891b2'],
-  treasure: ['#0c4a6e', '#d97706'],
+function themeCardGradient(
+  t: ReturnType<typeof useCasinoTheme>,
+  themeId: (typeof EXTRA_THEMES)[number],
+): [string, string] {
+  if (themeId === 'cyber') {
+    return [t.surfaceElevated, hexWithAlpha(t.freeSpin, '55')]
+  }
+  return [t.surfaceElevated, hexWithAlpha(t.gold, '55')]
 }
 
 export function ThemeUnlockCards({
@@ -52,7 +58,7 @@ export function ThemeUnlockCards({
     <>
       <View style={styles.sectionHead}>
         <FontAwesome name="paint-brush" size={18} color={t.primary} />
-        <Text style={[styles.h2, { color: t.foreground }]}>Theme Unlocks</Text>
+        <Text style={[styles.h2, { color: t.textPrimary }]}>Theme unlocks</Text>
       </View>
 
       {EXTRA_THEMES.map((themeId) => {
@@ -60,12 +66,12 @@ export function ThemeUnlockCards({
         const isOwned = ownedThemes.includes(themeId)
         const isActive = currentTheme === themeId
         const coinsNeeded = Math.max(0, config.price - coins)
-        const grad = CARD_GRADIENT[themeId]
+        const grad = themeCardGradient(t, themeId)
 
         return (
           <LinearGradient
             key={themeId}
-            colors={[`${grad[0]}cc`, `${grad[1]}44`]}
+            colors={[hexWithAlpha(grad[0], 'CC'), hexWithAlpha(grad[1], '44')]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={[
@@ -78,13 +84,21 @@ export function ThemeUnlockCards({
           >
             <View style={styles.themeHeader}>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.themeName, { color: t.foreground }]}>{config.name}</Text>
-                <Text style={[styles.themeDesc, { color: t.mutedForeground }]}>
+                <Text style={[styles.themeName, { color: t.textPrimary }]}>{config.name}</Text>
+                <Text style={[styles.themeDesc, { color: t.textSecondary }]}>
                   {config.description}
                 </Text>
               </View>
               {isActive ? (
-                <View style={[styles.activePill, { borderColor: `${t.primary}88` }]}>
+                <View
+                  style={[
+                    styles.activePill,
+                    {
+                      borderColor: hexWithAlpha(t.primary, '88'),
+                      backgroundColor: hexWithAlpha(t.overlay, '22'),
+                    },
+                  ]}
+                >
                   <Text style={[styles.activePillTxt, { color: t.primary }]}>Active</Text>
                 </View>
               ) : null}
@@ -92,7 +106,7 @@ export function ThemeUnlockCards({
 
             <View style={{ gap: 6, marginBottom: 12 }}>
               {config.unlocks.map((line, i) => (
-                <Text key={i} style={[styles.unlockLine, { color: t.mutedForeground }]}>
+                <Text key={i} style={[styles.unlockLine, { color: t.textMuted }]}>
                   {line}
                 </Text>
               ))}
@@ -106,13 +120,13 @@ export function ThemeUnlockCards({
                 </View>
               ) : coinsNeeded > 0 ? (
                 <View style={styles.statusRow}>
-                  <FontAwesome name="lock" size={12} color={t.mutedForeground} />
-                  <Text style={[styles.needCoins, { color: t.mutedForeground }]}>
+                  <FontAwesome name="lock" size={12} color={t.textMuted} />
+                  <Text style={[styles.needCoins, { color: t.textSecondary }]}>
                     You need{' '}
-                    <Text style={{ fontWeight: '900', color: '#fbbf24' }}>
+                    <Text style={{ fontWeight: '900', color: t.gold }}>
                       {coinsNeeded.toLocaleString()}
                     </Text>{' '}
-                    coins
+                    virtual coins
                   </Text>
                 </View>
               ) : (
@@ -129,7 +143,7 @@ export function ThemeUnlockCards({
               />
               {!isOwned && coinsNeeded <= 0 ? (
                 <AppButton
-                  label={`Unlock ${config.price.toLocaleString()}`}
+                  label={`Unlock · ${config.price.toLocaleString()} virtual coins`}
                   onPress={() => unlock(themeId)}
                   style={{ flex: 1 }}
                 />
@@ -143,26 +157,32 @@ export function ThemeUnlockCards({
       })}
 
       <Modal visible={preview != null} animationType="slide" transparent>
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { borderColor: t.border, backgroundColor: t.card }]}>
+        <View style={[styles.modalBackdrop, { backgroundColor: t.overlay }]}>
+          <View style={[styles.modalCard, { borderColor: t.border, backgroundColor: t.surfaceElevated }]}>
             <View style={[styles.modalHeader, { borderBottomColor: t.border }]}>
-              <Text style={[styles.modalTitle, { color: t.foreground }]}>{preview?.name}</Text>
+              <Text style={[styles.modalTitle, { color: t.textPrimary }]}>{preview?.name}</Text>
               <Pressable onPress={() => setPreview(null)} hitSlop={12}>
-                <FontAwesome name="times" size={22} color={t.mutedForeground} />
+                <FontAwesome name="times" size={22} color={t.textMuted} />
               </Pressable>
             </View>
             <ScrollView style={styles.modalBody} contentContainerStyle={{ gap: 14, paddingBottom: 16 }}>
               {preview ? (
                 <>
                   <LinearGradient
-                    colors={['#27272a', '#18181b']}
+                    colors={[t.surface, t.cardSoft]}
                     style={[styles.previewCabinet, { borderColor: t.border }]}
                   >
                     <View style={styles.previewReels}>
                       {preview.symbolSet.slice(0, 3).map((sym, i) => (
                         <View
                           key={i}
-                          style={[styles.previewCell, { borderColor: `${t.border}88` }]}
+                          style={[
+                            styles.previewCell,
+                            {
+                              borderColor: hexWithAlpha(t.border, '88'),
+                              backgroundColor: hexWithAlpha(t.surfaceElevated, '44'),
+                            },
+                          ]}
                         >
                           <Text style={styles.previewSym}>{sym}</Text>
                         </View>
@@ -174,23 +194,23 @@ export function ThemeUnlockCards({
                   </LinearGradient>
 
                   <View>
-                    <Text style={[styles.lbl, { color: t.mutedForeground }]}>INCLUDES</Text>
+                    <Text style={[styles.lbl, { color: t.textMuted }]}>INCLUDES</Text>
                     {preview.unlocks.map((u, i) => (
-                      <Text key={i} style={[styles.incLine, { color: t.foreground }]}>
+                      <Text key={i} style={[styles.incLine, { color: t.textPrimary }]}>
                         {u}
                       </Text>
                     ))}
                   </View>
 
                   <View>
-                    <Text style={[styles.lbl, { color: t.mutedForeground }]}>CUSTOMIZATIONS</Text>
-                    <Text style={[styles.dlRow, { color: t.foreground }]}>
+                    <Text style={[styles.lbl, { color: t.textMuted }]}>CUSTOMIZATIONS</Text>
+                    <Text style={[styles.dlRow, { color: t.textPrimary }]}>
                       Bonus: <Text style={{ fontWeight: '800' }}>{preview.bonusName}</Text>
                     </Text>
-                    <Text style={[styles.dlRow, { color: t.foreground }]}>
+                    <Text style={[styles.dlRow, { color: t.textPrimary }]}>
                       Wild: {preview.wildIcon} {preview.wildName}
                     </Text>
-                    <Text style={[styles.dlRow, { color: t.foreground }]}>
+                    <Text style={[styles.dlRow, { color: t.textPrimary }]}>
                       Scatter: {preview.scatterIcon} {preview.scatterName}
                     </Text>
                   </View>
@@ -223,7 +243,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
     borderWidth: 1,
-    backgroundColor: '#00000022',
   },
   activePillTxt: { fontSize: 10, fontWeight: '900' },
   unlockLine: { fontSize: 11, lineHeight: 15 },
@@ -233,7 +252,6 @@ const styles = StyleSheet.create({
   btnRow: { flexDirection: 'row', gap: 8 },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
     justifyContent: 'center',
     padding: 20,
   },
@@ -268,7 +286,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ffffff11',
   },
   previewSym: { fontSize: 22 },
   jackpotLbl: { fontSize: 11, fontWeight: '900', letterSpacing: 1 },

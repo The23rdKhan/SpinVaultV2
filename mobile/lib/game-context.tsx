@@ -323,8 +323,8 @@ const INITIAL_DAILY_REWARDS: DailyReward[] = DAILY_LOGIN_REWARD_COINS.map((coins
 
 const INITIAL_MISSIONS: Mission[] = [
   { id: "spin20", name: "Spin Master", description: "Complete 20 spins", target: 20, progress: 0, reward: 500, completed: false, claimed: false },
-  { id: "win5", name: "Lucky Streak", description: "Win 5 times", target: 5, progress: 0, reward: 300, completed: false, claimed: false },
-  { id: "maxbet1", name: "High Roller", description: "Use Max Bet once", target: 1, progress: 0, reward: 200, completed: false, claimed: false },
+  { id: "win5", name: "Lucky Streak", description: "Land 5 winning spins", target: 5, progress: 0, reward: 300, completed: false, claimed: false },
+  { id: "maxbet1", name: "High Roller", description: "Use MAX spin once (highest coin stake)", target: 1, progress: 0, reward: 200, completed: false, claimed: false },
 ]
 
 // Generate initial 5x3 grid
@@ -986,7 +986,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           delta,
           coins,
           'adjustment',
-          delta > 0 ? `Wallet +${delta.toLocaleString()}` : `Wallet ${delta.toLocaleString()}`
+          delta > 0 ? `Vault +${delta.toLocaleString()}` : `Vault ${delta.toLocaleString()}`
         ),
       }
     })
@@ -1020,7 +1020,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         meta ??
         ({
           reason: 'adjustment',
-          label: `Spend −${amount.toLocaleString()}`,
+          label: `Spend −${amount.toLocaleString()} virtual coins`,
         } satisfies CoinLedgerMeta)
       return {
         ...prev,
@@ -1055,7 +1055,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             -price,
             bal,
             'free_spins_bundle',
-            `${spins} free spins (−${price.toLocaleString()} coins)`
+            `${spins} free spins (−${price.toLocaleString()} virtual coins)`
           ),
         }
       }
@@ -1231,7 +1231,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             -bc,
             balanceAfterBet,
             'spin_bet',
-            `Bet −${bc.toLocaleString()}`,
+            `Spin cost −${bc.toLocaleString()} virtual coins`,
           )
         }
 
@@ -1431,7 +1431,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           bonusMeterPayout,
           runningBal,
           'bonus_meter_full',
-          `Bonus meter +${bonusMeterPayout.toLocaleString()}`
+          `Bonus reward +${bonusMeterPayout.toLocaleString()} virtual coins`
         )
       }
 
@@ -1630,7 +1630,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             reward,
             Number(out.coin_balance),
             'daily_wheel',
-            `Daily wheel +${reward.toLocaleString()}`,
+            `Daily wheel +${reward.toLocaleString()} virtual coins`,
           ),
           dailyWheel: {
             lastWheelSpinAt: new Date().toISOString(),
@@ -1658,7 +1658,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           reward,
           bal,
           'daily_wheel',
-          `Daily wheel +${reward.toLocaleString()}`,
+          `Daily wheel +${reward.toLocaleString()} virtual coins`,
         ),
         dailyWheel: {
           lastWheelSpinAt: new Date().toISOString(),

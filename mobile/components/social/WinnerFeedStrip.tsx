@@ -4,6 +4,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { useAuth } from '@/lib/auth-context'
 import { getSupabase } from '@/lib/supabase'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { hexWithAlpha } from '@/theme/tokens'
 
 type FeedRow = {
   id: string
@@ -49,7 +50,7 @@ type ReactionKind = (typeof REACTIONS)[number]
 const REACTION_ICON: Record<ReactionKind, string> = {
   fire: 'fire',
   crown: 'star',
-  coins: 'bitcoin',
+  coins: 'circle',
   party: 'smile-o',
 }
 
@@ -157,7 +158,7 @@ export function WinnerFeedStrip() {
 
   if (loading) {
     return (
-      <View style={[styles.card, { borderColor: t.border, backgroundColor: t.card }]}>
+      <View style={[styles.card, { borderColor: t.border, backgroundColor: t.surfaceElevated }]}>
         <ActivityIndicator color={t.primary} />
       </View>
     )
@@ -169,10 +170,10 @@ export function WinnerFeedStrip() {
     <View style={styles.wrap}>
       <View style={styles.head}>
         <FontAwesome name="trophy" size={16} color={t.primary} />
-        <Text style={[styles.title, { color: t.foreground }]}>Community big wins</Text>
+        <Text style={[styles.title, { color: t.textPrimary }]}>Community highlights</Text>
       </View>
-      <Text style={[styles.sub, { color: t.mutedForeground }]}>
-        From recent spins — tap a reaction to cheer someone on.
+      <Text style={[styles.sub, { color: t.textSecondary }]}>
+        Recent virtual coin wins — tap a reaction to cheer someone on.
       </Text>
       {feeds.map((row, idx) => {
         const name = row.profiles?.username ?? 'Player'
@@ -182,22 +183,22 @@ export function WinnerFeedStrip() {
             key={row.id}
             style={[
               styles.row,
-              { borderColor: t.border, backgroundColor: t.card },
+              { borderColor: t.border, backgroundColor: t.surfaceElevated },
               idx > 0 && { marginTop: 10 },
             ]}
           >
             <View style={styles.rowTop}>
-              <Text style={[styles.name, { color: t.foreground }]} numberOfLines={1}>
+              <Text style={[styles.name, { color: t.textPrimary }]} numberOfLines={1}>
                 {name}
               </Text>
               <View style={styles.winPill}>
-                <FontAwesome name="bitcoin" size={12} color={t.primary} />
-                <Text style={[styles.winAmt, { color: t.foreground }]}>
+                <FontAwesome name="circle" size={12} color={t.gold} />
+                <Text style={[styles.winAmt, { color: t.textPrimary }]}>
                   {Number(row.win_amount).toLocaleString()}
                 </Text>
               </View>
             </View>
-            <Text style={[styles.meta, { color: t.mutedForeground }]}>
+            <Text style={[styles.meta, { color: t.textMuted }]}>
               {row.win_type} · {mult}x
             </Text>
             <View style={styles.rxRow}>
@@ -212,7 +213,7 @@ export function WinnerFeedStrip() {
                       styles.rxBtn,
                       {
                         borderColor: active ? t.primary : t.border,
-                        backgroundColor: active ? `${t.primary}22` : 'transparent',
+                        backgroundColor: active ? hexWithAlpha(t.primary, '22') : 'transparent',
                       },
                     ]}
                     accessibilityLabel={`${rx} reaction`}
@@ -221,13 +222,13 @@ export function WinnerFeedStrip() {
                       // glyph names from FontAwesome 4 set bundled with @expo/vector-icons
                       name={REACTION_ICON[rx] as never}
                       size={14}
-                      color={active ? t.primary : t.mutedForeground}
+                      color={active ? t.primary : t.textMuted}
                     />
                   </Pressable>
                 )
               })}
               {!uid ? (
-                <Text style={[styles.signInHint, { color: t.mutedForeground }]}>
+                <Text style={[styles.signInHint, { color: t.textMuted }]}>
                   Sign in to react
                 </Text>
               ) : null}

@@ -13,6 +13,7 @@ import { DAILY_LOGIN_REWARD_COINS } from '@shared/economy/daily-login-rewards'
 import type { DailyReward } from '@/lib/game-context'
 import { useHaptics } from '@/lib/use-haptics'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { hexWithAlpha } from '@/theme/tokens'
 
 /** Coins awarded on completing all 7 days (Day 7 value). */
 const WEEKLY_BONUS_COINS = DAILY_LOGIN_REWARD_COINS[DAILY_LOGIN_REWARD_COINS.length - 1]
@@ -78,11 +79,11 @@ function DayCell({
         disabled={!isClaimable || isLocked}
         onPress={onClaim}
         style={[styles.cellBtn, flash && { borderColor: t.win, borderWidth: 2 }]}
-        accessibilityLabel={`Day ${reward.day} reward ${reward.coins} coins`}
+        accessibilityLabel={`Day ${reward.day} reward ${reward.coins} virtual coins`}
         accessibilityHint={isClaimable ? 'Double-tap to claim' : undefined}
       >
         <View style={styles.cellInner}>
-          <Text style={[styles.dayLbl, { color: t.mutedForeground }]}>D{reward.day}</Text>
+          <Text style={[styles.dayLbl, { color: t.textMuted }]}>D{reward.day}</Text>
           <View
             style={[
               styles.circle,
@@ -92,15 +93,15 @@ function DayCell({
             {isClaimed ? (
               <FontAwesome name="check" size={14} color={t.primaryForeground} />
             ) : isLocked ? (
-              <FontAwesome name="lock" size={12} color={t.mutedForeground} />
+              <FontAwesome name="lock" size={12} color={t.textMuted} />
             ) : (
               <FontAwesome name="gift" size={12} color={t.primaryForeground} />
             )}
           </View>
           <View style={styles.coinRow}>
-            <FontAwesome name="bitcoin" size={10} color={t.primary} />
+            <FontAwesome name="circle" size={10} color={t.gold} />
             <Text
-              style={[styles.coinTxt, { color: isClaimed ? t.win : t.foreground }]}
+              style={[styles.coinTxt, { color: isClaimed ? t.win : t.textPrimary }]}
               numberOfLines={1}
             >
               {fmtCoins(reward.coins)}
@@ -131,17 +132,21 @@ export function DailyLoginRewards({
   const weekBannerStyle = useAnimatedStyle(() => ({ opacity: weekBannerOpacity.value }))
 
   return (
-    <View style={[styles.panel, { borderColor: t.border, backgroundColor: t.card }]}>
-      <Text style={[styles.title, { color: t.foreground }]}>Daily Login Rewards</Text>
+    <View style={[styles.panel, { borderColor: t.border, backgroundColor: t.surfaceElevated }]}>
+      <Text style={[styles.title, { color: t.textPrimary }]}>Daily login rewards</Text>
 
       {weeklyStreakCompleted ? (
         <Animated.View
-          style={[styles.weekDone, { borderColor: `${t.win}55`, backgroundColor: `${t.win}18` }, weekBannerStyle]}
+          style={[
+            styles.weekDone,
+            { borderColor: hexWithAlpha(t.win, '55'), backgroundColor: hexWithAlpha(t.win, '18') },
+            weekBannerStyle,
+          ]}
         >
           <FontAwesome name="trophy" size={20} color={t.win} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.weekDoneTitle, { color: t.win }]}>Full week complete!</Text>
-            <Text style={[styles.weekDoneSub, { color: t.mutedForeground }]}>
+            <Text style={[styles.weekDoneSub, { color: t.textSecondary }]}>
               New streak starts tomorrow
             </Text>
           </View>
@@ -176,9 +181,9 @@ export function DailyLoginRewards({
 
       <View style={[styles.mega, { borderTopColor: t.border }]}>
         <View style={styles.megaTop}>
-          <Text style={[styles.megaLbl, { color: t.foreground }]}>Weekly Mega Bonus</Text>
+          <Text style={[styles.megaLbl, { color: t.textPrimary }]}>Weekly streak bonus</Text>
           <View style={styles.megaAmt}>
-            <FontAwesome name="bitcoin" size={14} color={t.jackpot} />
+            <FontAwesome name="circle" size={14} color={t.jackpot} />
             <Text style={[styles.megaNum, { color: t.jackpot }]}>{fmtCoins(WEEKLY_BONUS_COINS)}</Text>
           </View>
         </View>

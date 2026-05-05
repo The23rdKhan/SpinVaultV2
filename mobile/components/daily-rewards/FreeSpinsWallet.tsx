@@ -11,6 +11,7 @@ import { AppButton } from '@/components/ui/AppButton'
 import { routes } from '@/lib/app-routes'
 import { useGame } from '@/lib/game-context'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { hexWithAlpha } from '@/theme/tokens'
 
 export function FreeSpinsWallet() {
   const t = useCasinoTheme()
@@ -39,8 +40,8 @@ export function FreeSpinsWallet() {
       style={[
         styles.panel,
         {
-          borderColor: active ? `${t.primary}88` : t.border,
-          backgroundColor: t.card,
+          borderColor: active ? hexWithAlpha(t.primary, '88') : t.border,
+          backgroundColor: t.surfaceElevated,
         },
       ]}
     >
@@ -49,20 +50,20 @@ export function FreeSpinsWallet() {
           <View
             style={[
               styles.iconBox,
-              { backgroundColor: active ? t.primary : `${t.muted}99` },
+              { backgroundColor: active ? t.primary : hexWithAlpha(t.muted, '99') },
             ]}
           >
-            <FontAwesome name="star" size={22} color={active ? t.primaryForeground : t.mutedForeground} />
+            <FontAwesome name="star" size={22} color={active ? t.primaryForeground : t.textMuted} />
           </View>
           <View>
-            <Text style={[styles.title, { color: t.foreground }]}>Free Spins</Text>
-            <Text style={[styles.sub, { color: t.mutedForeground }]}>
+            <Text style={[styles.title, { color: t.textPrimary }]}>Free spins</Text>
+            <Text style={[styles.sub, { color: t.textSecondary }]}>
               {active ? 'Ready to use!' : 'Win from Scatters'}
             </Text>
           </View>
         </View>
         <View style={styles.right}>
-          <Animated.Text style={[styles.big, { color: active ? t.primary : t.mutedForeground }, countStyle]}>
+          <Animated.Text style={[styles.big, { color: active ? t.primary : t.textMuted }, countStyle]}>
             {freeSpins}
           </Animated.Text>
           {active ? (
@@ -77,9 +78,9 @@ export function FreeSpinsWallet() {
         </View>
       </View>
       <View style={[styles.footer, { borderTopColor: t.border }]}>
-        <Text style={[styles.hint, { color: t.mutedForeground }]}>
-          Land 3+ Scatter symbols to win 10 Free Spins. Free spins use your current bet without deducting
-          coins!
+        <Text style={[styles.hint, { color: t.textMuted }]}>
+          Land 3+ Scatter symbols to unlock 10 free spins. Free spins use your current spin amount without
+          deducting virtual coins.
         </Text>
       </View>
     </View>

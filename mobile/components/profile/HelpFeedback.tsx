@@ -17,8 +17,8 @@ export function HelpFeedback() {
   const t = useCasinoTheme()
   const { mode } = useAppearance()
   const native = useNativeSemanticColors(mode)
-  const inputFg = native?.label ?? t.foreground
-  const placeholder = native?.placeholderText ?? t.mutedForeground
+  const inputFg = native?.label ?? t.textPrimary
+  const placeholder = native?.placeholderText ?? t.textMuted
   const inputBorder = native?.separator ?? t.border
 
   const [showForm, setShowForm] = useState(false)
@@ -91,13 +91,13 @@ export function HelpFeedback() {
     <View style={styles.section}>
       <View style={styles.head}>
         <FontAwesome name="question-circle" size={16} color={t.primary} />
-        <Text style={[styles.h3, { color: t.foreground }]}>Help & Feedback</Text>
+        <Text style={[styles.h3, { color: t.textPrimary }]}>Help & Feedback</Text>
       </View>
 
-      <View style={[styles.card, { borderColor: t.border, backgroundColor: t.card }]}>
+      <View style={[styles.card, { borderColor: t.border, backgroundColor: t.surfaceElevated }]}>
         {!showForm ? (
           <View style={styles.block}>
-            <Text style={[styles.prompt, { color: t.foreground }]}>How are you enjoying Lucky Slots?</Text>
+            <Text style={[styles.prompt, { color: t.textPrimary }]}>How are you enjoying SpinVault?</Text>
             <View style={styles.emojiRow}>
               {EMOJIS.map((e, i) => (
                 <AppButton
@@ -112,7 +112,7 @@ export function HelpFeedback() {
               ))}
             </View>
             {rating ? (
-              <Text style={[styles.hint, { color: t.mutedForeground }]}>
+              <Text style={[styles.hint, { color: t.textMuted }]}>
                 {EMOJI_LABELS[rating - 1]} — thanks!
               </Text>
             ) : null}
@@ -151,7 +151,7 @@ export function HelpFeedback() {
           </View>
         ) : (
           <View style={styles.block}>
-            <Text style={[styles.prompt, { color: t.foreground }]}>
+            <Text style={[styles.prompt, { color: t.textPrimary }]}>
               {formType === 'bug' ? 'Bug report' : formType === 'feature' ? 'Feature request' : 'Feedback'}
             </Text>
             <TextInput
@@ -159,7 +159,7 @@ export function HelpFeedback() {
               onChangeText={setEmail}
               placeholder="Email (optional)"
               placeholderTextColor={placeholder}
-              style={[styles.input, { color: inputFg, borderColor: inputBorder }]}
+              style={[styles.input, { color: inputFg, borderColor: inputBorder, backgroundColor: t.input }]}
               keyboardType="email-address"
               autoCapitalize="none"
             />
@@ -169,7 +169,7 @@ export function HelpFeedback() {
               placeholder="Your message"
               placeholderTextColor={placeholder}
               multiline
-              style={[styles.area, { color: inputFg, borderColor: inputBorder }]}
+              style={[styles.area, { color: inputFg, borderColor: inputBorder, backgroundColor: t.input }]}
             />
             <AppButton
               label={submitted ? 'Sent!' : submitting ? 'Sending…' : 'Submit'}

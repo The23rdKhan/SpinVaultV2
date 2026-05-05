@@ -9,8 +9,10 @@ import {
 } from 'react-native'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { LinearGradient } from 'expo-linear-gradient'
-import { ALL_VANITY_ITEMS, RARITY_COLORS, TROPHY_DEFINITIONS } from '@/lib/vanity-data'
+import { ALL_VANITY_ITEMS, TROPHY_DEFINITIONS } from '@/lib/vanity-data'
+import { rarityPresentation } from '@/lib/rarity-from-theme'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { hexWithAlpha } from '@/theme/tokens'
 
 export interface PlayerProfileEntry {
   rank: number
@@ -54,7 +56,7 @@ const TROPHY_FA: Record<string, keyof typeof FontAwesome.glyphMap> = {
   star: 'star',
   zap: 'bolt',
   crown: 'star',
-  coins: 'bitcoin',
+  coins: 'circle',
   palette: 'paint-brush',
   flame: 'fire',
   gem: 'diamond',
@@ -80,7 +82,7 @@ export function PlayerProfileModal({
   const petItem = player.pet ? ALL_VANITY_ITEMS.find((i) => i.id === player.pet) : null
   const showPet = petItem && petItem.id !== 'pet-none'
 
-  const frameParts = frameItem ? RARITY_COLORS[frameItem.rarity] : null
+  const frameParts = frameItem ? rarityPresentation(t, frameItem.rarity) : null
 
   const publicStats = useMemo(() => {
     const r = mulberry32(hashSeed(`${player.username}_stats`))
@@ -105,14 +107,14 @@ export function PlayerProfileModal({
   return (
     <Modal visible animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.root}>
-        <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
-          <Pressable onPress={onClose} style={[styles.closeFab, { backgroundColor: `${t.muted}88` }]}>
-            <FontAwesome name="times" size={18} color={t.mutedForeground} />
+        <Pressable style={[styles.backdrop, { backgroundColor: t.overlay }]} onPress={onClose} />
+        <View style={[styles.card, { backgroundColor: t.surfaceElevated, borderColor: t.border }]}>
+          <Pressable onPress={onClose} style={[styles.closeFab, { backgroundColor: hexWithAlpha(t.muted, '88') }]}>
+            <FontAwesome name="times" size={18} color={t.textMuted} />
           </Pressable>
 
           <LinearGradient
-            colors={[`${t.primary}44`, 'transparent']}
+            colors={[hexWithAlpha(t.primary, '44'), 'transparent']}
             style={styles.headerGrad}
           >
             <View style={styles.avatarBlock}>
@@ -122,19 +124,19 @@ export function PlayerProfileModal({
                   {
                     borderColor: frameParts?.border ?? t.border,
                     borderWidth: frameParts ? 4 : 2,
-                    backgroundColor: t.muted,
+                    backgroundColor: t.cardSoft,
                   },
                 ]}
               >
-                <FontAwesome name="user" size={36} color={t.mutedForeground} />
+                <FontAwesome name="user" size={36} color={t.textMuted} />
               </View>
               {showPet ? (
                 <View
                   style={[
                     styles.petBadge,
                     {
-                      borderColor: RARITY_COLORS[petItem!.rarity].border,
-                      backgroundColor: t.card,
+                      borderColor: rarityPresentation(t, petItem!.rarity).border,
+                      backgroundColor: t.surfaceElevated,
                     },
                   ]}
                 >
@@ -145,25 +147,25 @@ export function PlayerProfileModal({
               ) : null}
             </View>
 
-            <Text style={[styles.userName, { color: t.foreground }]}>{player.username}</Text>
+            <Text style={[styles.userName, { color: t.textPrimary }]}>{player.username}</Text>
 
             <View style={styles.titleRow}>
               {titleItem ? (
-                <Text style={[styles.titleTxt, { color: RARITY_COLORS[titleItem.rarity].text }]}>
+                <Text style={[styles.titleTxt, { color: rarityPresentation(t, titleItem.rarity).text }]}>
                   {titleItem.previewImage || titleItem.name}
                 </Text>
               ) : player.title ? (
-                <Text style={{ color: t.mutedForeground }}>{player.title}</Text>
+                <Text style={{ color: t.textMuted }}>{player.title}</Text>
               ) : null}
               {player.vipTier != null && player.vipTier >= 2 ? (
-                <View style={styles.vipPill}>
-                  <FontAwesome name="star" size={10} color="#fbbf24" />
-                  <Text style={styles.vipTxt}>VIP {player.vipTier}</Text>
+                <View style={[styles.vipPill, { backgroundColor: hexWithAlpha(t.gold, '22') }]}>
+                  <FontAwesome name="star" size={10} color={t.gold} />
+                  <Text style={[styles.vipTxt, { color: t.gold }]}>VIP {player.vipTier}</Text>
                 </View>
               ) : null}
             </View>
 
-            <View style={[styles.rankPill, { borderColor: `${t.primary}88` }]}>
+            <View style={[styles.rankPill, { borderColor: hexWithAlpha(t.primary, '88'), backgroundColor: hexWithAlpha(t.overlay, '22') }]}>
               <Text style={[styles.rankPillTxt, { color: t.primary }]}>Rank #{player.rank}</Text>
             </View>
           </LinearGradient>
@@ -172,13 +174,13 @@ export function PlayerProfileModal({
             <View>
               <View style={styles.sectionHead}>
                 <FontAwesome name="star" size={14} color={t.primary} />
-                <Text style={[styles.sectionTitle, { color: t.mutedForeground }]}>This week</Text>
+                <Text style={[styles.sectionTitle, { color: t.textMuted }]}>This week</Text>
               </View>
-              <View style={[styles.lbRow, { borderColor: t.border, backgroundColor: `${t.muted}33` }]}>
-                <Text style={[styles.lbLbl, { color: t.mutedForeground }]}>{metricLabel}</Text>
+              <View style={[styles.lbRow, { borderColor: t.border, backgroundColor: hexWithAlpha(t.muted, '33') }]}>
+                <Text style={[styles.lbLbl, { color: t.textSecondary }]}>{metricLabel}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <FontAwesome name="bitcoin" size={16} color={t.primary} />
-                  <Text style={[styles.lbVal, { color: t.foreground }]}>
+                  <FontAwesome name="circle" size={16} color={t.gold} />
+                  <Text style={[styles.lbVal, { color: t.textPrimary }]}>
                     {player.value.toLocaleString()}
                   </Text>
                 </View>
@@ -188,32 +190,38 @@ export function PlayerProfileModal({
             <View>
               <View style={styles.sectionHead}>
                 <FontAwesome name="star" size={14} color={t.primary} />
-                <Text style={[styles.sectionTitle, { color: t.mutedForeground }]}>Equipped cosmetics</Text>
+                <Text style={[styles.sectionTitle, { color: t.textMuted }]}>Equipped cosmetics</Text>
               </View>
               <View style={styles.cosGrid}>
                 <CosmeticCell
                   label="Frame"
                   name={frameItem?.name ?? 'Basic'}
-                  rarityStyle={frameItem ? RARITY_COLORS[frameItem.rarity] : null}
-                  muted={t.mutedForeground}
+                  rarityStyle={frameItem ? rarityPresentation(t, frameItem.rarity) : null}
+                  muted={t.textMuted}
+                  fallbackBorder={hexWithAlpha(t.border, '66')}
+                  fallbackBg={hexWithAlpha(t.cardSoft, '66')}
                 />
                 <CosmeticCell
                   label="Title"
                   name={titleItem?.name ?? 'Player'}
-                  rarityStyle={titleItem ? RARITY_COLORS[titleItem.rarity] : null}
-                  muted={t.mutedForeground}
+                  rarityStyle={titleItem ? rarityPresentation(t, titleItem.rarity) : null}
+                  muted={t.textMuted}
+                  fallbackBorder={hexWithAlpha(t.border, '66')}
+                  fallbackBg={hexWithAlpha(t.cardSoft, '66')}
                 />
                 <CosmeticCell
                   label="Pet"
                   name={showPet ? petItem!.name : 'None'}
-                  rarityStyle={showPet ? RARITY_COLORS[petItem!.rarity] : null}
-                  muted={t.mutedForeground}
+                  rarityStyle={showPet ? rarityPresentation(t, petItem!.rarity) : null}
+                  muted={t.textMuted}
+                  fallbackBorder={hexWithAlpha(t.border, '66')}
+                  fallbackBg={hexWithAlpha(t.cardSoft, '66')}
                 />
               </View>
             </View>
 
             <View>
-              <Text style={[styles.sectionTitle, { color: t.mutedForeground, marginBottom: 10 }]}>
+              <Text style={[styles.sectionTitle, { color: t.textMuted, marginBottom: 10 }]}>
                 Public stats
               </Text>
               <View style={styles.statsGrid}>
@@ -225,9 +233,9 @@ export function PlayerProfileModal({
                   t={t}
                 />
                 <StatBox
-                  label="Biggest win"
+                  label="Best spin"
                   value={publicStats.biggestWin.toLocaleString()}
-                  icon="bitcoin"
+                  icon="circle"
                   t={t}
                 />
                 <StatBox label="Leaderboard" value={`#${player.rank}`} icon="trophy" t={t} />
@@ -237,10 +245,10 @@ export function PlayerProfileModal({
             <View>
               <View style={[styles.sectionHead, { justifyContent: 'space-between', width: '100%' }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <FontAwesome name="trophy" size={14} color="#fbbf24" />
-                  <Text style={[styles.sectionTitle, { color: t.mutedForeground }]}>Trophy case</Text>
+                  <FontAwesome name="trophy" size={14} color={t.gold} />
+                  <Text style={[styles.sectionTitle, { color: t.textMuted }]}>Trophy case</Text>
                 </View>
-                <Text style={{ color: t.mutedForeground, fontSize: 11 }}>
+                <Text style={{ color: t.textMuted, fontSize: 11 }}>
                   {unlockedCount}/{mockTrophies.length}
                 </Text>
               </View>
@@ -253,27 +261,29 @@ export function PlayerProfileModal({
                       style={[
                         styles.trophyCell,
                         {
-                          borderColor: tr.unlocked ? '#f59e0b' : t.border,
-                          backgroundColor: tr.unlocked ? '#f59e0b18' : `${t.muted}22`,
+                          borderColor: tr.unlocked ? t.gold : t.border,
+                          backgroundColor: tr.unlocked ? hexWithAlpha(t.gold, '18') : hexWithAlpha(t.muted, '22'),
                         },
                       ]}
                     >
                       <View
                         style={[
                           styles.trophyIcon,
-                          { backgroundColor: tr.unlocked ? '#f59e0b33' : `${t.muted}44` },
+                          {
+                            backgroundColor: tr.unlocked ? hexWithAlpha(t.gold, '33') : hexWithAlpha(t.muted, '44'),
+                          },
                         ]}
                       >
                         <FontAwesome
                           name={fa}
                           size={18}
-                          color={tr.unlocked ? '#fbbf24' : t.mutedForeground}
+                          color={tr.unlocked ? t.gold : t.textMuted}
                         />
                       </View>
                       <Text
                         style={[
                           styles.trophyName,
-                          { color: tr.unlocked ? '#fbbf24' : t.mutedForeground },
+                          { color: tr.unlocked ? t.gold : t.textMuted },
                         ]}
                         numberOfLines={2}
                       >
@@ -285,14 +295,14 @@ export function PlayerProfileModal({
               </View>
             </View>
 
-            <View style={[styles.notice, { borderColor: t.border, backgroundColor: `${t.muted}22` }]}>
-              <FontAwesome name="lock" size={14} color={t.mutedForeground} />
-              <Text style={[styles.noticeTxt, { color: t.mutedForeground }]}>
-                Coin balance, purchase history, and account details are private.
+            <View style={[styles.notice, { borderColor: t.border, backgroundColor: hexWithAlpha(t.muted, '22') }]}>
+              <FontAwesome name="lock" size={14} color={t.textMuted} />
+              <Text style={[styles.noticeTxt, { color: t.textSecondary }]}>
+                Virtual coin balance, checkout history, and account details stay private.
               </Text>
             </View>
 
-            <Text style={[styles.footer, { color: t.mutedForeground }]}>
+            <Text style={[styles.footer, { color: t.textMuted }]}>
               Playing since {publicStats.memberSince}
             </Text>
           </ScrollView>
@@ -307,19 +317,23 @@ function CosmeticCell({
   name,
   rarityStyle,
   muted,
+  fallbackBorder,
+  fallbackBg,
 }: {
   label: string
   name: string
   rarityStyle: { bg: string; text: string; border: string } | null
   muted: string
+  fallbackBorder: string
+  fallbackBg: string
 }) {
   return (
     <View
       style={[
         styles.cosCell,
         {
-          borderColor: rarityStyle?.border ?? '#71717a55',
-          backgroundColor: rarityStyle?.bg ?? '#27272a33',
+          borderColor: rarityStyle?.border ?? fallbackBorder,
+          backgroundColor: rarityStyle?.bg ?? fallbackBg,
         },
       ]}
     >
@@ -346,12 +360,12 @@ function StatBox({
   t: ReturnType<typeof useCasinoTheme>
 }) {
   return (
-    <View style={[styles.statBox, { backgroundColor: `${t.muted}33` }]}>
+    <View style={[styles.statBox, { backgroundColor: hexWithAlpha(t.muted, '33') }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
         <FontAwesome name={icon} size={12} color={t.primary} />
-        <Text style={[styles.statLbl, { color: t.mutedForeground }]}>{label}</Text>
+        <Text style={[styles.statLbl, { color: t.textMuted }]}>{label}</Text>
       </View>
-      <Text style={[styles.statVal, { color: t.foreground }]}>{value}</Text>
+      <Text style={[styles.statVal, { color: t.textPrimary }]}>{value}</Text>
     </View>
   )
 }
@@ -364,7 +378,6 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.72)',
   },
   card: {
     borderRadius: 20,
@@ -425,16 +438,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 999,
-    backgroundColor: '#f59e0b22',
   },
-  vipTxt: { fontSize: 11, fontWeight: '800', color: '#fbbf24' },
+  vipTxt: { fontSize: 11, fontWeight: '800' },
   rankPill: {
     marginTop: 12,
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 999,
     borderWidth: 1,
-    backgroundColor: '#00000022',
   },
   rankPillTxt: { fontSize: 13, fontWeight: '900' },
   body: { maxHeight: 420 },

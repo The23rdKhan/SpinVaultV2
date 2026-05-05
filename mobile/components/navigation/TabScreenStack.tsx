@@ -9,11 +9,13 @@ function HeaderBrandMark({ title }: { title: string }) {
   return (
     <View style={styles.brandRow}>
       <View style={[styles.brandIcon, { backgroundColor: t.primary }]}>
-        <FontAwesome name="bolt" size={16} color={t.primaryForeground} />
+        <FontAwesome name="archive" size={15} color={t.primaryForeground} accessibilityLabel="" />
       </View>
-      <View>
-        <Text style={[styles.brandKicker, { color: t.mutedForeground }]}>SPINVAULT</Text>
-        <Text style={[styles.brandTitle, { color: t.foreground }]}>{title}</Text>
+      <View style={styles.brandText}>
+        <Text style={[styles.brandName, { color: t.textPrimary }]}>SpinVault</Text>
+        <Text style={[styles.brandSubtitle, { color: t.textSecondary }]} numberOfLines={1}>
+          {title}
+        </Text>
       </View>
     </View>
   )
@@ -26,8 +28,10 @@ export function TabScreenStack({ title }: { title: string }) {
     <Stack
       screenOptions={{
         headerShown: true,
-        headerStyle: { backgroundColor: t.background },
-        headerTintColor: t.foreground,
+        headerStyle: {
+          backgroundColor: t.background,
+        },
+        headerTintColor: t.textPrimary,
         headerShadowVisible: false,
         headerRight: () => <HeaderActions />,
         contentStyle: { backgroundColor: t.background },
@@ -46,12 +50,13 @@ export function TabScreenStack({ title }: { title: string }) {
 const styles = StyleSheet.create({
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   brandIcon: {
-    width: 32,
-    height: 32,
+    width: 36,
+    height: 36,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  brandKicker: { fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
-  brandTitle: { fontSize: 16, fontWeight: '900', marginTop: -1 },
+  brandText: { justifyContent: 'center', maxWidth: 200 },
+  brandName: { fontSize: 17, fontWeight: '700', letterSpacing: -0.3 },
+  brandSubtitle: { fontSize: 12, fontWeight: '600', marginTop: 1 },
 })

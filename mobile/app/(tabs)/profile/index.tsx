@@ -24,7 +24,8 @@ import type { AuthProviderKind } from '@/lib/auth-context'
 import { useAuth } from '@/lib/auth-context'
 import { useGame } from '@/lib/game-context'
 import { SCREEN_PAD_H } from '@/lib/screen-edge'
-import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { useCasinoTheme, type AppTheme } from '@/lib/use-casino-theme'
+import { hexWithAlpha } from '@/theme/tokens'
 
 function accountProviderBadge(isGuest: boolean, provider: AuthProviderKind | undefined): string {
   if (isGuest) return 'Guest'
@@ -34,13 +35,30 @@ function accountProviderBadge(isGuest: boolean, provider: AuthProviderKind | und
   return 'Signed in'
 }
 
-const VIP_TIERS = [
-  { level: 1, name: 'Bronze', minXp: 0, accent: '#b45309' },
-  { level: 2, name: 'Silver', minXp: 5000, accent: '#9ca3af' },
-  { level: 3, name: 'Gold', minXp: 15000, accent: '#eab308' },
-  { level: 4, name: 'Platinum', minXp: 50000, accent: '#22d3ee' },
-  { level: 5, name: 'Diamond', minXp: 150000, accent: '#e879f9' },
-]
+const VIP_TIER_DEFS = [
+  { level: 1, name: 'Bronze', minXp: 0 },
+  { level: 2, name: 'Silver', minXp: 5000 },
+  { level: 3, name: 'Gold', minXp: 15000 },
+  { level: 4, name: 'Platinum', minXp: 50000 },
+  { level: 5, name: 'Diamond', minXp: 150000 },
+] as const
+
+function vipTierAccent(t: AppTheme, level: number): string {
+  switch (level) {
+    case 1:
+      return t.rarity.common
+    case 2:
+      return t.textMuted
+    case 3:
+      return t.gold
+    case 4:
+      return t.freeSpin
+    case 5:
+      return t.rarity.mythic
+    default:
+      return t.primary
+  }
+}
 
 export default function ProfileScreen() {
   const t = useCasinoTheme()
@@ -95,13 +113,14 @@ export default function ProfileScreen() {
   const totalXp = level * 1000 + xp
 
   const currentVip =
-    [...VIP_TIERS].reverse().find((ti) => totalXp >= ti.minXp) ?? VIP_TIERS[0]
-  const nextVip = VIP_TIERS.find((ti) => ti.minXp > totalXp)
+    [...VIP_TIER_DEFS].reverse().find((ti) => totalXp >= ti.minXp) ?? VIP_TIER_DEFS[0]
+  const nextVip = VIP_TIER_DEFS.find((ti) => ti.minXp > totalXp)
+  const vipAccent = vipTierAccent(t, currentVip.level)
   const vipBarPct =
     nextVip != null
       ? Math.min(
           100,
-          ((totalXp - currentVip.minXp) / Math.max(1, nextVip.minXp - currentVip.minXp)) * 100
+          ((totalXp - currentVip.minXp) / Math.max(1, nextVip.minXp - currentVip.minXp)) * 100,
         )
       : 100
 
@@ -132,25 +151,34 @@ export default function ProfileScreen() {
         { paddingHorizontal: SCREEN_PAD_H, paddingBottom: bottomPad },
       ]}
     >
-      <Text style={[styles.lead, { color: t.mutedForeground }]}>
-        Your stats, trophies & settings
+      <Text style={[styles.lead, { color: t.textSecondary }]}>
+        Your vault identity, collections & settings
       </Text>
 
       <LinearGradient
-        colors={[`${t.primary}22`, t.card, `${t.primary}11`]}
+        colors={[hexWithAlpha(t.primary, '22'), t.surfaceElevated, hexWithAlpha(t.primary, '11')]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.hero, { borderColor: t.border }]}
       >
         <View style={styles.heroTop}>
-          <View style={[styles.avatarRing, { borderColor: currentVip.accent }]}>
-            <View style={[styles.avatarInner, { backgroundColor: t.card }]}>
-              <FontAwesome name="user" size={28} color={t.foreground} />
+          <View style={[styles.avatarRing, { borderColor: vipAccent }]}>
+            <View style={[styles.avatarInner, { backgroundColor: t.surfaceElevated }]}>
+              <FontAwesome name="user" size={28} color={t.textPrimary} />
             </View>
           </View>
-          <View style={[styles.vipPill, { backgroundColor: currentVip.accent }]}>
-            <FontAwesome name="star" size={10} color="#fff" />
-            <Text style={styles.vipPillTxt}>{currentVip.name}</Text>
+          <View
+            style={[
+              styles.vipPill,
+              {
+                borderWidth: 1,
+                borderColor: vipAccent,
+                backgroundColor: hexWithAlpha(vipAccent, '33'),
+              },
+            ]}
+          >
+            <FontAwesome name="star" size={10} color={vipAccent} />
+            <Text style={[styles.vipPillTxt, { color: t.textPrimary }]}>{currentVip.name}</Text>
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             {editing ? (
@@ -158,7 +186,10 @@ export default function ProfileScreen() {
                 <TextInput
                   value={name}
                   onChangeText={setName}
-                  style={[styles.input, { color: t.foreground, borderColor: t.border }]}
+                  style={[
+                    styles.input,
+                    { color: t.textPrimary, borderColor: t.border, backgroundColor: t.input },
+                  ]}
                   maxLength={20}
                 />
                 <AppButton label="Save" onPress={saveName} style={{ marginTop: 8 }} />
@@ -166,22 +197,26 @@ export default function ProfileScreen() {
             ) : (
               <>
                 <View style={styles.nameRow}>
-                  <Text style={[styles.username, { color: t.foreground }]} numberOfLines={1}>
+                  <Text style={[styles.username, { color: t.textPrimary }]} numberOfLines={1}>
                     {username}
                   </Text>
                   <AppButton variant="ghost" size="sm" label="Edit" onPress={() => setEditing(true)} />
                 </View>
                 <View style={styles.badgeRow}>
-                  <View style={[styles.levelPill, { backgroundColor: `${t.primary}33` }]}>
+                  <View style={[styles.levelPill, { backgroundColor: hexWithAlpha(t.primary, '33') }]}>
                     <Text style={[styles.levelPillTxt, { color: t.primary }]}>Lv {level}</Text>
                   </View>
                   <View
                     style={[
                       styles.levelPill,
-                      { backgroundColor: isGuest ? '#f59e0b33' : `${t.win}33` },
+                      {
+                        backgroundColor: isGuest
+                          ? hexWithAlpha(t.accent, '22')
+                          : hexWithAlpha(t.win, '33'),
+                      },
                     ]}
                   >
-                    <Text style={[styles.levelPillTxt, { color: isGuest ? '#f59e0b' : t.win }]}>
+                    <Text style={[styles.levelPillTxt, { color: isGuest ? t.accent : t.win }]}>
                       {accountProviderBadge(isGuest, user?.provider)}
                     </Text>
                   </View>
@@ -194,32 +229,33 @@ export default function ProfileScreen() {
         {nextVip ? (
           <View style={{ marginTop: 12 }}>
             <View style={styles.vipLblRow}>
-              <Text style={[styles.vipLbl, { color: t.mutedForeground }]}>{currentVip.name}</Text>
-              <Text style={[styles.vipLbl, { color: t.mutedForeground }]}>{nextVip.name}</Text>
+              <Text style={[styles.vipLbl, { color: t.textMuted }]}>{currentVip.name}</Text>
+              <Text style={[styles.vipLbl, { color: t.textMuted }]}>{nextVip.name}</Text>
             </View>
             <View style={[styles.vipTrack, { backgroundColor: t.muted }]}>
               <View
-                style={[styles.vipFill, { width: `${vipBarPct}%`, backgroundColor: currentVip.accent }]}
+                style={[styles.vipFill, { width: `${vipBarPct}%`, backgroundColor: vipAccent }]}
               />
             </View>
           </View>
         ) : null}
 
         <View style={styles.heroStats}>
-          <View style={[styles.statCard, { backgroundColor: `${t.background}99` }]}>
-            <Text style={[styles.statLbl, { color: t.mutedForeground }]}>
+          <View style={[styles.statCard, { backgroundColor: t.cardSoft }]}>
+            <Text style={[styles.statLbl, { color: t.textMuted }]}>
               Level {level} · XP {xp}/{xpNeeded}
             </Text>
             <View style={[styles.xpTrack, { backgroundColor: t.muted }]}>
               <View style={[styles.xpFill, { width: `${xpPct}%`, backgroundColor: t.primary }]} />
             </View>
           </View>
-          <View style={[styles.statCard, { backgroundColor: `${t.background}99` }]}>
-            <Text style={[styles.statLbl, { color: t.mutedForeground }]}>Wallet</Text>
+          <View style={[styles.statCard, { backgroundColor: t.cardSoft }]}>
+            <Text style={[styles.statLbl, { color: t.textMuted }]}>Coins</Text>
             <View style={styles.walletRow}>
-              <FontAwesome name="bitcoin" size={14} color={t.primary} />
-              <Text style={[styles.walletAmt, { color: t.foreground }]}>{coins.toLocaleString()}</Text>
+              <FontAwesome name="circle" size={14} color={t.gold} />
+              <Text style={[styles.walletAmt, { color: t.textPrimary }]}>{coins.toLocaleString()}</Text>
             </View>
+            <Text style={[styles.walletHint, { color: t.textMuted }]}>Virtual coins</Text>
           </View>
         </View>
       </LinearGradient>
@@ -264,7 +300,7 @@ export default function ProfileScreen() {
         setPref={(key, value) => setNotificationPref(key, value)}
       />
 
-      <Text style={[styles.h3, { color: t.foreground }]}>Appearance</Text>
+      <Text style={[styles.h3, { color: t.textPrimary }]}>Appearance</Text>
       <View style={styles.row}>
         {appearanceOptions.map((o) => (
           <AppButton
@@ -277,8 +313,8 @@ export default function ProfileScreen() {
         ))}
       </View>
 
-      <Text style={[styles.h3, { color: t.foreground }]}>Settings</Text>
-      <View style={[styles.card, { borderColor: t.border }]}>
+      <Text style={[styles.h3, { color: t.textPrimary }]}>Settings</Text>
+      <View style={[styles.card, { borderColor: t.border, backgroundColor: t.surfaceElevated }]}>
         <ToggleRow
           label="Sound Effects"
           description="Reels, wins, and UI sounds"
@@ -351,9 +387,9 @@ function ToggleRow({
       ]}
     >
       <View style={styles.toggleLabelCol}>
-        <Text style={{ color: t.foreground, fontWeight: '600' }}>{label}</Text>
+        <Text style={{ color: t.textPrimary, fontWeight: '600' }}>{label}</Text>
         {description ? (
-          <Text style={[styles.toggleDesc, { color: t.mutedForeground }]}>{description}</Text>
+          <Text style={[styles.toggleDesc, { color: t.textSecondary }]}>{description}</Text>
         ) : null}
       </View>
       <AppButton size="sm" variant={on ? 'primary' : 'outline'} label={on ? 'On' : 'Off'} onPress={onToggle} />
@@ -396,7 +432,8 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 999,
   },
-  vipPillTxt: { color: '#fff', fontSize: 10, fontWeight: '900' },
+  vipPillTxt: { fontSize: 10, fontWeight: '900' },
+  walletHint: { fontSize: 9, fontWeight: '600', marginTop: 2 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   username: { fontSize: 20, fontWeight: '900', flex: 1 },
   badgeRow: { flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' },

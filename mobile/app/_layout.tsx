@@ -16,21 +16,17 @@ import { AuthProvider } from '@/lib/auth-context'
 import { GameProvider } from '@/lib/game-context'
 import { initRevenueCat } from '@/lib/revenuecat'
 import { AnalyticsEvents } from '@shared/analytics/event-names'
+import { getSpinVaultShellBackground } from '@/theme/tokens'
 
 export { ErrorBoundary } from 'expo-router'
 
 SplashScreen.preventAutoHideAsync()
 
-const ROOT_BG_DARK = '#09090b'
-const ROOT_BG_LIGHT = '#fafafa'
-
 function Navigation() {
   const { resolvedMode } = useAppearance()
 
   useEffect(() => {
-    void SystemUI.setBackgroundColorAsync(
-      resolvedMode === 'dark' ? ROOT_BG_DARK : ROOT_BG_LIGHT,
-    )
+    void SystemUI.setBackgroundColorAsync(getSpinVaultShellBackground(resolvedMode))
   }, [resolvedMode])
 
   return (

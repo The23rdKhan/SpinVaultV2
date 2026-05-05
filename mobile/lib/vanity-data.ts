@@ -1,4 +1,4 @@
-// Vanity item types and data for Lucky Slots
+// Vanity item types and data for SpinVault (Lucky Slots–style entertainment)
 
 export type VanityCategory = "avatar" | "frame" | "title" | "pet" | "cabinet" | "room" | "car" | "badge"
 export type VanityRarity = "common" | "rare" | "epic" | "legendary" | "mythic"
@@ -75,7 +75,7 @@ export const AVATARS: VanityItem[] = [
   { id: "avatar-default", name: "Default", category: "avatar", rarity: "common", priceCoins: 0, previewImage: "default", description: "The classic player avatar" },
   { id: "avatar-cool", name: "Cool Cat", category: "avatar", rarity: "common", priceCoins: 1000, previewImage: "cool-cat", description: "Smooth operator" },
   { id: "avatar-lucky", name: "Lady Luck", category: "avatar", rarity: "rare", priceCoins: 5000, previewImage: "lady-luck", description: "Fortune favors the bold" },
-  { id: "avatar-high-roller", name: "High Roller", category: "avatar", rarity: "epic", priceCoins: 15000, previewImage: "high-roller", description: "Big bets, bigger wins" },
+  { id: "avatar-high-roller", name: "High Roller", category: "avatar", rarity: "epic", priceCoins: 15000, previewImage: "high-roller", description: "Bold spins, bigger showcase wins" },
   { id: "avatar-vip", name: "VIP Elite", category: "avatar", rarity: "legendary", priceCoins: 50000, previewImage: "vip-elite", description: "The pinnacle of prestige" },
   { id: "avatar-dragon", name: "Dragon Master", category: "avatar", rarity: "mythic", priceCoins: 150000, previewImage: "dragon-master", description: "Ancient power flows through you", isLimited: true },
 ]
@@ -86,7 +86,7 @@ export const FRAMES: VanityItem[] = [
   { id: "frame-gold", name: "Golden Ring", category: "frame", rarity: "rare", priceCoins: 5000, previewImage: "border-3 border-amber-500 rounded-full shadow-lg shadow-amber-500/30", description: "A shining golden border" },
   { id: "frame-neon", name: "Neon Glow", category: "frame", rarity: "rare", priceCoins: 5000, previewImage: "border-3 border-cyan-400 rounded-full shadow-lg shadow-cyan-400/50", description: "Pulsing neon energy", animationAsset: "pulse-glow" },
   { id: "frame-fire", name: "Inferno", category: "frame", rarity: "epic", priceCoins: 15000, previewImage: "border-4 border-orange-500 rounded-full shadow-xl shadow-orange-500/60", description: "Burning flames surround you", animationAsset: "fire-flicker" },
-  { id: "frame-diamond", name: "Diamond Elite", category: "frame", rarity: "legendary", priceCoins: 50000, previewImage: "border-4 border-white rounded-full shadow-2xl shadow-white/70", description: "The mark of a true high roller", animationAsset: "diamond-sparkle" },
+  { id: "frame-diamond", name: "Diamond Elite", category: "frame", rarity: "legendary", priceCoins: 50000, previewImage: "border-4 border-white rounded-full shadow-2xl shadow-white/70", description: "The mark of a true collector", animationAsset: "diamond-sparkle" },
   { id: "frame-cyber", name: "Cyber Grid", category: "frame", rarity: "epic", priceCoins: 15000, previewImage: "border-3 border-fuchsia-500 rounded-lg shadow-lg shadow-fuchsia-500/40", description: "Digital matrix frame", animationAsset: "cyber-scan" },
   { id: "frame-ocean", name: "Ocean Depths", category: "frame", rarity: "epic", priceCoins: 15000, previewImage: "border-4 border-teal-400 rounded-full shadow-xl shadow-teal-400/50", description: "Waves of treasure" },
   { id: "frame-cosmic", name: "Cosmic Void", category: "frame", rarity: "mythic", priceCoins: 100000, previewImage: "border-4 border-indigo-400 rounded-full", description: "Stars orbit your profile", animationAsset: "cosmic-orbit", isLimited: true },
@@ -97,11 +97,11 @@ export const TITLES: VanityItem[] = [
   { id: "title-player", name: "Player", category: "title", rarity: "common", priceCoins: 0, previewImage: "Player", description: "Everyone starts somewhere" },
   { id: "title-spinner", name: "Spinner", category: "title", rarity: "common", priceCoins: 500, previewImage: "Spinner", description: "You love to spin" },
   { id: "title-lucky", name: "Lucky One", category: "title", rarity: "rare", priceCoins: 5000, previewImage: "Lucky One", description: "Fortune favors you" },
-  { id: "title-whale", name: "Whale", category: "title", rarity: "epic", priceCoins: 15000, previewImage: "Whale", description: "Big bets, big wins" },
+  { id: "title-whale", name: "Whale", category: "title", rarity: "epic", priceCoins: 15000, previewImage: "Whale", description: "Big spins, showcase wins" },
   { id: "title-legend", name: "Legend", category: "title", rarity: "legendary", priceCoins: 50000, previewImage: "Legend", description: "Your name echoes through the halls" },
   { id: "title-jackpot", name: "Jackpot King", category: "title", rarity: "legendary", priceCoins: 75000, previewImage: "Jackpot King", description: "Master of the jackpot" },
   { id: "title-ghost", name: "Phantom", category: "title", rarity: "rare", priceCoins: 5000, previewImage: "Phantom", description: "Silent but deadly" },
-  { id: "title-diamond", name: "Diamond Hands", category: "title", rarity: "epic", priceCoins: 20000, previewImage: "Diamond Hands", description: "Never cash out early" },
+  { id: "title-diamond", name: "Diamond Hands", category: "title", rarity: "epic", priceCoins: 20000, previewImage: "Diamond Hands", description: "Always save your best rewards." },
   { id: "title-mythic", name: "The Chosen", category: "title", rarity: "mythic", priceCoins: 200000, previewImage: "The Chosen", description: "Destiny itself bows to you", isLimited: true },
 ]
 
@@ -110,7 +110,7 @@ export const PETS: VanityItem[] = [
   { id: "pet-none", name: "No Pet", category: "pet", rarity: "common", priceCoins: 0, previewImage: "", description: "Solo player" },
   { id: "pet-cat", name: "Lucky Cat", category: "pet", rarity: "rare", priceCoins: 8000, previewImage: "cat", description: "Brings good fortune", animationAsset: "cat-idle" },
   { id: "pet-dragon", name: "Mini Dragon", category: "pet", rarity: "epic", priceCoins: 25000, previewImage: "dragon", description: "Guards your treasure", animationAsset: "dragon-fly" },
-  { id: "pet-phoenix", name: "Phoenix", category: "pet", rarity: "legendary", priceCoins: 75000, previewImage: "phoenix", description: "Rise from losses", animationAsset: "phoenix-flame" },
+  { id: "pet-phoenix", name: "Phoenix", category: "pet", rarity: "legendary", priceCoins: 75000, previewImage: "phoenix", description: "Legendary comeback flair", animationAsset: "phoenix-flame" },
   { id: "pet-unicorn", name: "Golden Unicorn", category: "pet", rarity: "legendary", priceCoins: 100000, previewImage: "unicorn", description: "Mythical luck", animationAsset: "unicorn-sparkle" },
   { id: "pet-robot", name: "Slot Bot", category: "pet", rarity: "epic", priceCoins: 30000, previewImage: "robot", description: "Calculated wins", animationAsset: "robot-beep" },
   { id: "pet-celestial", name: "Celestial Spirit", category: "pet", rarity: "mythic", priceCoins: 250000, previewImage: "celestial", description: "A being of pure luck energy", animationAsset: "celestial-glow", isLimited: true },
@@ -133,7 +133,7 @@ export const ROOMS: VanityItem[] = [
   { id: "room-penthouse", name: "Penthouse Suite", category: "room", rarity: "rare", priceCoins: 25000, previewImage: "penthouse", description: "High-rise luxury" },
   { id: "room-yacht", name: "Private Yacht", category: "room", rarity: "epic", priceCoins: 75000, previewImage: "yacht", description: "Play on the waves" },
   { id: "room-space", name: "Space Station", category: "room", rarity: "epic", priceCoins: 100000, previewImage: "space-station", description: "Orbit in style" },
-  { id: "room-underwater", name: "Underwater Palace", category: "room", rarity: "legendary", priceCoins: 200000, previewImage: "underwater", description: "Atlantean riches" },
+  { id: "room-underwater", name: "Underwater Palace", category: "room", rarity: "legendary", priceCoins: 200000, previewImage: "underwater", description: "Atlantean halls — mythic showcase backdrop" },
   { id: "room-volcano", name: "Volcano Lair", category: "room", rarity: "legendary", priceCoins: 250000, previewImage: "volcano", description: "Play with fire" },
   { id: "room-dimension", name: "Pocket Dimension", category: "room", rarity: "mythic", priceCoins: 750000, previewImage: "dimension", description: "Your own private universe", animationAsset: "dimension-warp", isLimited: true },
 ]
@@ -151,7 +151,7 @@ export const CARS: VanityItem[] = [
 
 // ============ BADGES (Achievement Badges) ============
 export const BADGES: VanityItem[] = [
-  { id: "badge-newbie", name: "Newcomer", category: "badge", rarity: "common", priceCoins: 0, previewImage: "star", description: "Welcome to Lucky Slots" },
+  { id: "badge-newbie", name: "Newcomer", category: "badge", rarity: "common", priceCoins: 0, previewImage: "star", description: "Welcome to SpinVault" },
   { id: "badge-100spin", name: "Century Spinner", category: "badge", rarity: "rare", priceCoins: 0, previewImage: "spin", description: "100 spins completed", unlockLevel: 5 },
   { id: "badge-1000spin", name: "Spin Master", category: "badge", rarity: "epic", priceCoins: 0, previewImage: "crown", description: "1000 spins completed", unlockLevel: 15 },
   { id: "badge-bigwin", name: "Big Winner", category: "badge", rarity: "rare", priceCoins: 0, previewImage: "trophy", description: "Hit a Big Win" },
@@ -159,7 +159,7 @@ export const BADGES: VanityItem[] = [
   { id: "badge-jackpot", name: "Jackpot Hunter", category: "badge", rarity: "legendary", priceCoins: 0, previewImage: "diamond", description: "Hit the Jackpot" },
   { id: "badge-collector", name: "Theme Collector", category: "badge", rarity: "epic", priceCoins: 0, previewImage: "palette", description: "Own all themes" },
   { id: "badge-streak7", name: "Weekly Warrior", category: "badge", rarity: "rare", priceCoins: 0, previewImage: "flame", description: "7-day login streak" },
-  { id: "badge-millionaire", name: "Millionaire", category: "badge", rarity: "legendary", priceCoins: 0, previewImage: "coins", description: "Earned 1M total coins" },
+  { id: "badge-millionaire", name: "Millionaire", category: "badge", rarity: "legendary", priceCoins: 0, previewImage: "coins", description: "Collected 1M total virtual coins" },
   { id: "badge-mythic-collector", name: "Mythic Collector", category: "badge", rarity: "mythic", priceCoins: 0, previewImage: "gem", description: "Own a mythic item", isLimited: true },
 ]
 
@@ -180,7 +180,7 @@ export const TROPHY_DEFINITIONS: Omit<Trophy, "unlocked" | "unlockedAt">[] = [
   { id: "trophy-first-big", name: "First Big Win", description: "Hit your first Big Win (5x+)", icon: "star" },
   { id: "trophy-first-mega", name: "First Mega Win", description: "Hit your first Mega Win (10x+)", icon: "zap" },
   { id: "trophy-first-jackpot", name: "Jackpot!", description: "Hit your first Jackpot (25x+)", icon: "crown" },
-  { id: "trophy-million", name: "Million Coin Club", description: "Accumulate 1,000,000 coins total", icon: "coins" },
+  { id: "trophy-million", name: "Million Coin Club", description: "Collect 1,000,000 virtual coins total", icon: "coins" },
   { id: "trophy-themes", name: "Theme Collector", description: "Own all three themes", icon: "palette" },
   { id: "trophy-streak7", name: "Weekly Dedication", description: "Maintain a 7-day login streak", icon: "flame" },
   { id: "trophy-vip", name: "VIP Status", description: "Reach VIP Tier 5", icon: "gem" },

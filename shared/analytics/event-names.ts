@@ -15,7 +15,7 @@ export const AnalyticsEvents = {
   BET_CHANGED: 'bet_changed',
   WIN_RECEIVED: 'win_received',
   BONUS_TRIGGERED: 'bonus_triggered',
-  /** Bonus progress meter reached 100% — payout granted */
+  /** Bonus progress meter reached 100% — virtual coin reward granted */
   BONUS_METER_PAID: 'bonus_meter_paid',
   JACKPOT_HIT: 'jackpot_hit',
   DAILY_REWARD_CLAIMED: 'daily_reward_claimed',

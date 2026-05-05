@@ -16,30 +16,62 @@ export function HeaderActions() {
   return (
     <>
       <View style={styles.row}>
-        <View style={[styles.pill, { borderColor: t.border, backgroundColor: t.card }]}>
-          <FontAwesome name="bitcoin" size={13} color={t.primary} />
-          <Text style={[styles.coins, { color: t.foreground }]}>{coins.toLocaleString()}</Text>
-          <Text style={[styles.coinsSuffix, { color: t.mutedForeground }]}>coins</Text>
+        <View
+          style={[
+            styles.pill,
+            {
+              borderColor: t.border,
+              backgroundColor: t.surfaceElevated,
+            },
+          ]}
+        >
+          <FontAwesome name="circle" size={14} color={t.gold} accessibilityLabel="" />
+          <Text style={[styles.coins, { color: t.textPrimary }]}>{coins.toLocaleString()}</Text>
+          <Text style={[styles.coinsSuffix, { color: t.textMuted }]}>coins</Text>
         </View>
         <Pressable
-          accessibilityLabel="Theme"
+          accessibilityLabel="Choose slot machine look"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           onPress={() => setOpen(true)}
-          style={[styles.iconBtn, { borderColor: t.border, backgroundColor: t.card }]}
+          style={[
+            styles.iconBtn,
+            {
+              borderColor: t.border,
+              backgroundColor: t.surfaceElevated,
+            },
+          ]}
         >
           <FontAwesome name="paint-brush" size={18} color={t.primary} />
         </Pressable>
       </View>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
-          <Pressable style={[styles.sheet, { backgroundColor: t.card, borderColor: t.border }]} onPress={(e) => e.stopPropagation()}>
-            <Text style={[styles.sheetTitle, { color: t.foreground }]}>Machine theme</Text>
+        <Pressable
+          style={[styles.backdrop, { backgroundColor: t.overlay }]}
+          onPress={() => setOpen(false)}
+          accessibilityLabel="Close"
+        >
+          <Pressable
+            style={[
+              styles.sheet,
+              {
+                backgroundColor: t.card,
+                borderColor: t.border,
+              },
+            ]}
+            onPress={(e) => e.stopPropagation()}
+            accessibilityViewIsModal
+          >
+            <Text style={[styles.sheetTitle, { color: t.textPrimary }]}>Slot machine look</Text>
+            <Text style={[styles.sheetLead, { color: t.textSecondary }]}>
+              Visual style for the reels — your SpinVault home stays the same.
+            </Text>
             {THEMES.map((id) => {
               const cfg = THEME_CONFIGS[id]
               const owned = ownedThemes.includes(id)
               const active = currentTheme === id
               return (
-                <View key={id} style={{ marginBottom: 12, alignSelf: 'stretch', gap: 6 }}>
+                <View key={id} style={styles.themeBlock}>
                   <AppButton
                     variant={active ? 'primary' : 'outline'}
                     disabled={!owned}
@@ -50,11 +82,9 @@ export function HeaderActions() {
                         setOpen(false)
                       }
                     }}
-                    style={{ alignSelf: 'stretch' }}
+                    style={styles.themeBtn}
                   />
-                  <Text style={[styles.themeDesc, { color: t.mutedForeground }]}>
-                    {cfg.description}
-                  </Text>
+                  <Text style={[styles.themeDesc, { color: t.textMuted }]}>{cfg.description}</Text>
                 </View>
               )
             })}
@@ -72,32 +102,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 999,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
+    minHeight: 44,
   },
-  coins: { fontWeight: '800', fontSize: 14 },
-  coinsSuffix: { fontWeight: '700', fontSize: 11 },
+  coins: { fontWeight: '600', fontSize: 15 },
+  coinsSuffix: { fontWeight: '500', fontSize: 11 },
   iconBtn: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: 999,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
   },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     padding: 24,
   },
   sheet: {
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 20,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
+    maxWidth: 400,
+    width: '100%',
+    alignSelf: 'center',
   },
-  sheetTitle: { fontSize: 18, fontWeight: '800', marginBottom: 16 },
-  themeDesc: { fontSize: 12, lineHeight: 16 },
+  sheetTitle: { fontSize: 20, fontWeight: '700', marginBottom: 6 },
+  sheetLead: { fontSize: 14, lineHeight: 20, marginBottom: 16 },
+  themeBlock: { marginBottom: 12, alignSelf: 'stretch', gap: 6 },
+  themeBtn: { alignSelf: 'stretch' },
+  themeDesc: { fontSize: 13, lineHeight: 18 },
 })

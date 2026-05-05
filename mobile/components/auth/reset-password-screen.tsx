@@ -46,37 +46,51 @@ export function ResetPasswordScreen() {
     router.replace(routes.login)
   }
 
+  const inputStyle = [
+    styles.input,
+    {
+      color: t.textPrimary,
+      backgroundColor: t.inputBackground,
+      borderColor: t.border,
+    },
+  ]
+
   return (
     <KeyboardAvoidingView
       style={[styles.flex, { backgroundColor: t.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.block}>
-          <Text style={[styles.hero, { color: t.primary }]}>Set new password</Text>
-          <Text style={[styles.sub, { color: t.mutedForeground }]}>
+        <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
+          <Text style={[styles.brandKicker, { color: t.textMuted }]}>SpinVault</Text>
+          <Text style={[styles.hero, { color: t.textPrimary }]} accessibilityRole="header">
+            Set new password
+          </Text>
+          <Text style={[styles.sub, { color: t.textSecondary }]}>
             Choose a new password for your account.
           </Text>
 
           <TextInput
             placeholder="New password"
-            placeholderTextColor={t.mutedForeground}
+            placeholderTextColor={t.textMuted}
             secureTextEntry
             autoComplete="new-password"
             textContentType="newPassword"
             value={password}
             onChangeText={setPassword}
-            style={[styles.input, { color: t.foreground, borderColor: t.border }]}
+            style={inputStyle}
+            accessibilityLabel="New password"
           />
           <TextInput
             placeholder="Confirm password"
-            placeholderTextColor={t.mutedForeground}
+            placeholderTextColor={t.textMuted}
             secureTextEntry
             autoComplete="new-password"
             textContentType="newPassword"
             value={confirm}
             onChangeText={setConfirm}
-            style={[styles.input, { color: t.foreground, borderColor: t.border }]}
+            style={inputStyle}
+            accessibilityLabel="Confirm password"
           />
 
           {error ? (
@@ -105,16 +119,32 @@ const styles = StyleSheet.create({
     padding: 24,
     justifyContent: 'center',
   },
-  block: { gap: 14 },
-  hero: { fontSize: 28, fontWeight: '900', textAlign: 'center' },
-  sub: { fontSize: 15, lineHeight: 22, textAlign: 'center', marginBottom: 8 },
-  btn: { alignSelf: 'stretch' },
-  input: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
+  card: {
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 22,
+    gap: 14,
+    maxWidth: 440,
+    width: '100%',
+    alignSelf: 'center',
   },
-  error: { fontSize: 14, lineHeight: 20 },
+  brandKicker: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+  },
+  hero: { fontSize: 26, fontWeight: '700', textAlign: 'center' },
+  sub: { fontSize: 16, lineHeight: 24, textAlign: 'center', marginBottom: 4 },
+  btn: { alignSelf: 'stretch', minHeight: 48 },
+  input: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 17,
+    minHeight: 48,
+  },
+  error: { fontSize: 15, lineHeight: 22 },
 })

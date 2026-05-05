@@ -9,6 +9,8 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated'
 import type { WinningLine } from '@/lib/game-context'
+import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { paylineAccentColors } from './payline-accent-colors'
 
 const AnimatedPolyline = Animated.createAnimatedComponent(Polyline)
 
@@ -26,18 +28,6 @@ const SVG_HEIGHT = 300
 
 const CELL_SIZE = (SVG_WIDTH - PAD * 2 - GAP * (COLS - 1)) / COLS
 
-const LINE_COLORS = [
-  '#facc15', // yellow
-  '#34d399', // green
-  '#60a5fa', // blue
-  '#f472b6', // pink
-  '#fb923c', // orange
-  '#a78bfa', // purple
-  '#f87171', // red
-  '#38bdf8', // sky
-  '#4ade80', // lime
-]
-
 function cx(col: number): number {
   return PAD + col * (CELL_SIZE + GAP) + CELL_SIZE / 2
 }
@@ -51,6 +41,9 @@ function toPoints(positions: [number, number][]): string {
 }
 
 export function PaylineOverlay({ winningLines }: Props) {
+  const t = useCasinoTheme()
+  const strokeColors = paylineAccentColors(t)
+
   if (winningLines.length === 0) return null
 
   return (
@@ -66,7 +59,7 @@ export function PaylineOverlay({ winningLines }: Props) {
             key={i}
             line={line}
             index={i}
-            color={LINE_COLORS[i % LINE_COLORS.length]}
+            color={strokeColors[i % strokeColors.length]}
           />
         ))}
       </Svg>

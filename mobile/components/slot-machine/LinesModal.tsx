@@ -1,8 +1,10 @@
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import Svg, { Circle, Polyline, Rect } from 'react-native-svg'
 import { BlurView } from 'expo-blur'
+import { hexWithAlpha } from '@/theme/tokens'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { AppButton } from '@/components/ui/AppButton'
+import { paylineAccentColors } from './payline-accent-colors'
 
 interface Props {
   open: boolean
@@ -34,18 +36,6 @@ const LINE_LABELS = [
   'Bottom bump',
 ]
 
-const LINE_COLORS = [
-  '#facc15',
-  '#34d399',
-  '#60a5fa',
-  '#f472b6',
-  '#fb923c',
-  '#a78bfa',
-  '#f87171',
-  '#38bdf8',
-  '#4ade80',
-]
-
 const COLS = 5
 const ROWS = 3
 const CELL = 14
@@ -73,10 +63,11 @@ function paylinePoints(payline: number[]) {
 interface MiniGridProps {
   payline: number[]
   color: string
-  index: number
+  inactiveFill: string
+  inactiveStroke: string
 }
 
-function MiniGrid({ payline, color, index }: MiniGridProps) {
+function MiniGrid({ payline, color, inactiveFill, inactiveStroke }: MiniGridProps) {
   const W = gridWidth()
   const H = gridHeight()
 
@@ -94,8 +85,8 @@ function MiniGrid({ payline, color, index }: MiniGridProps) {
               width={CELL}
               height={CELL}
               rx={3}
-              fill={isActive ? `${color}33` : 'rgba(255,255,255,0.07)'}
-              stroke={isActive ? color : 'rgba(255,255,255,0.12)'}
+              fill={isActive ? hexWithAlpha(color, '33') : inactiveFill}
+              stroke={isActive ? color : inactiveStroke}
               strokeWidth={isActive ? 1.5 : 0.5}
             />
           )
@@ -126,23 +117,28 @@ function MiniGrid({ payline, color, index }: MiniGridProps) {
 
 export function LinesModal({ open, onClose }: Props) {
   const t = useCasinoTheme()
+  const lineColors = paylineAccentColors(t)
+  const inactiveFill = hexWithAlpha(t.textMuted, '22')
+  const inactiveStroke = hexWithAlpha(t.border, 'CC')
 
   return (
     <Modal visible={open} animationType="slide" transparent onRequestClose={onClose}>
-      <BlurView
-        intensity={45}
-        tint="dark"
-        blurMethod="dimezisBlurView"
-        style={StyleSheet.absoluteFill}
-      />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: t.overlay }]}>
+        <BlurView
+          intensity={45}
+          tint="dark"
+          blurMethod="dimezisBlurView"
+          style={StyleSheet.absoluteFill}
+        />
+      </View>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable
-          style={[styles.sheet, { backgroundColor: t.card, borderColor: t.border }]}
+          style={[styles.sheet, { backgroundColor: t.surfaceElevated, borderColor: t.border }]}
           onPress={(e) => e.stopPropagation()}
         >
-          <Text style={[styles.title, { color: t.foreground }]}>9 Paylines</Text>
-          <Text style={[styles.sub, { color: t.mutedForeground }]}>
-            Wins count left-to-right on active lines. Wild substitutes for any regular symbol.
+          <Text style={[styles.title, { color: t.textPrimary }]}>9 Paylines</Text>
+          <Text style={[styles.sub, { color: t.textSecondary }]}>
+            Matches count left-to-right on active lines. Wild substitutes for any regular symbol.
           </Text>
           <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
             {PAYLINES.map((payline, i) => (
@@ -150,11 +146,24 @@ export function LinesModal({ open, onClose }: Props) {
                 key={i}
                 style={[styles.row, { borderColor: t.border }]}
               >
-                <View style={[styles.badge, { backgroundColor: `${LINE_COLORS[i]}22`, borderColor: LINE_COLORS[i] }]}>
-                  <Text style={[styles.badgeNum, { color: LINE_COLORS[i] }]}>{i + 1}</Text>
+                <View
+                  style={[
+                    styles.badge,
+                    {
+                      backgroundColor: hexWithAlpha(lineColors[i], '22'),
+                      borderColor: lineColors[i],
+                    },
+                  ]}
+                >
+                  <Text style={[styles.badgeNum, { color: lineColors[i] }]}>{i + 1}</Text>
                 </View>
-                <MiniGrid payline={payline} color={LINE_COLORS[i]} index={i} />
-                <Text style={[styles.label, { color: t.foreground }]}>{LINE_LABELS[i]}</Text>
+                <MiniGrid
+                  payline={payline}
+                  color={lineColors[i]}
+                  inactiveFill={inactiveFill}
+                  inactiveStroke={inactiveStroke}
+                />
+                <Text style={[styles.label, { color: t.textPrimary }]}>{LINE_LABELS[i]}</Text>
               </View>
             ))}
           </ScrollView>

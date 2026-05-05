@@ -46,6 +46,8 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
   // close over objects that change reference, and returning undefined for a
   // color prop crashes on the UI thread).
   const foregroundColor = t.foreground
+  const winFlashColor = t.win
+  const lossFlashColor = t.destructive
 
   const [displayedWin, setDisplayedWin] = useState(0)
   const [fastMode, setFastMode] = useState(false)
@@ -104,9 +106,9 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
     transform: [{ scale: balScale.value }],
     color:
       balColorIdx.value > 0.5
-        ? '#34d399'
+        ? winFlashColor
         : balColorIdx.value < -0.5
-          ? '#f87171'
+          ? lossFlashColor
           : foregroundColor,
   }))
 
@@ -130,12 +132,12 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
     <View style={styles.wrap}>
       <View style={styles.quickRow}>
         <AppButton variant="ghost" size="sm" onPress={onOpenInfo} style={styles.quickBtn}>
-          <FontAwesome name="info-circle" size={14} color={t.foreground} />
-          <Text style={{ color: t.foreground, fontWeight: '700', fontSize: 12 }}>INFO</Text>
+          <FontAwesome name="info-circle" size={14} color={t.textPrimary} />
+          <Text style={{ color: t.textPrimary, fontWeight: '700', fontSize: 12 }}>INFO</Text>
         </AppButton>
         <AppButton variant="ghost" size="sm" onPress={onOpenLines} style={styles.quickBtn}>
-          <FontAwesome name="th" size={14} color={t.foreground} />
-          <Text style={{ color: t.foreground, fontWeight: '700', fontSize: 12 }}>LINES</Text>
+          <FontAwesome name="th" size={14} color={t.textPrimary} />
+          <Text style={{ color: t.textPrimary, fontWeight: '700', fontSize: 12 }}>LINES</Text>
         </AppButton>
         <AppButton
           variant="ghost"
@@ -145,8 +147,8 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
           onPress={() => setFastMode((f) => !f)}
           style={styles.quickBtn}
         >
-          <FontAwesome name="forward" size={14} color={fastMode ? t.primary : t.foreground} />
-          <Text style={{ color: fastMode ? t.primary : t.foreground, fontWeight: '700', fontSize: 12 }}>
+          <FontAwesome name="forward" size={14} color={fastMode ? t.primary : t.textPrimary} />
+          <Text style={{ color: fastMode ? t.primary : t.textPrimary, fontWeight: '700', fontSize: 12 }}>
             QUICK
           </Text>
         </AppButton>
@@ -154,18 +156,18 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
 
       <View style={[styles.stats, { backgroundColor: t.card, borderColor: t.border }]}>
         <View style={styles.statCol}>
-          <Text style={[styles.statLabel, { color: t.mutedForeground }]}>Last win</Text>
-          <Text style={[styles.statVal, { color: lastWin > 0 ? t.win : t.foreground }]}>
-            ${displayedWin.toLocaleString()}
+          <Text style={[styles.statLabel, { color: t.textMuted }]}>Last prize</Text>
+          <Text style={[styles.statVal, { color: lastWin > 0 ? t.win : t.textPrimary }]}>
+            {displayedWin.toLocaleString()}
           </Text>
         </View>
         <View style={styles.statCol}>
-          <Text style={[styles.statLabel, { color: t.mutedForeground }]}>Spins</Text>
-          <Text style={[styles.statVal, { color: t.foreground }]}>{totalSpins}</Text>
+          <Text style={[styles.statLabel, { color: t.textMuted }]}>Spins</Text>
+          <Text style={[styles.statVal, { color: t.textPrimary }]}>{totalSpins}</Text>
         </View>
         <View style={styles.statCol}>
-          <Text style={[styles.statLabel, { color: t.mutedForeground }]}>Best</Text>
-          <Text style={[styles.statVal, { color: t.primary }]}>${biggestWin.toLocaleString()}</Text>
+          <Text style={[styles.statLabel, { color: t.textMuted }]}>Best</Text>
+          <Text style={[styles.statVal, { color: t.primary }]}>{biggestWin.toLocaleString()}</Text>
         </View>
       </View>
 
@@ -178,11 +180,11 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
               disabled={isSpinning || currentBet === BET_OPTIONS[0]}
               onPress={decreaseBet}
             >
-              <FontAwesome name="minus" size={18} color={t.foreground} />
+              <FontAwesome name="minus" size={18} color={t.textPrimary} />
             </AppButton>
             <View style={styles.betMid}>
-              <Text style={[styles.betLabel, { color: t.mutedForeground }]}>Bet</Text>
-              <Text style={[styles.betAmt, { color: t.primary }]}>${currentBet}</Text>
+              <Text style={[styles.betLabel, { color: t.textMuted }]}>Stake</Text>
+              <Text style={[styles.betAmt, { color: t.primary }]}>{currentBet}</Text>
             </View>
             <AppButton
               variant="outline"
@@ -190,7 +192,7 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
               disabled={isSpinning || currentBet === BET_OPTIONS[BET_OPTIONS.length - 1]}
               onPress={increaseBet}
             >
-              <FontAwesome name="plus" size={18} color={t.foreground} />
+              <FontAwesome name="plus" size={18} color={t.textPrimary} />
             </AppButton>
           </View>
 
@@ -198,9 +200,9 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
 
           <View style={styles.rightCol}>
             <AppButton variant="outline" size="sm" disabled={isSpinning} onPress={setMaxBet} label="MAX" />
-            <Text style={[styles.balLabel, { color: t.mutedForeground }]}>Balance</Text>
-            <Animated.Text style={[styles.balVal, { color: t.foreground }, balAnimStyle]}>
-              ${coins.toLocaleString()}
+            <Text style={[styles.balLabel, { color: t.textMuted }]}>Coins</Text>
+            <Animated.Text style={[styles.balVal, { color: t.textPrimary }, balAnimStyle]}>
+              {coins.toLocaleString()}
             </Animated.Text>
           </View>
         </View>
@@ -208,7 +210,7 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
         {coins < currentBet && freeSpins === 0 ? (
           <View style={styles.warnBlock}>
             <Text style={[styles.warn, { color: t.destructive }]}>
-              Not enough coins for this bet. Lower bet with − or get coins below.
+              Not enough virtual coins for this stake. Lower your stake with − or grab coins in Shop / Rewards.
             </Text>
             <View style={styles.warnLinks}>
               <Pressable
@@ -284,10 +286,10 @@ function PressableSpin({
     <Pressable disabled={!canSpin} onPress={handlePress} accessibilityRole="button">
       <Animated.View style={spinStyle}>
         <LinearGradient
-          colors={[t.spinButtonTop, t.spinButtonBottom]}
-          style={styles.spinOuter}
+          colors={[t.spinButtonStart, t.spinButtonEnd]}
+          style={[styles.spinOuter, { shadowColor: t.shadow }]}
         >
-          <Text style={styles.spinText}>
+          <Text style={[styles.spinText, { color: t.spinButtonLabel }]}>
             {isSpinning ? '…' : freeSpins > 0 ? 'FREE\nSPIN' : 'SPIN'}
           </Text>
         </LinearGradient>
@@ -335,13 +337,11 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
     shadowOpacity: 0.35,
     shadowRadius: 8,
     elevation: 6,
   },
   spinText: {
-    color: '#fff',
     fontWeight: '900',
     textAlign: 'center',
     fontSize: 14,

@@ -1,14 +1,16 @@
 import { Link, Stack } from 'expo-router'
 import { StyleSheet, Text, View } from 'react-native'
+import { useCasinoTheme } from '@/lib/use-casino-theme'
 
 export default function NotFoundScreen() {
+  const t = useCasinoTheme()
   return (
     <>
       <Stack.Screen options={{ title: 'Oops!' }} />
-      <View style={styles.container}>
-        <Text style={styles.title}>{"This screen doesn't exist."}</Text>
+      <View style={[styles.container, { backgroundColor: t.background }]}>
+        <Text style={[styles.title, { color: t.textPrimary }]}>{"This screen doesn't exist."}</Text>
         <Link href="/" style={styles.link}>
-          <Text style={styles.linkText}>Go home</Text>
+          <Text style={[styles.linkText, { color: t.primary }]}>Go home</Text>
         </Link>
       </View>
     </>
@@ -32,6 +34,6 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontSize: 14,
-    color: '#2e78b7',
+    fontWeight: '600',
   },
 })
