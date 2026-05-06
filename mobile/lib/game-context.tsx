@@ -32,6 +32,7 @@ import {
   FREE_SPIN_LINE_BET,
   buildRandomGridIds,
   evaluateGrid,
+  jackpotPayoutForBet,
   type WinType,
   type WinningLineSerialized,
 } from '@shared/slot/evaluate-spin'
@@ -83,6 +84,8 @@ export interface Mission {
   target: number
   progress: number
   reward: number
+  /** XP granted when the player claims this mission. */
+  xpReward: number
   completed: boolean
   claimed: boolean
 }
@@ -119,6 +122,8 @@ const MAX_COIN_LEDGER = 200
 export type CoinLedgerReason =
   | 'spin_bet'
   | 'spin_win'
+  | 'scatter_win'
+  | 'jackpot_win'
   | 'bonus_meter_full'
   | 'daily_reward'
   | 'daily_wheel'
@@ -145,6 +150,138 @@ export interface CoinLedgerEntry {
 export interface CoinLedgerMeta {
   reason: CoinLedgerReason
   label: string
+}
+
+const MAX_SPIN_AUDIT = 20
+
+/**
+ * XP awarded when the bonus meter fills and pays out.
+ * Equivalent to ~15 average spins — meaningful but won't dominate progression.
+ */
+const BONUS_METER_XP = 150
+
+/** Spin-XP formula: scales with bet, capped so whales don't trivialise levels. */
+const spinXp = (bet: number, win: number) =>
+  Math.max(10, Math.min(Math.floor(bet / 10), 500)) +
+  (win > 0 ? Math.min(Math.floor(win / 1_000), 100) : 0)
+
+/**
+ * XP required to advance FROM `level` to `level + 1`.
+ * Exponential curve: fast early (levels 1–20), medium grind (20–50), prestige (50–100).
+ *   Level 1→2  ≈ 115 XP   (~6 spins at $100 bet)
+ *   Level 10→11 ≈ 405 XP  (~20 spins)
+ *   Level 30→31 ≈ 6,600 XP (~330 spins)
+ *   Level 75→76 ≈ 1.2M XP  (~whale territory)
+ */
+export const xpForLevel = (level: number): number => Math.floor(100 * Math.pow(1.15, level))
+
+/**
+ * Meaningful coin + free-spin rewards at landmark levels.
+ * All other levels receive `level × 500` coins and no free spins.
+ */
+const LEVEL_MILESTONES: Readonly<Record<number, { coins: number; freeSpins: number }>> = {
+  5:   { coins: 5_000,     freeSpins: 5  },
+  10:  { coins: 15_000,    freeSpins: 10 },
+  20:  { coins: 50_000,    freeSpins: 15 },
+  30:  { coins: 100_000,   freeSpins: 20 },
+  50:  { coins: 250_000,   freeSpins: 25 },
+  75:  { coins: 500_000,   freeSpins: 35 },
+  100: { coins: 1_000_000, freeSpins: 50 },
+}
+
+interface LevelUpAccum {
+  /** XP carried into the next level (remainder after level-ups). */
+  xp: number
+  /** New player level after all level-ups. */
+  level: number
+  /** Total coin bonus to add to the player's balance. */
+  coinDelta: number
+  /** Total free-spin bonus to add to the player's wallet. */
+  freeSpinDelta: number
+  /** Ledger entries to append (one per level-up). */
+  ledger: Array<{ amount: number; label: string }>
+}
+
+/**
+ * Returns the updated `monthlySpins` and `monthlySpinsMonth` fields for a spin state update.
+ * Resets the counter to 1 on the first spin of a new calendar month (YYYY-MM).
+ */
+function tickMonthlySpins(prev: Pick<GameState, 'monthlySpins' | 'monthlySpinsMonth'>): {
+  monthlySpins: number
+  monthlySpinsMonth: string
+} {
+  const thisMonth = new Date().toISOString().slice(0, 7)
+  return {
+    monthlySpins: prev.monthlySpinsMonth === thisMonth ? prev.monthlySpins + 1 : 1,
+    monthlySpinsMonth: thisMonth,
+  }
+}
+
+/**
+ * Pure function — applies `xpGain` starting from `currentXp / currentLevel`,
+ * handles multi-level-ups, and returns the accumulated deltas and ledger entries.
+ * Callers are responsible for applying the deltas to state.
+ */
+function computeXpGain(currentXp: number, currentLevel: number, xpGain: number): LevelUpAccum {
+  let xp = currentXp + xpGain
+  let level = currentLevel
+  let coinDelta = 0
+  let freeSpinDelta = 0
+  const ledger: LevelUpAccum['ledger'] = []
+
+  while (xp >= xpForLevel(level)) {
+    xp -= xpForLevel(level)
+    level += 1
+    const milestone = LEVEL_MILESTONES[level]
+    const coinBonus = milestone?.coins ?? level * 500
+    const freeSpinBonus = milestone?.freeSpins ?? 0
+    coinDelta += coinBonus
+    freeSpinDelta += freeSpinBonus
+    ledger.push({ amount: coinBonus, label: `Level ${level} bonus` })
+  }
+
+  return { xp, level, coinDelta, freeSpinDelta, ledger }
+}
+
+// ── Tournament eligibility thresholds ────────────────────────────────────────
+/** Minimum player level to enter the Vegas tournament (Platinum VIP gate). */
+export const TOURNAMENT_MIN_LEVEL = 50
+/** Minimum cumulative real-money USD spend to enter. */
+export const TOURNAMENT_MIN_IAP_USD = 9.99
+/** Minimum spins completed in the current calendar month. */
+export const TOURNAMENT_MIN_MONTHLY_SPINS = 500
+/** Coin entry fee deducted when the player joins a tournament draw. */
+export const TOURNAMENT_ENTRY_FEE_COINS = 100_000
+
+/** Seed amount shown on the marquee immediately after a jackpot win. */
+export const JACKPOT_SEED_AMOUNT = 10_000
+/** How long (ms) the jackpot display takes to grow from seed back to full payout. */
+export const JACKPOT_RECOVERY_MS = 30 * 60 * 1000 // 30 minutes
+/** Max recent jackpot winners stored in session state. */
+const MAX_JACKPOT_WINNERS = 3
+
+export interface JackpotWinEntry {
+  username: string
+  ts: string
+  amount: number
+}
+
+export interface SpinAuditEntry {
+  ts: string
+  bet: number
+  win: number
+  winType: WinType
+  freeSpin: boolean
+  /** Middle row (row index 1) emojis from left to right — 5 symbols */
+  reelMiddle: string[]
+  /** Column indices (0–4) where a winning payline crossed the middle row */
+  winningColsMiddle: number[]
+  /**
+   * Free-spin streak multiplier that was applied to this spin's win (1–5).
+   * Omitted (undefined) when no multiplier was active (paid spins or 1× streak).
+   * Use this to display "×3 streak" in the spin audit rather than back-deriving it.
+   */
+  fsMultiplier?: number
 }
 
 function newLedgerEntryId(): string {
@@ -200,6 +337,30 @@ export interface GameState {
   bonusProgress: number // 0-100 for bonus meter
   /** Coin credit when the bonus meter completed on the last resolved spin (UI/toast); cleared when a new spin starts. */
   lastBonusMeterPayout: number
+  /** Coins awarded for scatter count on the last resolved spin (0 when no scatter payout). */
+  lastScatterPayout: number
+  /** 250,000 when Mega Jackpot triggered last spin, else 0. */
+  lastJackpotBonus: number
+  /** Mystery Multiplier value applied last spin (2 | 3 | 5 | 8 | 10), or null if it didn't trigger. */
+  lastMysteryMultiplier: number | null
+  /**
+   * Consecutive-win streak multiplier for the current free spin session (1–5×).
+   * Increments on each winning free spin, resets to 1 on a blank or when paid spins resume.
+   * Applied to the entire total_win of the next free spin.
+   */
+  freeSpinMultiplier: number
+  /**
+   * The free spin multiplier that was actually applied on the last resolved spin (1 when not a free spin).
+   * Used by WinDisplay to show the streak badge without re-deriving it from session state.
+   */
+  lastFreeSpinMultiplier: number
+  /**
+   * ISO timestamp of the most recent Mega Jackpot win (any player this session).
+   * Used by the Marquee to show a seed-recovery display instead of the full $250K.
+   */
+  jackpotLastWonAt: string | null
+  /** Up to 3 most recent jackpot winners shown on the leaderboard. */
+  jackpotWinners: JackpotWinEntry[]
   /** Recent coin movements (newest first); capped for memory. Local-only until cloud sync. */
   coinLedger: CoinLedgerEntry[]
 
@@ -235,6 +396,8 @@ export interface GameState {
   
   // Profile
   username: string
+  bio: string
+  avatarUri: string | null
   level: number
   xp: number
   totalSpins: number
@@ -242,7 +405,19 @@ export interface GameState {
   spinSequence: number
   biggestWin: number
   totalWins: number
-  maxBetUsed: boolean // For mission tracking
+  maxBetUsed: boolean
+  /**
+   * Cumulative real-money USD spent via IAP (rounded to 2 dp).
+   * Used to gate tournament entry and to identify high-value players.
+   */
+  totalIapSpent: number
+  /**
+   * Number of spins completed during the current calendar month.
+   * Resets on the first spin of a new month.
+   */
+  monthlySpins: number
+  /** ISO date string (YYYY-MM) of the month `monthlySpins` was last reset. */
+  monthlySpinsMonth: string
   
   // Vanity System
   userVanity: UserVanity
@@ -251,6 +426,9 @@ export interface GameState {
   
   // Recent Big Wins (for social feed)
   recentBigWins: { amount: number; multiplier: number; timestamp: string; type: WinType }[]
+
+  // Lightweight per-spin audit — capped at 20, shown as play-screen history strip
+  spinAudit: SpinAuditEntry[]
 }
 
 interface GameActions {
@@ -263,6 +441,17 @@ interface GameActions {
   buyFreeSpinsWithCoins: (price: number, spins: number) => boolean
   /** Grant free spins (e.g. starter pack / promos). */
   addFreeSpins: (amount: number) => void
+  /**
+   * Record a confirmed real-money IAP purchase.
+   * @param usdAmount - Price in USD (e.g. 9.99). Added to `totalIapSpent`.
+   */
+  recordIapSpend: (usdAmount: number) => void
+  /**
+   * Whether this player meets ALL tournament entry requirements:
+   * Level 50+, ≥$9.99 total IAP, ≥500 spins this month.
+   * Does NOT check or deduct the coin entry fee.
+   */
+  isTournamentEligible: boolean
   setBet: (bet: number) => void
   spin: () => Promise<SpinResult>
   stopSpin: () => void
@@ -271,6 +460,8 @@ interface GameActions {
   spinDailyWheel: () => Promise<number>
   claimMissionReward: (missionId: string) => Promise<boolean>
   setUsername: (name: string) => void
+  setBio: (bio: string) => void
+  setAvatarUri: (uri: string | null) => void
   addXp: (amount: number) => void
   toggleSound: () => void
   toggleMusic: () => void
@@ -299,18 +490,19 @@ export interface SpinResult {
   winType: WinType
   winMultiplier: number
   bonusMeterPayout: number
+  scatterPayout: number
 }
 
 const SYMBOLS: SlotSymbol[] = [
   { id: "seven", name: "Lucky Seven", emoji: "7", value: 100 },
-  { id: "diamond", name: "Diamond", emoji: "D", value: 75 },
-  { id: "bell", name: "Bell", emoji: "B", value: 50 },
-  { id: "cherry", name: "Cherry", emoji: "C", value: 30 },
-  { id: "lemon", name: "Lemon", emoji: "L", value: 20 },
-  { id: "orange", name: "Orange", emoji: "O", value: 15 },
-  { id: "grape", name: "Grape", emoji: "G", value: 10 },
-  { id: "wild", name: "Wild", emoji: "W", value: 0, isWild: true },
-  { id: "scatter", name: "Scatter", emoji: "S", value: 0, isScatter: true },
+  { id: "diamond", name: "Diamond", emoji: "💎", value: 75 },
+  { id: "bell", name: "Bell", emoji: "🔔", value: 50 },
+  { id: "cherry", name: "Cherry", emoji: "🍒", value: 30 },
+  { id: "lemon", name: "Lemon", emoji: "🍋", value: 20 },
+  { id: "orange", name: "Orange", emoji: "🍊", value: 15 },
+  { id: "grape", name: "Grape", emoji: "🍇", value: 10 },
+  { id: "wild", name: "Wild", emoji: "★", value: 0, isWild: true },
+  { id: "scatter", name: "Scatter", emoji: "✦", value: 0, isScatter: true },
 ]
 
 const WHEEL_REWARDS = [50, 100, 150, 200, 300, 500, 750, 1000]
@@ -322,9 +514,9 @@ const INITIAL_DAILY_REWARDS: DailyReward[] = DAILY_LOGIN_REWARD_COINS.map((coins
 }))
 
 const INITIAL_MISSIONS: Mission[] = [
-  { id: "spin20", name: "Spin Master", description: "Complete 20 spins", target: 20, progress: 0, reward: 500, completed: false, claimed: false },
-  { id: "win5", name: "Lucky Streak", description: "Land 5 winning spins", target: 5, progress: 0, reward: 300, completed: false, claimed: false },
-  { id: "maxbet1", name: "High Roller", description: "Use MAX spin once (highest coin stake)", target: 1, progress: 0, reward: 200, completed: false, claimed: false },
+  { id: "spin20",  name: "Spin Master",  description: "Complete 20 spins",            target: 20, progress: 0, reward: 500, xpReward: 250, completed: false, claimed: false },
+  { id: "win5",    name: "Lucky Streak", description: "Land 5 winning spins",          target: 5,  progress: 0, reward: 300, xpReward: 150, completed: false, claimed: false },
+  { id: "maxbet1", name: "High Roller",  description: "Use Max once (highest bet)",    target: 1,  progress: 0, reward: 200, xpReward: 100, completed: false, claimed: false },
 ]
 
 // Generate initial 5x3 grid
@@ -399,6 +591,7 @@ function emptySpinResult(prev: Pick<GameState, 'reelGrid'>): SpinResult {
     winType: 'none',
     winMultiplier: 0,
     bonusMeterPayout: 0,
+    scatterPayout: 0,
   }
 }
 
@@ -446,6 +639,13 @@ function createInitialGameState(): GameState {
     jackpotMultiplier: 1,
     bonusProgress: 0,
     lastBonusMeterPayout: 0,
+    lastScatterPayout: 0,
+    lastJackpotBonus: 0,
+    lastMysteryMultiplier: null,
+    freeSpinMultiplier: 1,
+    lastFreeSpinMultiplier: 1,
+    jackpotLastWonAt: null,
+    jackpotWinners: [],
     coinLedger: [],
     spinSyncDeferred: false,
     dailyStreak: 0,
@@ -466,6 +666,8 @@ function createInitialGameState(): GameState {
     dailyPurchaseLimit: null,
     cooldownEnabled: false,
     username: "Player",
+    bio: "",
+    avatarUri: null,
     level: 1,
     xp: 0,
     totalSpins: 0,
@@ -473,6 +675,9 @@ function createInitialGameState(): GameState {
     biggestWin: 0,
     totalWins: 0,
     maxBetUsed: false,
+    totalIapSpent: 0,
+    monthlySpins: 0,
+    monthlySpinsMonth: '',
     userVanity: getDefaultUserVanity(),
     trophies: generateInitialTrophies(),
     leaderboardStats: {
@@ -482,6 +687,7 @@ function createInitialGameState(): GameState {
       allTimeTotalWinnings: 0,
     },
     recentBigWins: [],
+    spinAudit: [],
   }
 }
 
@@ -522,8 +728,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const cloudSaveNeedsRetryRef = useRef(false)
   /** Avoid clearing pending-save storage on cold start before `getSession` resolves. */
   const hadCloudUserSessionRef = useRef(false)
-  /** Effective bet for payline + bonus meter (free spins use `FREE_SPIN_LINE_BET`; cost to player is 0). */
+  /**
+   * Guards `patchPlayerProgress` — one in-flight RPC at a time.
+   * Drops the call (not queued) if a previous one hasn't returned yet;
+   * the next spin will pick up the latest values.
+   */
+  const progressPatchInFlightRef = useRef(false)
+  /** Effective bet used for payout calculation. Free spins cost $0 but use currentBet for payouts. */
   const spinLineBetRef = useRef(50)
+  const spinWasFreeRef = useRef(false)
 
   const [cloudUserId, setCloudUserId] = useState<string | null>(null)
 
@@ -701,6 +914,38 @@ export function GameProvider({ children }: { children: ReactNode }) {
       return true
     } finally {
       cloudSaveInFlightRef.current = false
+    }
+  }, [cloudUserId])
+
+  /**
+   * Lightweight post-spin write: updates only the four hot progress columns
+   * (level, xp, total_spins, biggest_win) on player_saves via the
+   * `player_progress_patch` RPC.  Writes ~80 bytes instead of the full 10 KB
+   * payload blob, keeping high-frequency spin sessions cheap on the DB.
+   *
+   * Fire-and-forget: drops silently if a previous call is still in-flight or if
+   * the user is not authenticated.  The full `flushCloudPlayerSave` will catch
+   * any missed values on its next debounced run.
+   */
+  const patchPlayerProgress = useCallback(async (): Promise<void> => {
+    if (!cloudUserId) return
+    const supabase = getSupabase()
+    if (!supabase) return
+    if (progressPatchInFlightRef.current) return
+    progressPatchInFlightRef.current = true
+    try {
+      const s = stateRef.current
+      const { error } = await supabase.rpc('player_progress_patch', {
+        p_level: s.level,
+        p_xp: s.xp,
+        p_total_spins: s.totalSpins,
+        p_biggest_win: s.biggestWin,
+      })
+      if (__DEV__ && error) {
+        console.warn('[player_progress_patch] failed:', error.message)
+      }
+    } finally {
+      progressPatchInFlightRef.current = false
     }
   }, [cloudUserId])
 
@@ -1068,6 +1313,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, freeSpins: prev.freeSpins + amount }))
   }, [])
 
+  const recordIapSpend = useCallback((usdAmount: number) => {
+    if (usdAmount <= 0) return
+    setState((prev) => ({
+      ...prev,
+      totalIapSpent: Math.round((prev.totalIapSpent + usdAmount) * 100) / 100,
+    }))
+  }, [])
+
   const buyTheme = useCallback(async (theme: Theme, price: number): Promise<boolean> => {
     if (isServerEconomyEnabled()) {
       try {
@@ -1157,7 +1410,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       return emptySpinResult(snapshot)
     }
 
-    const lineBet = snapshot.freeSpins > 0 ? FREE_SPIN_LINE_BET : snapshot.currentBet
+    // Free spins pay out at the player's actual bet — cost is still $0,
+    // but payout uses currentBet so the spin is genuinely valuable at every level.
+    const lineBet = snapshot.currentBet
     spinLineBetRef.current = lineBet
 
     if (isServerSpinEnabled()) {
@@ -1186,6 +1441,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
           winMultiplier: 0,
           lastSpinFreeSpinsWon: 0,
           lastBonusMeterPayout: 0,
+          lastScatterPayout: 0,
+          lastJackpotBonus: 0,
+          lastMysteryMultiplier: null,
         }))
         return await new Promise<SpinResult>((resolve) => {
           spinResolveRef.current = resolve
@@ -1216,6 +1474,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         spinResolveRef.current = resolve
 
         const usedFreeSpin = prev.freeSpins > 0
+        spinWasFreeRef.current = usedFreeSpin
         queueMicrotask(() =>
           track(AnalyticsEvents.SPIN_STARTED, {
             bet_coins: spinLineBetRef.current,
@@ -1249,6 +1508,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
           winMultiplier: 0,
           lastSpinFreeSpinsWon: 0,
           lastBonusMeterPayout: 0,
+          lastScatterPayout: 0,
+          lastJackpotBonus: 0,
+          lastMysteryMultiplier: null,
         }
       })
     })
@@ -1267,11 +1529,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
         const totalWin = summary.total_win
         const freeSpinsWon = summary.free_spins_won
         const isJackpot = summary.is_jackpot
+        const jackpotBonus = summary.jackpot_bonus ?? 0
         const winMultiplier = summary.win_multiplier
         const winType = summary.win_type as WinType
         const bonusMeterPayout = summary.bonus_meter_payout
         const bonusProgress = summary.bonus_progress_after
-        const jackpotMultiplier = isJackpot ? 10 : 1
 
         const positions = new Set<string>()
         const winningLines: WinningLine[] = summary.winning_lines.map((wl) => ({
@@ -1297,6 +1559,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
         const missionsForState = isServerEconomyEnabled() ? prev.missions : updatedMissions
 
+        const scatterPayoutAmt = summary.scatter_payout ?? 0
         const result: SpinResult = {
           win: totalWin,
           grid: newGrid,
@@ -1306,6 +1569,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           winType,
           winMultiplier,
           bonusMeterPayout,
+          scatterPayout: scatterPayoutAmt,
         }
 
         queueMicrotask(() => {
@@ -1337,6 +1601,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           const finish = spinResolveRef.current
           spinResolveRef.current = null
           finish?.(result)
+          void patchPlayerProgress()
           if (isServerEconomyEnabled()) {
             void hydrateMissionsAndWheelFromServer()
           }
@@ -1357,14 +1622,35 @@ export function GameProvider({ children }: { children: ReactNode }) {
           freeSpins: prev.freeSpins,
           lastSpinFreeSpinsWon: freeSpinsWon,
           isJackpotMode: isJackpot,
-          jackpotMultiplier,
+          jackpotMultiplier: 1,
           bonusProgress,
           lastBonusMeterPayout: bonusMeterPayout,
-          missions: missionsForState,
+          lastScatterPayout: summary.scatter_payout ?? 0,
+          lastJackpotBonus: summary.jackpot_bonus ?? 0,
+        lastMysteryMultiplier: summary.mystery_multiplier ?? null,
+        // Server spin path does not yet track free spin streak state —
+        // multiplier is reset so it doesn't carry over into a future local spin session.
+        freeSpinMultiplier: 1,
+        lastFreeSpinMultiplier: 1,
+        jackpotLastWonAt: isJackpot ? new Date().toISOString() : prev.jackpotLastWonAt,
+        jackpotWinners: isJackpot
+          ? [
+              { username: prev.username || 'You', ts: new Date().toISOString(), amount: summary.jackpot_bonus ?? jackpotPayoutForBet(spinLineBetRef.current) },
+              ...prev.jackpotWinners.slice(0, MAX_JACKPOT_WINNERS - 1),
+            ]
+          : prev.jackpotWinners,
+        missions: missionsForState,
           totalSpins: prev.totalSpins + 1,
+          ...tickMonthlySpins(prev),
           totalWins: totalWin > 0 ? prev.totalWins + 1 : prev.totalWins,
           biggestWin: Math.max(prev.biggestWin, totalWin),
-          xp: prev.xp + 10 + (totalWin > 0 ? Math.floor(totalWin / 10) : 0),
+          // Server manages coin/freeSpin balance; we only track XP + level locally.
+          ...(() => {
+            const srvXpGain = spinXp(spinLineBetRef.current, totalWin)
+              + (bonusMeterPayout > 0 ? BONUS_METER_XP : 0)
+            const srvLvl = computeXpGain(prev.xp, prev.level, srvXpGain)
+            return { xp: srvLvl.xp, level: srvLvl.level }
+          })(),
           leaderboardStats: {
             ...prev.leaderboardStats,
             weeklyBiggestWin: Math.max(prev.leaderboardStats.weeklyBiggestWin, totalWin),
@@ -1383,10 +1669,25 @@ export function GameProvider({ children }: { children: ReactNode }) {
                   ...prev.recentBigWins.slice(0, 9),
                 ]
               : prev.recentBigWins,
+          spinAudit: [
+            {
+              ts: new Date().toISOString(),
+              bet: spinLineBetRef.current,
+              win: totalWin,
+              winType,
+              freeSpin: spinWasFreeRef.current,
+              reelMiddle: newGrid.map((col) => col[1]?.emoji ?? '?'),
+              winningColsMiddle: [0,1,2,3,4].filter((c) => positions.has(`${c}-1`)),
+              // Server path resets multiplier to 1; omit field so the audit badge isn't shown.
+            },
+            ...prev.spinAudit.slice(0, MAX_SPIN_AUDIT - 1),
+          ],
           spinSequence: prev.spinSequence + 1,
           trophies: checkTrophyUnlocks(prev.trophies, {
             winType,
-            level: prev.level,
+            level: computeXpGain(prev.xp, prev.level,
+              spinXp(spinLineBetRef.current, totalWin) + (bonusMeterPayout > 0 ? BONUS_METER_XP : 0)
+            ).level,
             allTimeTotalWinnings: prev.leaderboardStats.allTimeTotalWinnings + totalWin,
             dailyStreak: prev.dailyStreak,
           }),
@@ -1400,14 +1701,27 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const lineBet = spinLineBetRef.current
       const summary = evaluateGrid(gridIds, lineBet, prev.bonusProgress)
 
-      const totalWin = summary.total_win
+      const rawTotalWin = summary.total_win
       const freeSpinsWon = summary.free_spins_won
       const isJackpot = summary.is_jackpot
-      const jackpotMultiplier = isJackpot ? 10 : 1
+      const jackpotBonus = summary.jackpot_bonus ?? 0
       const winMultiplier = summary.win_multiplier
       const winType = summary.win_type
       const bonusMeterPayout = summary.bonus_meter_payout
       const bonusProgress = summary.bonus_progress_after
+
+      // ── Free spin streak multiplier (local path only) ─────────────────────
+      // Applies to the entire spin win. Resets on blank or when paid spins resume.
+      // Server spin path does not yet participate; it tracks state independently.
+      const appliedFsMultiplier = spinWasFreeRef.current ? prev.freeSpinMultiplier : 1
+      const totalWin = rawTotalWin * appliedFsMultiplier
+
+      // Advance or reset the streak for the NEXT free spin.
+      const nextFreeSpinMultiplier = spinWasFreeRef.current
+        ? rawTotalWin > 0
+          ? Math.min(5, prev.freeSpinMultiplier + 1) // win → climb streak (cap at 5×)
+          : 1                                         // blank → reset streak
+        : 1                                           // paid spin → session over
 
       const { winningLines, positions } = winningLinesAndPositionsFromSerialized(
         summary.winning_lines,
@@ -1416,13 +1730,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
       let ledger = prev.coinLedger
       let runningBal = prev.coins + totalWin
       if (totalWin > 0) {
-        ledger = appendCoinLedger(
-          ledger,
-          totalWin,
-          runningBal,
-          'spin_win',
-          `Spin win (${winType})`
-        )
+        const label = appliedFsMultiplier > 1
+          ? `Spin win (${winType}) ×${appliedFsMultiplier} free spin streak`
+          : `Spin win (${winType})`
+        ledger = appendCoinLedger(ledger, totalWin, runningBal, 'spin_win', label)
       }
       if (bonusMeterPayout > 0) {
         runningBal += bonusMeterPayout
@@ -1431,7 +1742,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
           bonusMeterPayout,
           runningBal,
           'bonus_meter_full',
-          `Bonus reward +${bonusMeterPayout.toLocaleString()} virtual coins`
+          `Bonus meter +${bonusMeterPayout.toLocaleString()} virtual coins`
+        )
+      }
+      if (jackpotBonus > 0) {
+        runningBal += jackpotBonus
+        ledger = appendCoinLedger(
+          ledger,
+          jackpotBonus,
+          runningBal,
+          'jackpot_win',
+          `Mega Jackpot $${jackpotBonus.toLocaleString()} virtual coins`
         )
       }
 
@@ -1448,6 +1769,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
         return m
       })
 
+      // Scatter coins also participate in the free spin streak multiplier.
+      // Jackpot bonus and bonus meter payout are excluded — those are independent prizes.
+      const rawScatterPayout = summary.scatter_payout ?? 0
+      const scatterPayoutAmt = rawScatterPayout * appliedFsMultiplier
       const result: SpinResult = {
         win: totalWin,
         grid: newGrid,
@@ -1457,6 +1782,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         winType,
         winMultiplier,
         bonusMeterPayout,
+        scatterPayout: scatterPayoutAmt,
       }
 
       queueMicrotask(() => {
@@ -1466,6 +1792,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           free_spins_won: freeSpinsWon,
           is_jackpot: isJackpot,
           bet_coins: spinLineBetRef.current,
+          fs_multiplier: appliedFsMultiplier,
         })
         if (totalWin > 0) {
           track(AnalyticsEvents.WIN_RECEIVED, {
@@ -1488,31 +1815,58 @@ export function GameProvider({ children }: { children: ReactNode }) {
         const finish = spinResolveRef.current
         spinResolveRef.current = null
         finish?.(result)
+        void patchPlayerProgress()
       })
+
+      // ── XP + level-up (exponential curve) ────────────────────────────────
+      const xpGain = spinXp(spinLineBetRef.current, totalWin)
+        + (bonusMeterPayout > 0 ? BONUS_METER_XP : 0)
+      const lvl = computeXpGain(prev.xp, prev.level, xpGain)
+      // Apply level-up coin + free-spin bonuses on top of the already-computed balance
+      let finalBal = runningBal + lvl.coinDelta
+      let finalLedger = ledger
+      for (const e of lvl.ledger) {
+        finalLedger = appendCoinLedger(finalLedger, e.amount, finalBal, 'level_up_bonus', e.label)
+      }
+      const finalFreeSpins = prev.freeSpins + freeSpinsWon + lvl.freeSpinDelta
 
       return {
         ...prev,
         isSpinning: false,
-        reelsLocked: true, // Result is locked, navigation allowed
+        reelsLocked: true,
         reelGrid: newGrid,
         lastWin: totalWin,
         winMultiplier,
         lastWinType: winType,
         winningLines,
         winningPositions: positions,
-        coins: runningBal,
-        coinLedger: ledger,
-        freeSpins: prev.freeSpins + freeSpinsWon,
+        coins: finalBal,
+        coinLedger: finalLedger,
+        freeSpins: finalFreeSpins,
         lastSpinFreeSpinsWon: freeSpinsWon,
         isJackpotMode: isJackpot,
-        jackpotMultiplier,
+        jackpotMultiplier: 1,
         bonusProgress,
         lastBonusMeterPayout: bonusMeterPayout,
+        lastScatterPayout: scatterPayoutAmt,
+        lastJackpotBonus: isJackpot ? jackpotPayoutForBet(spinLineBetRef.current) : 0,
+        lastMysteryMultiplier: summary.mystery_multiplier ?? null,
+        freeSpinMultiplier: nextFreeSpinMultiplier,
+        lastFreeSpinMultiplier: appliedFsMultiplier,
+        jackpotLastWonAt: isJackpot ? new Date().toISOString() : prev.jackpotLastWonAt,
+        jackpotWinners: isJackpot
+          ? [
+              { username: prev.username || 'You', ts: new Date().toISOString(), amount: jackpotPayoutForBet(spinLineBetRef.current) },
+              ...prev.jackpotWinners.slice(0, MAX_JACKPOT_WINNERS - 1),
+            ]
+          : prev.jackpotWinners,
         missions: updatedMissions,
         totalSpins: prev.totalSpins + 1,
+        ...tickMonthlySpins(prev),
         totalWins: totalWin > 0 ? prev.totalWins + 1 : prev.totalWins,
         biggestWin: Math.max(prev.biggestWin, totalWin),
-        xp: prev.xp + 10 + (totalWin > 0 ? Math.floor(totalWin / 10) : 0),
+        xp: lvl.xp,
+        level: lvl.level,
         leaderboardStats: {
           ...prev.leaderboardStats,
           weeklyBiggestWin: Math.max(prev.leaderboardStats.weeklyBiggestWin, totalWin),
@@ -1522,14 +1876,25 @@ export function GameProvider({ children }: { children: ReactNode }) {
         recentBigWins: winType !== "none" && winType !== "normal"
           ? [
               { amount: totalWin, multiplier: winMultiplier, timestamp: new Date().toISOString(), type: winType },
-              ...prev.recentBigWins.slice(0, 9), // Keep last 10
+              ...prev.recentBigWins.slice(0, 9),
             ]
           : prev.recentBigWins,
+        spinAudit: [
+          {
+            ts: new Date().toISOString(),
+            bet: lineBet,
+            win: totalWin,
+            winType,
+            freeSpin: spinWasFreeRef.current,
+            reelMiddle: newGrid.map((col) => col[1]?.emoji ?? '?'),
+            winningColsMiddle: [0,1,2,3,4].filter((c) => positions.has(`${c}-1`)),
+          },
+          ...prev.spinAudit.slice(0, MAX_SPIN_AUDIT - 1),
+        ],
         spinSequence: prev.spinSequence + 1,
-        // Check for trophy unlocks based on win type and stats
         trophies: checkTrophyUnlocks(prev.trophies, {
           winType,
-          level: prev.level,
+          level: lvl.level,
           allTimeTotalWinnings: prev.leaderboardStats.allTimeTotalWinnings + totalWin,
           dailyStreak: prev.dailyStreak,
         }),
@@ -1539,7 +1904,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     queueMicrotask(() => {
       if (deferWalletRefresh) void resyncWalletFromServer()
     })
-  }, [resyncWalletFromServer, hydrateMissionsAndWheelFromServer])
+  }, [resyncWalletFromServer, hydrateMissionsAndWheelFromServer, patchPlayerProgress])
 
   /** Offline / fallback: updates coins only in React state (no Postgres write). */
   const claimDailyRewardLocal = useCallback((day: number): boolean => {
@@ -1553,6 +1918,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
         const newStreak = day
         const weekDone = newStreak >= DAILY_LOGIN_REWARD_COINS.length
         const bal = prev.coins + reward.coins
+        // Every daily claim gives 3 free spins — plentiful at low levels, nearly
+        // worthless to whales (who bet >> $250 / spin), creating natural scarcity.
+        const DAILY_FREE_SPINS = 3
         return {
           ...prev,
           coins: bal,
@@ -1563,6 +1931,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             'daily_reward',
             `Daily reward day ${day}`,
           ),
+          freeSpins: prev.freeSpins + DAILY_FREE_SPINS,
           dailyStreak: newStreak,
           weeklyStreakCompleted: weekDone,
           dailyRewards: prev.dailyRewards.map((r) =>
@@ -1701,16 +2070,29 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (mission && mission.completed && !mission.claimed) {
         success = true
         const bal = prev.coins + mission.reward
+        const baseLedger = appendCoinLedger(
+          prev.coinLedger,
+          mission.reward,
+          bal,
+          'mission_reward',
+          mission.name,
+        )
+        // Route XP through computeXpGain so mission completion can trigger level-ups
+        // (including milestone coin + free-spin rewards at levels 5, 10, 20 …)
+        const lvl = computeXpGain(prev.xp, prev.level, mission.xpReward ?? 0)
+        let finalBal = bal + lvl.coinDelta
+        let finalLedger = baseLedger
+        for (const e of lvl.ledger) {
+          finalLedger = appendCoinLedger(finalLedger, e.amount, finalBal, 'level_up_bonus', e.label)
+        }
         return {
           ...prev,
-          coins: bal,
-          coinLedger: appendCoinLedger(
-            prev.coinLedger,
-            mission.reward,
-            bal,
-            'mission_reward',
-            mission.name,
-          ),
+          coins: finalBal,
+          coinLedger: finalLedger,
+          xp: lvl.xp,
+          level: lvl.level,
+          freeSpins: prev.freeSpins + lvl.freeSpinDelta,
+          trophies: checkTrophyUnlocks(prev.trophies, { level: lvl.level }),
           missions: prev.missions.map((m) => (m.id === missionId ? { ...m, claimed: true } : m)),
         }
       }
@@ -1726,33 +2108,31 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setState(prev => ({ ...prev, username: name }))
   }, [])
 
+  const setBio = useCallback((bio: string) => {
+    setState(prev => ({ ...prev, bio }))
+  }, [])
+
+  const setAvatarUri = useCallback((uri: string | null) => {
+    setState(prev => ({ ...prev, avatarUri: uri }))
+  }, [])
+
   const addXp = useCallback((amount: number) => {
     setState(prev => {
-      const newXp = prev.xp + amount
-      const xpNeeded = prev.level * 1000
-      if (newXp >= xpNeeded) {
-        const newLevel = prev.level + 1
-        const coinBonus = newLevel * 100
-        const bal = prev.coins + coinBonus
-        return {
-          ...prev,
-          xp: newXp - xpNeeded,
-          level: newLevel,
-          coins: bal,
-          coinLedger: appendCoinLedger(
-            prev.coinLedger,
-            coinBonus,
-            bal,
-            'level_up_bonus',
-            `Level ${newLevel} bonus`
-          ),
-          // Check for VIP trophy at level 5
-          trophies: checkTrophyUnlocks(prev.trophies, {
-            level: newLevel,
-          }),
-        }
+      const lvl = computeXpGain(prev.xp, prev.level, amount)
+      let coins = prev.coins + lvl.coinDelta
+      let coinLedger = prev.coinLedger
+      for (const e of lvl.ledger) {
+        coinLedger = appendCoinLedger(coinLedger, e.amount, coins, 'level_up_bonus', e.label)
       }
-      return { ...prev, xp: newXp }
+      return {
+        ...prev,
+        xp: lvl.xp,
+        level: lvl.level,
+        coins,
+        coinLedger,
+        freeSpins: prev.freeSpins + lvl.freeSpinDelta,
+        trophies: checkTrophyUnlocks(prev.trophies, { level: lvl.level }),
+      }
     })
   }, [])
 
@@ -1911,6 +2291,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     spinDailyWheel,
     claimMissionReward,
     setUsername,
+    setBio,
+    setAvatarUri,
     addXp,
     toggleSound,
     toggleMusic,
@@ -1925,6 +2307,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     equipVanityItem,
     setFeaturedItem,
     unlockTrophy,
+    recordIapSpend,
+    isTournamentEligible:
+      state.level >= TOURNAMENT_MIN_LEVEL &&
+      state.totalIapSpent >= TOURNAMENT_MIN_IAP_USD &&
+      state.monthlySpins >= TOURNAMENT_MIN_MONTHLY_SPINS,
   }
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>

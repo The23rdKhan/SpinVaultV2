@@ -4,6 +4,7 @@ import { AppText } from '@/components/ui/AppText'
 import { SkeletonBlock } from '@/components/ui/SkeletonBlock'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { space } from '@/theme/design-tokens'
+import { APP_NAME } from '@shared/brand'
 
 export function BrandedLoadingScreen() {
   const t = useCasinoTheme()
@@ -16,7 +17,7 @@ export function BrandedLoadingScreen() {
       ]}
     >
       <AppText variant="title2" accent style={styles.wordmark}>
-        SpinVault
+        {APP_NAME}
       </AppText>
       <AppText variant="footnote" secondary style={styles.caption}>
         Loading your session…

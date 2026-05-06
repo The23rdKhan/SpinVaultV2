@@ -1,14 +1,16 @@
 import { useState } from 'react'
-import { ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import Toast from 'react-native-toast-message'
+import { router } from 'expo-router'
 import { WeeklyLeaderboard } from '@/components/social/WeeklyLeaderboard'
 import { WinnerFeedStrip } from '@/components/social/WinnerFeedStrip'
 import { SCREEN_PAD_H } from '@/lib/screen-edge'
 import { useGame } from '@/lib/game-context'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { hexWithAlpha } from '@/theme/tokens'
+import { routes } from '@/lib/app-routes'
 import { DailyLoginRewards } from './DailyLoginRewards'
 import { DailyWheel } from './DailyWheel'
 import { FreeSpinsWallet } from './FreeSpinsWallet'
@@ -79,13 +81,38 @@ export function RewardsTabContent() {
       <TodaysMissions />
       <FreeSpinsWallet />
 
+      {/* Go Play shortcut — guides players back to the machine after collecting rewards */}
+      <Pressable
+        style={({ pressed }) => [
+          styles.goPlay,
+          {
+            borderColor: hexWithAlpha(t.primary, '66'),
+            backgroundColor: pressed
+              ? hexWithAlpha(t.primary, '22')
+              : hexWithAlpha(t.primary, '12'),
+          },
+        ]}
+        onPress={() => router.push(routes.tabsIndex)}
+        accessibilityRole="button"
+        accessibilityLabel="Go Play"
+        accessibilityHint="Return to the slot machine"
+      >
+        <Text style={[styles.goPlayLabel, { color: t.textSecondary }]}>Ready to spin?</Text>
+        <View style={[styles.goPlayBtn, { backgroundColor: t.primary }]}>
+          <FontAwesome name="play" size={12} color={t.primaryForeground} />
+          <Text style={[styles.goPlayBtnTxt, { color: t.primaryForeground }]}>Go Play</Text>
+        </View>
+      </Pressable>
+
       <View style={[styles.inbox, { borderColor: t.border, backgroundColor: t.surfaceElevated, opacity: 0.95 }]}>
         <View style={[styles.inboxIcon, { backgroundColor: t.cardSoft }]}>
           <FontAwesome name="gift" size={22} color={t.textMuted} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={[styles.inboxTitle, { color: t.textPrimary }]}>Reward inbox</Text>
-          <Text style={[styles.inboxSub, { color: t.textSecondary }]}>No deliveries yet — check back soon!</Text>
+          <Text style={[styles.inboxSub, { color: t.textSecondary }]}>
+            Special reward deliveries will appear here when available.
+          </Text>
         </View>
       </View>
 
@@ -143,4 +170,24 @@ const styles = StyleSheet.create({
   },
   inboxTitle: { fontSize: 16, fontWeight: '700' },
   inboxSub: { fontSize: 13, marginTop: 4 },
+  goPlay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  goPlayLabel: { fontSize: 14, fontWeight: '600' },
+  goPlayBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+    minHeight: 44,
+  },
+  goPlayBtnTxt: { fontWeight: '900', fontSize: 14 },
 })

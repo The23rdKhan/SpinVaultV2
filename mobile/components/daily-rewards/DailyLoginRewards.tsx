@@ -183,8 +183,11 @@ export function DailyLoginRewards({
         <View style={styles.megaTop}>
           <Text style={[styles.megaLbl, { color: t.textPrimary }]}>Weekly streak bonus</Text>
           <View style={styles.megaAmt}>
-            <FontAwesome name="circle" size={14} color={t.jackpot} />
-            <Text style={[styles.megaNum, { color: t.jackpot }]}>{fmtCoins(WEEKLY_BONUS_COINS)}</Text>
+            {/* Use t.gold (shell-stable, never overridden by machine skins) so this reward
+                indicator stays gold across all themes. t.jackpot becomes red in Vegas theme,
+                which looks like a debit here. */}
+            <FontAwesome name="circle" size={14} color={t.gold} />
+            <Text style={[styles.megaNum, { color: t.gold }]}>{fmtCoins(WEEKLY_BONUS_COINS)}</Text>
           </View>
         </View>
         <View style={[styles.barTrack, { backgroundColor: t.muted }]}>

@@ -1,6 +1,8 @@
 import { ScrollView, StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { SlotMachine } from '@/components/slot-machine/SlotMachine'
+import { RecentSpinsRow } from '@/components/slot-machine/RecentSpinsRow'
+import { useGame } from '@/lib/game-context'
 import { SCREEN_PAD_H } from '@/lib/screen-edge'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 
@@ -8,6 +10,7 @@ export default function PlayScreen() {
   const t = useCasinoTheme()
   const insets = useSafeAreaInsets()
   const bottomPad = Math.max(insets.bottom, 12) + 24
+  const { spinAudit } = useGame()
 
   return (
     <ScrollView
@@ -21,6 +24,8 @@ export default function PlayScreen() {
       >
         <SlotMachine />
       </View>
+
+      <RecentSpinsRow spinAudit={spinAudit} />
     </ScrollView>
   )
 }

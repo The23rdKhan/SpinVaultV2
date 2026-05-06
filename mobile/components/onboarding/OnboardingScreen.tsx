@@ -8,6 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
+import { router } from 'expo-router'
 import { useAuth } from '@/lib/auth-context'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { AppleSignInButton } from '@/components/apple-sign-in-button'
@@ -15,6 +16,9 @@ import { GoogleSignInButton } from '@/components/social-auth-buttons/google/goog
 import { AppButton } from '@/components/ui/AppButton'
 import { track } from '@/lib/analytics/track'
 import { AnalyticsEvents } from '@shared/analytics/event-names'
+import { LegalDocumentModal } from '@/components/modals/LegalDocumentModal'
+import type { LegalDocType } from '@shared/legal-documents'
+import { APP_NAME, APP_SUBTITLE, APP_TAGLINE, APP_COMPLIANCE_FULL } from '@shared/brand'
 
 type Step = 'welcome' | 'age' | 'signup'
 
@@ -29,6 +33,7 @@ export function OnboardingScreen() {
   const [loading, setLoading] = useState(false)
   const [guestBusy, setGuestBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [legalModal, setLegalModal] = useState<LegalDocType | null>(null)
 
   useEffect(() => {
     track(AnalyticsEvents.ONBOARDING_STARTED)
@@ -93,16 +98,16 @@ export function OnboardingScreen() {
         >
           {step === 'welcome' ? (
             <View style={styles.block}>
-              <Text style={[styles.kicker, { color: t.accent }]}>Collect · Rewards · Themes</Text>
+              <Text style={[styles.kicker, { color: t.accent }]}>{APP_TAGLINE}</Text>
               <Text style={[styles.hero, { color: t.textPrimary }]} accessibilityRole="header">
-                Welcome to SpinVault
+                {APP_NAME}
               </Text>
-              <Text style={[styles.subtitleBrand, { color: t.gold }]}>Lucky Slots</Text>
+              <Text style={[styles.subtitleBrand, { color: t.gold }]}>{APP_SUBTITLE}</Text>
               <Text style={[styles.sub, { color: t.textSecondary }]}>
                 Virtual coins, daily rewards, and collectible themes — entertainment only.
               </Text>
               <Text style={[styles.disclosure, { color: t.textMuted }]}>
-                Coins are for in-game entertainment only and have no cash value.
+                Virtual coins only. No cash value.
               </Text>
               <AppButton label="Start Spinning" onPress={() => setStep('age')} style={styles.btn} />
             </View>
@@ -112,8 +117,7 @@ export function OnboardingScreen() {
             <View style={styles.block}>
               <Text style={[styles.title, { color: t.textPrimary }]}>Before you continue</Text>
               <Text style={[styles.sub, { color: t.textSecondary }]}>
-                SpinVault is for adults (18+). Virtual coins and rewards are for entertainment only — no cash value.
-                SpinVault does not offer real-money gambling or cash prizes.
+                {APP_NAME} is for adults (18+). {APP_COMPLIANCE_FULL}
               </Text>
               <AppButton
                 variant={ageOk ? 'primary' : 'outline'}
@@ -127,6 +131,27 @@ export function OnboardingScreen() {
                 onPress={() => setStep('signup')}
                 style={styles.btn}
               />
+              <Text style={[styles.legalLine, { color: t.textMuted }]}>
+                By continuing, you agree to our{' '}
+                <Text
+                  style={[styles.legalLink, { color: t.accent }]}
+                  onPress={() => setLegalModal('terms')}
+                  accessibilityRole="link"
+                  accessibilityLabel="Terms of Service"
+                >
+                  Terms of Service
+                </Text>
+                {' '}and acknowledge the{' '}
+                <Text
+                  style={[styles.legalLink, { color: t.accent }]}
+                  onPress={() => setLegalModal('privacy')}
+                  accessibilityRole="link"
+                  accessibilityLabel="Privacy Policy"
+                >
+                  Privacy Policy
+                </Text>
+                .
+              </Text>
               <AppButton variant="ghost" label="Back" onPress={() => setStep('welcome')} />
             </View>
           ) : null}
@@ -200,11 +225,49 @@ export function OnboardingScreen() {
                 onPress={() => void onGuest()}
                 style={styles.btn}
               />
+              <AppButton
+                variant="ghost"
+                label="Already have an account? Sign in"
+                disabled={loading || guestBusy}
+                onPress={() => {
+                  // Mark onboarding complete so login.tsx does not redirect back to onboarding.
+                  completeOnboarding()
+                  track(AnalyticsEvents.ONBOARDING_COMPLETED, { path: 'sign_in_existing_account' })
+                  router.push('/login')
+                }}
+                style={styles.btn}
+              />
               <AppButton variant="ghost" label="Back" onPress={() => setStep('age')} />
+              <Text style={[styles.legalLine, { color: t.textMuted }]}>
+                <Text
+                  style={[styles.legalLink, { color: t.textMuted }]}
+                  onPress={() => setLegalModal('privacy')}
+                  accessibilityRole="link"
+                  accessibilityLabel="Privacy Policy"
+                >
+                  Privacy Policy
+                </Text>
+                {'  ·  '}
+                <Text
+                  style={[styles.legalLink, { color: t.textMuted }]}
+                  onPress={() => setLegalModal('terms')}
+                  accessibilityRole="link"
+                  accessibilityLabel="Terms of Service"
+                >
+                  Terms of Service
+                </Text>
+              </Text>
             </View>
           ) : null}
         </View>
       </ScrollView>
+
+      {/* Always mounted so the slide-out dismiss animation plays correctly. */}
+      <LegalDocumentModal
+        visible={legalModal !== null}
+        type={legalModal ?? 'terms'}
+        onClose={() => setLegalModal(null)}
+      />
     </KeyboardAvoidingView>
   )
 }
@@ -232,12 +295,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     textTransform: 'uppercase',
   },
-  hero: { fontSize: 28, fontWeight: '700', textAlign: 'center', lineHeight: 34 },
+  hero: { fontSize: 34, fontWeight: '900', textAlign: 'center', lineHeight: 40, letterSpacing: 0.5 },
   subtitleBrand: {
-    fontSize: 20,
+    fontSize: 15,
     fontWeight: '700',
     textAlign: 'center',
-    marginTop: 4,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginTop: 2,
   },
   title: { fontSize: 22, fontWeight: '700' },
   sub: { fontSize: 16, lineHeight: 24 },
@@ -252,4 +317,13 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   error: { fontSize: 15, lineHeight: 22 },
+  legalLine: {
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  legalLink: {
+    textDecorationLine: 'underline',
+  },
 })

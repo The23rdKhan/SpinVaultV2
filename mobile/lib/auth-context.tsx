@@ -529,13 +529,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     setPasswordRecoveryPending(false)
-    await getSupabase()?.auth.signOut()
-    await GoogleSignin.signOut().catch(() => {})
+
+    // Each remote call is isolated so a network error or provider failure cannot
+    // leave the device stuck in a signed-in state.
+    try {
+      await getSupabase()?.auth.signOut()
+    } catch {
+      // Network offline or server error — local sign-out must still proceed.
+    }
+
+    try {
+      await GoogleSignin.signOut()
+    } catch {
+      // Provider not configured or token already expired — safe to ignore.
+    }
+
+    // Defensive RevenueCat logout: if supabase.auth.signOut() threw before the SIGNED_OUT event
+    // was emitted, the onAuthStateChange listener that normally calls syncRevenueCatUser(null)
+    // may not have run. This call is idempotent — logging out an already-anonymous RC session
+    // is a safe no-op. All error handling is internal to syncRevenueCatUser.
+    void syncRevenueCatUser(null)
+
+    // Reset to initialState defaults so no user-specific data (notification prefs, ad counters,
+    // sign-in prompt counters) bleeds into the next session. Only hasCompletedOnboarding is
+    // preserved — returning users must not be forced through onboarding again on the same device.
     setState((prev) => ({
-      ...prev,
-      user: null,
-      isAuthenticated: false,
-      isGuest: true,
+      ...initialState,
+      hasCompletedOnboarding: prev.hasCompletedOnboarding,
     }))
   }, [])
 

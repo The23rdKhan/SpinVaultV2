@@ -1,0 +1,677 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/* Vegas Theme - Premium Gold/Red/Black Casino */
+:root,
+[data-theme="vegas"] {
+  --background: oklch(0.08 0.015 15);
+  --foreground: oklch(0.95 0.02 85);
+  --card: oklch(0.12 0.025 20);
+  --card-foreground: oklch(0.95 0.02 85);
+  --popover: oklch(0.10 0.02 15);
+  --popover-foreground: oklch(0.95 0.02 85);
+  --primary: oklch(0.78 0.16 85);
+  --primary-foreground: oklch(0.10 0.02 15);
+  --secondary: oklch(0.50 0.22 25);
+  --secondary-foreground: oklch(0.95 0.02 85);
+  --muted: oklch(0.20 0.025 20);
+  --muted-foreground: oklch(0.60 0.02 85);
+  --accent: oklch(0.72 0.18 75);
+  --accent-foreground: oklch(0.10 0.02 15);
+  --destructive: oklch(0.55 0.25 25);
+  --destructive-foreground: oklch(0.95 0.02 85);
+  --border: oklch(0.35 0.08 50);
+  --input: oklch(0.15 0.025 20);
+  --ring: oklch(0.78 0.16 85);
+  --chart-1: oklch(0.78 0.16 85);
+  --chart-2: oklch(0.50 0.22 25);
+  --chart-3: oklch(0.65 0.15 60);
+  --chart-4: oklch(0.80 0.12 90);
+  --chart-5: oklch(0.45 0.18 15);
+  --radius: 0.75rem;
+  
+  /* Casino cabinet tokens */
+  --cabinet-bg: oklch(0.06 0.02 15);
+  --cabinet-border: oklch(0.55 0.14 75);
+  --cabinet-inner: oklch(0.10 0.02 20);
+  --glow-color: oklch(0.78 0.16 85);
+  --glow-secondary: oklch(0.88 0.12 75);
+  --jackpot-color: oklch(0.60 0.28 30);
+  --jackpot-glow: oklch(0.70 0.30 35);
+  --win-color: oklch(0.70 0.20 140);
+  --reel-bg: oklch(0.04 0.01 15);
+  --reel-border: oklch(0.50 0.12 75);
+  --reel-highlight: oklch(0.65 0.15 85);
+  --marquee-bg: linear-gradient(180deg, oklch(0.15 0.03 20) 0%, oklch(0.08 0.02 15) 100%);
+  --button-glow: oklch(0.78 0.18 85);
+  --spin-button-bg: linear-gradient(180deg, oklch(0.55 0.24 30) 0%, oklch(0.45 0.22 25) 100%);
+  --spin-button-glow: oklch(0.60 0.26 30);
+}
+
+/* Vegas Light Mode */
+[data-theme="vegas"].light,
+.light [data-theme="vegas"] {
+  --background: oklch(0.96 0.01 85);
+  --foreground: oklch(0.15 0.02 30);
+  --card: oklch(0.99 0.005 85);
+  --card-foreground: oklch(0.15 0.02 30);
+  --popover: oklch(0.98 0.008 85);
+  --popover-foreground: oklch(0.15 0.02 30);
+  --primary: oklch(0.55 0.18 45);
+  --primary-foreground: oklch(0.98 0.01 85);
+  --secondary: oklch(0.50 0.20 25);
+  --secondary-foreground: oklch(0.98 0.01 85);
+  --muted: oklch(0.92 0.01 85);
+  --muted-foreground: oklch(0.45 0.02 30);
+  --accent: oklch(0.65 0.16 55);
+  --accent-foreground: oklch(0.98 0.01 85);
+  --destructive: oklch(0.55 0.22 25);
+  --destructive-foreground: oklch(0.98 0.01 85);
+  --border: oklch(0.85 0.04 55);
+  --input: oklch(0.94 0.01 85);
+  --ring: oklch(0.55 0.18 45);
+  
+  --cabinet-bg: oklch(0.94 0.015 75);
+  --cabinet-border: oklch(0.60 0.16 55);
+  --cabinet-inner: oklch(0.98 0.008 85);
+  --glow-color: oklch(0.55 0.18 45);
+  --glow-secondary: oklch(0.65 0.14 55);
+  --jackpot-color: oklch(0.50 0.22 30);
+  --jackpot-glow: oklch(0.55 0.20 35);
+  --win-color: oklch(0.50 0.18 145);
+  --reel-bg: oklch(0.99 0.005 85);
+  --reel-border: oklch(0.70 0.12 55);
+  --reel-highlight: oklch(0.60 0.14 50);
+  --marquee-bg: linear-gradient(180deg, oklch(0.96 0.01 85) 0%, oklch(0.92 0.015 80) 100%);
+  --button-glow: oklch(0.55 0.18 45);
+  --spin-button-bg: linear-gradient(180deg, oklch(0.55 0.22 30) 0%, oklch(0.48 0.20 25) 100%);
+  --spin-button-glow: oklch(0.50 0.22 30);
+}
+
+/* Cyber Theme - Neon/Futuristic */
+[data-theme="cyber"] {
+  --background: oklch(0.06 0.025 280);
+  --foreground: oklch(0.95 0.03 200);
+  --card: oklch(0.10 0.035 280);
+  --card-foreground: oklch(0.95 0.03 200);
+  --popover: oklch(0.08 0.025 280);
+  --popover-foreground: oklch(0.95 0.03 200);
+  --primary: oklch(0.72 0.28 190);
+  --primary-foreground: oklch(0.06 0.025 280);
+  --secondary: oklch(0.65 0.30 320);
+  --secondary-foreground: oklch(0.95 0.03 200);
+  --muted: oklch(0.15 0.04 280);
+  --muted-foreground: oklch(0.55 0.03 200);
+  --accent: oklch(0.68 0.32 210);
+  --accent-foreground: oklch(0.06 0.025 280);
+  --destructive: oklch(0.55 0.28 350);
+  --destructive-foreground: oklch(0.95 0.03 200);
+  --border: oklch(0.35 0.18 210);
+  --input: oklch(0.12 0.035 280);
+  --ring: oklch(0.72 0.28 190);
+  --chart-1: oklch(0.72 0.28 190);
+  --chart-2: oklch(0.65 0.30 320);
+  --chart-3: oklch(0.65 0.22 260);
+  --chart-4: oklch(0.75 0.24 140);
+  --chart-5: oklch(0.55 0.26 30);
+  
+  --cabinet-bg: oklch(0.04 0.025 280);
+  --cabinet-border: oklch(0.55 0.28 190);
+  --cabinet-inner: oklch(0.08 0.03 280);
+  --glow-color: oklch(0.72 0.28 190);
+  --glow-secondary: oklch(0.65 0.30 320);
+  --jackpot-color: oklch(0.70 0.32 320);
+  --jackpot-glow: oklch(0.75 0.35 325);
+  --win-color: oklch(0.75 0.28 140);
+  --reel-bg: oklch(0.03 0.02 280);
+  --reel-border: oklch(0.55 0.28 190);
+  --reel-highlight: oklch(0.65 0.30 195);
+  --marquee-bg: linear-gradient(180deg, oklch(0.12 0.04 280) 0%, oklch(0.06 0.025 280) 100%);
+  --button-glow: oklch(0.72 0.30 190);
+  --spin-button-bg: linear-gradient(180deg, oklch(0.65 0.30 320) 0%, oklch(0.55 0.28 315) 100%);
+  --spin-button-glow: oklch(0.70 0.32 320);
+}
+
+/* Cyber Light Mode */
+[data-theme="cyber"].light,
+.light [data-theme="cyber"] {
+  --background: oklch(0.96 0.02 250);
+  --foreground: oklch(0.15 0.03 280);
+  --card: oklch(0.99 0.01 250);
+  --card-foreground: oklch(0.15 0.03 280);
+  --popover: oklch(0.98 0.015 250);
+  --popover-foreground: oklch(0.15 0.03 280);
+  --primary: oklch(0.50 0.24 200);
+  --primary-foreground: oklch(0.98 0.01 250);
+  --secondary: oklch(0.55 0.26 320);
+  --secondary-foreground: oklch(0.98 0.01 250);
+  --muted: oklch(0.92 0.02 250);
+  --muted-foreground: oklch(0.45 0.03 280);
+  --accent: oklch(0.55 0.28 210);
+  --accent-foreground: oklch(0.98 0.01 250);
+  --destructive: oklch(0.50 0.24 350);
+  --destructive-foreground: oklch(0.98 0.01 250);
+  --border: oklch(0.80 0.12 210);
+  --input: oklch(0.94 0.02 250);
+  --ring: oklch(0.50 0.24 200);
+  
+  --cabinet-bg: oklch(0.94 0.02 260);
+  --cabinet-border: oklch(0.50 0.24 200);
+  --cabinet-inner: oklch(0.98 0.01 250);
+  --glow-color: oklch(0.50 0.24 200);
+  --glow-secondary: oklch(0.55 0.26 320);
+  --jackpot-color: oklch(0.55 0.28 320);
+  --jackpot-glow: oklch(0.60 0.30 325);
+  --win-color: oklch(0.55 0.24 145);
+  --reel-bg: oklch(0.99 0.01 250);
+  --reel-border: oklch(0.55 0.24 200);
+  --reel-highlight: oklch(0.50 0.26 205);
+  --marquee-bg: linear-gradient(180deg, oklch(0.96 0.02 250) 0%, oklch(0.92 0.025 260) 100%);
+  --button-glow: oklch(0.50 0.26 200);
+  --spin-button-bg: linear-gradient(180deg, oklch(0.55 0.26 320) 0%, oklch(0.48 0.24 315) 100%);
+  --spin-button-glow: oklch(0.55 0.28 320);
+}
+
+/* Treasure Theme - Pirate Gold/Teal */
+[data-theme="treasure"] {
+  --background: oklch(0.08 0.035 200);
+  --foreground: oklch(0.92 0.03 85);
+  --card: oklch(0.12 0.04 195);
+  --card-foreground: oklch(0.92 0.03 85);
+  --popover: oklch(0.10 0.035 200);
+  --popover-foreground: oklch(0.92 0.03 85);
+  --primary: oklch(0.68 0.18 175);
+  --primary-foreground: oklch(0.08 0.035 200);
+  --secondary: oklch(0.75 0.20 80);
+  --secondary-foreground: oklch(0.08 0.035 200);
+  --muted: oklch(0.18 0.04 195);
+  --muted-foreground: oklch(0.55 0.03 85);
+  --accent: oklch(0.78 0.15 70);
+  --accent-foreground: oklch(0.08 0.035 200);
+  --destructive: oklch(0.55 0.22 25);
+  --destructive-foreground: oklch(0.92 0.03 85);
+  --border: oklch(0.40 0.10 185);
+  --input: oklch(0.15 0.04 195);
+  --ring: oklch(0.68 0.18 175);
+  --chart-1: oklch(0.68 0.18 175);
+  --chart-2: oklch(0.75 0.20 80);
+  --chart-3: oklch(0.55 0.14 220);
+  --chart-4: oklch(0.75 0.16 140);
+  --chart-5: oklch(0.50 0.16 30);
+  
+  --cabinet-bg: oklch(0.05 0.03 200);
+  --cabinet-border: oklch(0.65 0.18 80);
+  --cabinet-inner: oklch(0.10 0.035 195);
+  --glow-color: oklch(0.75 0.20 80);
+  --glow-secondary: oklch(0.68 0.18 175);
+  --jackpot-color: oklch(0.80 0.22 80);
+  --jackpot-glow: oklch(0.85 0.20 85);
+  --win-color: oklch(0.75 0.18 140);
+  --reel-bg: oklch(0.04 0.025 200);
+  --reel-border: oklch(0.60 0.16 80);
+  --reel-highlight: oklch(0.70 0.18 85);
+  --marquee-bg: linear-gradient(180deg, oklch(0.14 0.04 195) 0%, oklch(0.08 0.035 200) 100%);
+  --button-glow: oklch(0.75 0.20 80);
+  --spin-button-bg: linear-gradient(180deg, oklch(0.68 0.18 175) 0%, oklch(0.58 0.16 170) 100%);
+  --spin-button-glow: oklch(0.70 0.20 175);
+}
+
+/* Treasure Light Mode */
+[data-theme="treasure"].light,
+.light [data-theme="treasure"] {
+  --background: oklch(0.96 0.02 180);
+  --foreground: oklch(0.15 0.03 200);
+  --card: oklch(0.99 0.01 175);
+  --card-foreground: oklch(0.15 0.03 200);
+  --popover: oklch(0.98 0.015 180);
+  --popover-foreground: oklch(0.15 0.03 200);
+  --primary: oklch(0.50 0.16 175);
+  --primary-foreground: oklch(0.98 0.01 175);
+  --secondary: oklch(0.60 0.18 70);
+  --secondary-foreground: oklch(0.15 0.03 200);
+  --muted: oklch(0.92 0.02 180);
+  --muted-foreground: oklch(0.45 0.03 200);
+  --accent: oklch(0.65 0.14 65);
+  --accent-foreground: oklch(0.15 0.03 200);
+  --destructive: oklch(0.50 0.20 25);
+  --destructive-foreground: oklch(0.98 0.01 175);
+  --border: oklch(0.80 0.08 175);
+  --input: oklch(0.94 0.02 180);
+  --ring: oklch(0.50 0.16 175);
+  
+  --cabinet-bg: oklch(0.94 0.025 185);
+  --cabinet-border: oklch(0.60 0.16 70);
+  --cabinet-inner: oklch(0.98 0.01 175);
+  --glow-color: oklch(0.60 0.18 70);
+  --glow-secondary: oklch(0.50 0.16 175);
+  --jackpot-color: oklch(0.65 0.20 70);
+  --jackpot-glow: oklch(0.70 0.18 75);
+  --win-color: oklch(0.55 0.16 145);
+  --reel-bg: oklch(0.99 0.01 175);
+  --reel-border: oklch(0.55 0.14 70);
+  --reel-highlight: oklch(0.60 0.16 75);
+  --marquee-bg: linear-gradient(180deg, oklch(0.96 0.02 180) 0%, oklch(0.92 0.025 185) 100%);
+  --button-glow: oklch(0.60 0.18 70);
+  --spin-button-bg: linear-gradient(180deg, oklch(0.50 0.16 175) 0%, oklch(0.45 0.14 170) 100%);
+  --spin-button-glow: oklch(0.55 0.18 175);
+}
+
+/* Retro Arcade Theme - 90s Arcade Cabinet */
+[data-theme="retro"] {
+  --background: #07110A;
+  --foreground: #FFD54F;
+  --card: #101820;
+  --card-foreground: #00C8FF;
+  --popover: #1a1a1a;
+  --popover-foreground: #FFD54F;
+  --primary: #FFD54F;
+  --primary-foreground: #000000;
+  --secondary: #E53935;
+  --secondary-foreground: #FFD54F;
+  --muted: #2a3a2a;
+  --muted-foreground: #66BB6A;
+  --accent: #00C8FF;
+  --accent-foreground: #000000;
+  --destructive: #E53935;
+  --destructive-foreground: #FFD54F;
+  --border: #1B5E20;
+  --input: #0a1a0a;
+  --ring: #00C8FF;
+  --chart-1: #FFD54F;
+  --chart-2: #00C8FF;
+  --chart-3: #E53935;
+  --chart-4: #66BB6A;
+  --chart-5: #1B5E20;
+  
+  /* Arcade cabinet tokens */
+  --cabinet-bg: #000000;
+  --cabinet-border: #E53935;
+  --cabinet-inner: #101820;
+  --glow-color: #FFD54F;
+  --glow-secondary: #E53935;
+  --jackpot-color: #FFD54F;
+  --jackpot-glow: #FFD54F;
+  --win-color: #00C8FF;
+  --reel-bg: #000000;
+  --reel-border: #1B5E20;
+  --reel-highlight: #00C8FF;
+  --marquee-bg: linear-gradient(180deg, #0a1a0a 0%, #000000 100%);
+  --button-glow: #FFD54F;
+  --spin-button-bg: linear-gradient(180deg, #E53935 0%, #C62828 100%);
+  --spin-button-glow: #FFD54F;
+}
+
+@theme inline {
+  --font-sans: 'Geist', 'Geist Fallback', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback', monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  
+  /* Casino design tokens */
+  --color-cabinet-bg: var(--cabinet-bg);
+  --color-cabinet-border: var(--cabinet-border);
+  --color-cabinet-inner: var(--cabinet-inner);
+  --color-glow: var(--glow-color);
+  --color-glow-secondary: var(--glow-secondary);
+  --color-jackpot: var(--jackpot-color);
+  --color-jackpot-glow: var(--jackpot-glow);
+  --color-win: var(--win-color);
+  --color-reel-bg: var(--reel-bg);
+  --color-reel-border: var(--reel-border);
+  --color-reel-highlight: var(--reel-highlight);
+  --color-button-glow: var(--button-glow);
+  --color-spin-button-glow: var(--spin-button-glow);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* ===== CASINO ANIMATIONS ===== */
+
+/* Reel spin animation */
+@keyframes reel-spin {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-100%); }
+}
+
+/* Symbol landing bounce */
+@keyframes symbol-land {
+  0% { transform: scale(1) translateY(-20px); opacity: 0.5; }
+  60% { transform: scale(1.15) translateY(0); }
+  80% { transform: scale(0.95) translateY(0); }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* Win symbol pulse */
+@keyframes symbol-pulse {
+  0%, 100% { 
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% { 
+    transform: scale(1.1);
+    filter: brightness(1.3);
+  }
+}
+
+/* Glow pulse for borders and buttons */
+@keyframes glow-pulse {
+  0%, 100% { 
+    box-shadow: 0 0 15px var(--glow-color), 0 0 30px var(--glow-color), inset 0 0 10px rgba(255,255,255,0.1);
+    opacity: 1;
+  }
+  50% { 
+    box-shadow: 0 0 25px var(--glow-color), 0 0 50px var(--glow-color), inset 0 0 15px rgba(255,255,255,0.15);
+    opacity: 0.9;
+  }
+}
+
+/* Jackpot flash effect */
+@keyframes jackpot-flash {
+  0%, 100% { 
+    background: var(--spin-button-bg);
+    box-shadow: 0 0 20px var(--jackpot-glow);
+  }
+  50% { 
+    background: linear-gradient(180deg, var(--jackpot-color) 0%, var(--jackpot-glow) 100%);
+    box-shadow: 0 0 40px var(--jackpot-glow), 0 0 60px var(--jackpot-glow);
+  }
+}
+
+/* Payline animation */
+@keyframes payline-glow {
+  0%, 100% {
+    opacity: 0.4;
+    box-shadow: 0 0 10px var(--glow-color);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 20px var(--glow-color), 0 0 30px var(--glow-color);
+  }
+}
+
+/* Marquee scroll */
+@keyframes marquee-scroll {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+/* Win count up shimmer */
+@keyframes win-shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+/* Coin float animation */
+@keyframes coin-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(180deg); }
+}
+
+/* Shake for invalid actions */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
+}
+
+/* Bounce in for symbols */
+@keyframes bounce-in {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Cabinet light shimmer */
+@keyframes cabinet-shimmer {
+  0% { opacity: 0.3; }
+  50% { opacity: 0.6; }
+  100% { opacity: 0.3; }
+}
+
+/* Button ready pulse */
+@keyframes button-ready {
+  0%, 100% { 
+    transform: scale(1);
+    box-shadow: 0 4px 20px var(--spin-button-glow);
+  }
+  50% { 
+    transform: scale(1.02);
+    box-shadow: 0 6px 30px var(--spin-button-glow), 0 0 40px var(--spin-button-glow);
+  }
+}
+
+/* CRT scanlines overlay */
+@keyframes crt-scanlines {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(10px); }
+}
+
+/* Pixel explosion burst */
+@keyframes pixel-explosion {
+  0% { 
+    opacity: 1;
+    transform: scale(0.5);
+  }
+  100% { 
+    opacity: 0;
+    transform: scale(2.5) translateY(-50px);
+  }
+}
+
+/* Laser payline glow */
+@keyframes laser-flash {
+  0%, 100% { 
+    box-shadow: 0 0 10px #00C8FF, inset 0 0 10px #00C8FF;
+    opacity: 0.7;
+  }
+  50% { 
+    box-shadow: 0 0 25px #00C8FF, inset 0 0 15px #00C8FF, 0 0 40px #00C8FF;
+    opacity: 1;
+  }
+}
+
+/* Arcade button press */
+@keyframes arcade-press {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+/* Glitch effect */
+@keyframes glitch-effect {
+  0% { transform: translate(0); }
+  20% { transform: translate(-2px, 2px); }
+  40% { transform: translate(-2px, -2px); }
+  60% { transform: translate(2px, 2px); }
+  80% { transform: translate(2px, -2px); }
+  100% { transform: translate(0); }
+}
+
+/* ===== ANIMATION CLASSES ===== */
+
+.animate-reel-spin {
+  animation: reel-spin 0.1s linear infinite;
+}
+
+.animate-symbol-land {
+  animation: symbol-land 0.4s ease-out forwards;
+}
+
+.animate-symbol-pulse {
+  animation: symbol-pulse 0.6s ease-in-out infinite;
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+.animate-jackpot-flash {
+  animation: jackpot-flash 0.3s ease-in-out infinite;
+}
+
+.animate-payline-glow {
+  animation: payline-glow 1s ease-in-out infinite;
+}
+
+.animate-marquee {
+  animation: marquee-scroll 15s linear infinite;
+}
+
+.animate-win-shimmer {
+  background: linear-gradient(90deg, var(--glow-color) 0%, var(--glow-secondary) 50%, var(--glow-color) 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: win-shimmer 2s linear infinite;
+}
+
+.animate-coin-float {
+  animation: coin-float 3s ease-in-out infinite;
+}
+
+.animate-shake {
+  animation: shake 0.4s ease-in-out;
+}
+
+.animate-bounce-in {
+  animation: bounce-in 0.5s ease-out;
+}
+
+.animate-cabinet-shimmer {
+  animation: cabinet-shimmer 3s ease-in-out infinite;
+}
+
+.animate-button-ready {
+  animation: button-ready 1.5s ease-in-out infinite;
+}
+
+/* Arcade animation classes */
+.animate-crt-scanlines {
+  animation: crt-scanlines 0.15s linear infinite;
+}
+
+.animate-pixel-explosion {
+  animation: pixel-explosion 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-laser-flash {
+  animation: laser-flash 0.8s ease-in-out infinite;
+}
+
+.animate-arcade-press {
+  animation: arcade-press 0.15s ease-in-out;
+}
+
+.animate-glitch {
+  animation: glitch-effect 0.2s ease-in-out;
+}
+
+/* ===== CABINET STYLES ===== */
+
+.cabinet-frame {
+  background: var(--cabinet-bg);
+  border: 3px solid var(--cabinet-border);
+  box-shadow: 
+    0 0 30px rgba(0,0,0,0.5),
+    inset 0 0 60px rgba(0,0,0,0.3),
+    0 0 15px var(--glow-color);
+}
+
+.cabinet-inner {
+  background: var(--cabinet-inner);
+  border: 2px solid var(--cabinet-border);
+  box-shadow: inset 0 0 30px rgba(0,0,0,0.5);
+}
+
+.reel-window {
+  background: var(--reel-bg);
+  border: 2px solid var(--reel-border);
+  box-shadow: 
+    inset 0 0 20px rgba(0,0,0,0.8),
+    0 0 10px var(--glow-color);
+}
+
+.spin-button {
+  background: var(--spin-button-bg);
+  box-shadow: 
+    0 4px 20px var(--spin-button-glow),
+    inset 0 1px 0 rgba(255,255,255,0.2),
+    inset 0 -2px 0 rgba(0,0,0,0.2);
+}
+
+.spin-button:hover:not(:disabled) {
+  box-shadow: 
+    0 6px 30px var(--spin-button-glow),
+    0 0 40px var(--spin-button-glow),
+    inset 0 1px 0 rgba(255,255,255,0.3),
+    inset 0 -2px 0 rgba(0,0,0,0.2);
+}
+
+.spin-button:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 
+    0 2px 10px var(--spin-button-glow),
+    inset 0 2px 4px rgba(0,0,0,0.3);
+}
+
+/* Glass effect for panels */
+.glass-panel {
+  background: linear-gradient(
+    135deg,
+    rgba(255,255,255,0.08) 0%,
+    rgba(255,255,255,0.02) 100%
+  );
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+/* Neon text effect */
+.neon-text {
+  text-shadow: 
+    0 0 5px var(--glow-color),
+    0 0 10px var(--glow-color),
+    0 0 20px var(--glow-color);
+}
+
+/* Gold text effect */
+.gold-text {
+  background: linear-gradient(180deg, var(--glow-secondary) 0%, var(--glow-color) 50%, var(--glow-secondary) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}

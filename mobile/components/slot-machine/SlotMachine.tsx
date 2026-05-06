@@ -5,13 +5,14 @@ import Animated2, {
   useAnimatedStyle,
   withSpring,
   withTiming,
-  withSequence,
   Easing,
 } from 'react-native-reanimated'
 import { useKeepAwake } from 'expo-keep-awake'
 import Toast from 'react-native-toast-message'
+import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { useGame } from '@/lib/game-context'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { useReducedMotion } from '@/lib/use-reduced-motion'
 import { hexWithAlpha } from '@/theme/tokens'
 import { ControlDeck } from './ControlDeck'
 import { SpinSyncBanner } from './SpinSyncBanner'
@@ -23,6 +24,7 @@ import { WinDisplay } from './WinDisplay'
 
 export function SlotMachine() {
   const t = useCasinoTheme()
+  const reduceMotion = useReducedMotion()
   const {
     lastWin,
     lastWinType,
@@ -43,40 +45,43 @@ export function SlotMachine() {
   const dismissedSpinSeqRef = useRef(0)
   const bonusMeterToastSeqRef = useRef(-1)
   const cornerPulse = useRef(new Animated.Value(0.35)).current
-  const prevFreeSpinsRef = useRef(freeSpins)
+  const fsBurstSeqRef = useRef(-1)
+  const [fsBurstLabel, setFsBurstLabel] = useState('')
+  const fsBurstOpacity = useSharedValue(0)
+  const fsBurstScale = useSharedValue(0.94)
 
   // Keep screen on while game is active
   useKeepAwake()
 
-  // Free-spin banner slide-in
-  const fsBannerY = useSharedValue(-20)
-  const fsBannerOpacity = useSharedValue(0)
-  const fsBannerScale = useSharedValue(1)
-
+  /** Brief Free Spins award toast over reels when scatters grant spins (not persistent). */
   useEffect(() => {
-    if (freeSpins > 0 && prevFreeSpinsRef.current === 0) {
-      // Slide in
-      fsBannerY.value = -20
-      fsBannerOpacity.value = 0
-      fsBannerY.value = withSpring(0, { damping: 14, stiffness: 180 })
-      fsBannerOpacity.value = withTiming(1, { duration: 250 })
+    if (isSpinning) return
+    if (lastSpinFreeSpinsWon <= 0) return
+    if (fsBurstSeqRef.current === spinSequence) return
+    fsBurstSeqRef.current = spinSequence
+    setFsBurstLabel(
+      lastSpinFreeSpinsWon === 1 ? '1 Free Spin' : `${lastSpinFreeSpinsWon} Free Spins`,
+    )
+    const visibleMs = reduceMotion ? 650 : 1000
+    fsBurstOpacity.value = 0
+    fsBurstScale.value = 0.92
+    fsBurstOpacity.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.quad) })
+    fsBurstScale.value = withSpring(1, { damping: 15, stiffness: 220 })
+    const hide = setTimeout(() => {
+      fsBurstOpacity.value = withTiming(0, { duration: 320, easing: Easing.in(Easing.quad) })
+    }, visibleMs)
+    const clear = setTimeout(() => {
+      setFsBurstLabel('')
+    }, visibleMs + 360)
+    return () => {
+      clearTimeout(hide)
+      clearTimeout(clear)
     }
-    if (freeSpins < prevFreeSpinsRef.current && freeSpins > 0) {
-      // Pulse on decrement
-      fsBannerScale.value = withSequence(
-        withTiming(1.18, { duration: 120, easing: Easing.out(Easing.quad) }),
-        withTiming(1.0, { duration: 200 }),
-      )
-    }
-    if (freeSpins === 0 && prevFreeSpinsRef.current > 0) {
-      fsBannerOpacity.value = withTiming(0, { duration: 300 })
-    }
-    prevFreeSpinsRef.current = freeSpins
-  }, [freeSpins, fsBannerY, fsBannerOpacity, fsBannerScale])
+  }, [spinSequence, isSpinning, lastSpinFreeSpinsWon, reduceMotion, fsBurstOpacity, fsBurstScale])
 
-  const fsBannerStyle = useAnimatedStyle(() => ({
-    opacity: fsBannerOpacity.value,
-    transform: [{ translateY: fsBannerY.value }, { scale: fsBannerScale.value }],
+  const fsBurstStyle = useAnimatedStyle(() => ({
+    opacity: fsBurstOpacity.value,
+    transform: [{ scale: fsBurstScale.value }],
   }))
 
   useEffect(() => {
@@ -92,23 +97,27 @@ export function SlotMachine() {
   }, [spinSequence, isSpinning, lastBonusMeterPayout])
 
   useEffect(() => {
+    if (reduceMotion) {
+      cornerPulse.setValue(0.42)
+      return
+    }
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(cornerPulse, {
-          toValue: 0.95,
+          toValue: 0.52,
           duration: 1100,
           useNativeDriver: true,
         }),
         Animated.timing(cornerPulse, {
-          toValue: 0.28,
+          toValue: 0.18,
           duration: 1100,
           useNativeDriver: true,
         }),
-      ])
+      ]),
     )
     loop.start()
     return () => loop.stop()
-  }, [cornerPulse])
+  }, [cornerPulse, reduceMotion])
 
   useEffect(() => {
     if (spinSequence <= dismissedSpinSeqRef.current) return
@@ -152,14 +161,14 @@ export function SlotMachine() {
           style={[
             styles.cornerLight,
             styles.cornerTR,
-            { opacity: cornerPulse, backgroundColor: t.win },
+            { opacity: cornerPulse, backgroundColor: t.machineAccent },
           ]}
         />
         <Animated.View
           style={[
             styles.cornerLight,
             styles.cornerBL,
-            { opacity: cornerPulse, backgroundColor: t.win },
+            { opacity: cornerPulse, backgroundColor: t.machineAccent },
           ]}
         />
         <Animated.View
@@ -171,29 +180,68 @@ export function SlotMachine() {
         />
         <Marquee />
         <View style={styles.reelSection}>
-          <ReelGrid />
+          <ReelGrid linesModalOpen={showLinesModal} />
         </View>
-        <View style={styles.legend}>
-          <Text style={[styles.legendMeta, { color: t.textMuted }]}>9 active paylines</Text>
-          <View style={styles.legendBadges}>
-            <View style={[styles.symBadge, { borderColor: hexWithAlpha(t.primary, '88'), backgroundColor: hexWithAlpha(t.overlay, '33') }]}>
-              <Text style={[styles.symGlyph, { color: t.win }]}>W</Text>
-              <Text style={[styles.symLbl, { color: t.textMuted }]}>Wild</Text>
+        {fsBurstLabel ? (
+          <Animated2.View style={[styles.fsBurst, fsBurstStyle]} pointerEvents="none">
+            <View
+              style={[
+                styles.fsBurstInner,
+                {
+                  borderColor: hexWithAlpha(t.freeSpin, '88'),
+                  backgroundColor: hexWithAlpha(t.freeSpin, '22'),
+                },
+              ]}
+            >
+              <Text style={[styles.fsBurstTitle, { color: t.freeSpin }]}>Free Spins</Text>
+              <Text style={[styles.fsBurstSub, { color: t.textPrimary }]}>{fsBurstLabel}</Text>
             </View>
-            <View style={[styles.symBadge, { borderColor: hexWithAlpha(t.jackpot, '66'), backgroundColor: hexWithAlpha(t.overlay, '33') }]}>
-              <Text style={[styles.symGlyph, { color: t.jackpot }]}>S</Text>
-              <Text style={[styles.symLbl, { color: t.textMuted }]}>Scatter</Text>
+          </Animated2.View>
+        ) : null}
+        <View style={styles.legend}>
+          <Text style={[styles.legendMeta, { color: t.textMuted }]}>9 Paylines</Text>
+          <View style={styles.legendBadges}>
+            <View
+              style={[
+                styles.symBadge,
+                {
+                  borderColor: t.gold,
+                  backgroundColor: hexWithAlpha(t.gold, '32'),
+                },
+              ]}
+            >
+              <FontAwesome name="star" size={13} color={t.textPrimary} />
+              <Text style={[styles.symLbl, { color: t.textSecondary }]}>Wild</Text>
+            </View>
+            <View
+              style={[
+                styles.symBadge,
+                {
+                  borderColor: t.freeSpin,
+                  backgroundColor: hexWithAlpha(t.freeSpin, '26'),
+                },
+              ]}
+            >
+              <FontAwesome name="bullseye" size={13} color={t.textPrimary} />
+              <Text style={[styles.symLbl, { color: t.textSecondary }]}>Scatter</Text>
             </View>
           </View>
         </View>
-        {freeSpins > 0 ? (
-          <Animated2.View style={[styles.fsBanner, fsBannerStyle]}>
-            <Text style={[styles.fsText, { color: t.freeSpin, textShadowColor: t.shadow }]}>{freeSpins} FREE SPINS!</Text>
-          </Animated2.View>
-        ) : null}
         {isJackpotMode ? (
-          <View style={[styles.jackpotBadge, { backgroundColor: hexWithAlpha(t.overlay, 'AA') }]}>
-            <Text style={[styles.jackpotText, { color: t.jackpot }]}>JACKPOT MODE</Text>
+          <View
+            accessible
+            accessibilityRole="text"
+            accessibilityLabel="Jackpot Mode"
+            accessibilityHint="Sevens on the center row. Details in Paytable."
+            style={[
+              styles.jackpotBadge,
+              {
+                backgroundColor: hexWithAlpha(t.jackpot, '38'),
+                borderColor: hexWithAlpha(t.gold, '44'),
+              },
+            ]}
+          >
+            <Text style={[styles.jackpotText, { color: t.textPrimary }]}>Jackpot Mode</Text>
           </View>
         ) : null}
       </View>
@@ -247,12 +295,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 12,
   },
+  fsBurst: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    top: '38%',
+    alignItems: 'center',
+    zIndex: 3,
+  },
+  fsBurstInner: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  fsBurstTitle: { fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
+  fsBurstSub: { fontWeight: '800', fontSize: 17 },
   legend: {
     alignItems: 'center',
     paddingBottom: 10,
     gap: 8,
   },
-  legendMeta: { fontSize: 10, fontWeight: '700', letterSpacing: 0.4 },
+  legendMeta: { fontSize: 11, fontWeight: '600' },
   legendBadges: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   symBadge: {
     flexDirection: 'row',
@@ -263,29 +329,16 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
   },
-  symGlyph: { fontWeight: '900', fontSize: 13 },
-  symLbl: { fontWeight: '700', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.6 },
-  fsBanner: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: '42%',
-    alignItems: 'center',
-    pointerEvents: 'none',
-  },
-  fsText: {
-    fontWeight: '900',
-    fontSize: 18,
-    textShadowRadius: 6,
-    textShadowOffset: { width: 0, height: 1 },
-  },
+  symLbl: { fontWeight: '600', fontSize: 11 },
   jackpotBadge: {
     position: 'absolute',
     top: 8,
     right: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    zIndex: 3,
   },
-  jackpotText: { fontWeight: '900', fontSize: 11 },
+  jackpotText: { fontWeight: '700', fontSize: 11 },
 })

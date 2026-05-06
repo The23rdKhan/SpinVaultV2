@@ -178,8 +178,8 @@ export const ALL_VANITY_ITEMS: VanityItem[] = [
 // Trophy definitions
 export const TROPHY_DEFINITIONS: Omit<Trophy, "unlocked" | "unlockedAt">[] = [
   { id: "trophy-first-big", name: "First Big Win", description: "Hit your first Big Win (5x+)", icon: "star" },
-  { id: "trophy-first-mega", name: "First Mega Win", description: "Hit your first Mega Win (10x+)", icon: "zap" },
-  { id: "trophy-first-jackpot", name: "Jackpot!", description: "Hit your first Jackpot (25x+)", icon: "crown" },
+  { id: "trophy-first-mega", name: "First Jackpot", description: "Hit your first Jackpot (10x+)", icon: "zap" },
+  { id: "trophy-first-jackpot", name: "First Mega Jackpot", description: "Hit your first Mega Jackpot (25x+)", icon: "crown" },
   { id: "trophy-million", name: "Million Coin Club", description: "Collect 1,000,000 virtual coins total", icon: "coins" },
   { id: "trophy-themes", name: "Theme Collector", description: "Own all three themes", icon: "palette" },
   { id: "trophy-streak7", name: "Weekly Dedication", description: "Maintain a 7-day login streak", icon: "flame" },

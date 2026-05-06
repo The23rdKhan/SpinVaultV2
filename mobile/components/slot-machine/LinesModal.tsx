@@ -1,9 +1,11 @@
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useState } from 'react'
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
 import Svg, { Circle, Polyline, Rect } from 'react-native-svg'
 import { BlurView } from 'expo-blur'
 import { hexWithAlpha } from '@/theme/tokens'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { AppButton } from '@/components/ui/AppButton'
+import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { paylineAccentColors } from './payline-accent-colors'
 
 interface Props {
@@ -36,44 +38,42 @@ const LINE_LABELS = [
   'Bottom bump',
 ]
 
+// Large grid constants for the paginated hero view
+const CELL = 28
+const GAP = 6
+const PAD = 10
 const COLS = 5
 const ROWS = 3
-const CELL = 14
-const GAP = 3
-const PAD = 6
 
-function gridWidth() {
+function gridW() {
   return PAD * 2 + COLS * CELL + (COLS - 1) * GAP
 }
-function gridHeight() {
+function gridH() {
   return PAD * 2 + ROWS * CELL + (ROWS - 1) * GAP
 }
-
 function cx(col: number) {
   return PAD + col * (CELL + GAP) + CELL / 2
 }
 function cy(row: number) {
   return PAD + row * (CELL + GAP) + CELL / 2
 }
-
 function paylinePoints(payline: number[]) {
   return payline.map((row, col) => `${cx(col)},${cy(row)}`).join(' ')
 }
 
-interface MiniGridProps {
+interface LargeGridProps {
   payline: number[]
   color: string
   inactiveFill: string
   inactiveStroke: string
 }
 
-function MiniGrid({ payline, color, inactiveFill, inactiveStroke }: MiniGridProps) {
-  const W = gridWidth()
-  const H = gridHeight()
+function LargeGrid({ payline, color, inactiveFill, inactiveStroke }: LargeGridProps) {
+  const W = gridW()
+  const H = gridH()
 
   return (
     <Svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
-      {/* Background cells */}
       {Array.from({ length: COLS }, (_, col) =>
         Array.from({ length: ROWS }, (_, row) => {
           const isActive = payline[col] === row
@@ -84,32 +84,25 @@ function MiniGrid({ payline, color, inactiveFill, inactiveStroke }: MiniGridProp
               y={PAD + row * (CELL + GAP)}
               width={CELL}
               height={CELL}
-              rx={3}
-              fill={isActive ? hexWithAlpha(color, '33') : inactiveFill}
+              rx={5}
+              fill={isActive ? hexWithAlpha(color, '2E') : inactiveFill}
               stroke={isActive ? color : inactiveStroke}
-              strokeWidth={isActive ? 1.5 : 0.5}
+              strokeWidth={isActive ? 2 : 0.8}
             />
           )
         }),
       )}
-      {/* Payline path */}
       <Polyline
         points={paylinePoints(payline)}
         stroke={color}
-        strokeWidth={2}
+        strokeWidth={3}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
+        opacity={0.9}
       />
-      {/* Dots on active cells */}
       {payline.map((row, col) => (
-        <Circle
-          key={col}
-          cx={cx(col)}
-          cy={cy(row)}
-          r={3}
-          fill={color}
-        />
+        <Circle key={col} cx={cx(col)} cy={cy(row)} r={5} fill={color} />
       ))}
     </Svg>
   )
@@ -117,9 +110,17 @@ function MiniGrid({ payline, color, inactiveFill, inactiveStroke }: MiniGridProp
 
 export function LinesModal({ open, onClose }: Props) {
   const t = useCasinoTheme()
+  const [current, setCurrent] = useState(0)
   const lineColors = paylineAccentColors(t)
-  const inactiveFill = hexWithAlpha(t.textMuted, '22')
-  const inactiveStroke = hexWithAlpha(t.border, 'CC')
+
+  const inactiveFill = hexWithAlpha(t.textMuted, '18')
+  const inactiveStroke = hexWithAlpha(t.border, 'BB')
+
+  const color = lineColors[current] ?? t.primary
+  const label = LINE_LABELS[current] ?? ''
+
+  const goPrev = () => setCurrent((c) => (c === 0 ? PAYLINES.length - 1 : c - 1))
+  const goNext = () => setCurrent((c) => (c === PAYLINES.length - 1 ? 0 : c + 1))
 
   return (
     <Modal visible={open} animationType="slide" transparent onRequestClose={onClose}>
@@ -136,38 +137,83 @@ export function LinesModal({ open, onClose }: Props) {
           style={[styles.sheet, { backgroundColor: t.surfaceElevated, borderColor: t.border }]}
           onPress={(e) => e.stopPropagation()}
         >
-          <Text style={[styles.title, { color: t.textPrimary }]}>9 Paylines</Text>
+          {/* Header */}
+          <Text style={[styles.title, { color: t.textPrimary }]}>Paylines</Text>
           <Text style={[styles.sub, { color: t.textSecondary }]}>
-            Matches count left-to-right on active lines. Wild substitutes for any regular symbol.
+            Match 3 or more symbols left-to-right on an active payline to win.{'\n'}Wild substitutes for any regular symbol.
           </Text>
-          <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-            {PAYLINES.map((payline, i) => (
-              <View
-                key={i}
-                style={[styles.row, { borderColor: t.border }]}
-              >
-                <View
-                  style={[
-                    styles.badge,
-                    {
-                      backgroundColor: hexWithAlpha(lineColors[i], '22'),
-                      borderColor: lineColors[i],
-                    },
-                  ]}
-                >
-                  <Text style={[styles.badgeNum, { color: lineColors[i] }]}>{i + 1}</Text>
+
+          {/* Paginated viewer */}
+          <View style={styles.viewer}>
+            {/* Prev button */}
+            <Pressable
+              onPress={goPrev}
+              style={({ pressed }) => [
+                styles.navBtn,
+                { borderColor: t.border, backgroundColor: pressed ? hexWithAlpha(t.primary, '18') : t.card },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Previous payline"
+            >
+              <FontAwesome name="chevron-left" size={14} color={t.textSecondary} />
+            </Pressable>
+
+            {/* Center: line name + grid */}
+            <View style={styles.gridArea}>
+              <View style={styles.lineNameRow}>
+                <View style={[styles.lineBadge, { backgroundColor: hexWithAlpha(color, '22'), borderColor: color }]}>
+                  <Text style={[styles.lineBadgeNum, { color }]}>{current + 1}</Text>
                 </View>
-                <MiniGrid
-                  payline={payline}
-                  color={lineColors[i]}
+                <View>
+                  <Text style={[styles.lineName, { color }]}>Line {current + 1}</Text>
+                  <Text style={[styles.lineDesc, { color: t.textMuted }]}>{label}</Text>
+                </View>
+              </View>
+
+              <View style={[styles.gridCard, { backgroundColor: hexWithAlpha(t.card, 'EE'), borderColor: t.border }]}>
+                <LargeGrid
+                  payline={PAYLINES[current] ?? [1, 1, 1, 1, 1]}
+                  color={color}
                   inactiveFill={inactiveFill}
                   inactiveStroke={inactiveStroke}
                 />
-                <Text style={[styles.label, { color: t.textPrimary }]}>{LINE_LABELS[i]}</Text>
               </View>
+            </View>
+
+            {/* Next button */}
+            <Pressable
+              onPress={goNext}
+              style={({ pressed }) => [
+                styles.navBtn,
+                { borderColor: t.border, backgroundColor: pressed ? hexWithAlpha(t.primary, '18') : t.card },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Next payline"
+            >
+              <FontAwesome name="chevron-right" size={14} color={t.textSecondary} />
+            </Pressable>
+          </View>
+
+          {/* Dot pagination */}
+          <View style={styles.dots}>
+            {PAYLINES.map((_, i) => (
+              <Pressable
+                key={i}
+                onPress={() => setCurrent(i)}
+                style={[
+                  styles.dot,
+                  {
+                    backgroundColor: i === current ? lineColors[i] ?? t.primary : hexWithAlpha(t.textMuted, '40'),
+                    transform: [{ scale: i === current ? 1.3 : 1 }],
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={`Go to payline ${i + 1}`}
+              />
             ))}
-          </ScrollView>
-          <AppButton label="Close" onPress={onClose} style={{ marginTop: 12 }} />
+          </View>
+
+          <AppButton label="Close" onPress={onClose} style={{ marginTop: 16 }} />
         </Pressable>
       </Pressable>
     </Modal>
@@ -183,28 +229,67 @@ const styles = StyleSheet.create({
   sheet: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    padding: 20,
+    padding: 22,
     borderWidth: 1,
-    maxHeight: '82%',
   },
   title: { fontSize: 22, fontWeight: '900' },
-  sub: { marginTop: 6, marginBottom: 16, lineHeight: 20, fontSize: 13 },
-  scroll: { flexGrow: 0 },
-  row: {
+  sub: { marginTop: 6, marginBottom: 20, lineHeight: 20, fontSize: 13 },
+
+  // Paginated viewer
+  viewer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 18,
   },
-  badge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1.5,
+  navBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeNum: { fontSize: 12, fontWeight: '900' },
-  label: { flex: 1, fontWeight: '600', fontSize: 13 },
+  gridArea: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 12,
+  },
+  lineNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  lineBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lineBadgeNum: { fontSize: 14, fontWeight: '900' },
+  lineName: { fontSize: 18, fontWeight: '900' },
+  lineDesc: { fontSize: 12, fontWeight: '500', marginTop: 1 },
+  gridCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Dot nav
+  dots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 7,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
 })

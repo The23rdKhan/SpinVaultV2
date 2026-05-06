@@ -1,23 +1,34 @@
 import { useEffect, useRef, useState } from 'react'
 import { StyleSheet, View } from 'react-native'
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  runOnJS,
-} from 'react-native-reanimated'
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated'
 import { useGame, SYMBOLS, type ReelGrid as ReelGridType } from '@/lib/game-context'
+import type { WinType } from '@shared/slot/evaluate-spin'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { useReducedMotion } from '@/lib/use-reduced-motion'
 import { SlotSymbolView } from './SlotSymbol'
 import { PaylineOverlay } from './PaylineOverlay'
 import { useHaptics } from '@/lib/use-haptics'
 
 interface ReelGridProps {
   onSpinComplete?: () => void
+  /** When true, show the center row guide (e.g. while the Lines sheet is open). */
+  linesModalOpen?: boolean
 }
 
 const NUM_COLS = 5
 const SETTLE_PX = 6 // px overshoot on land
+
+/** Stagger delay per column for winning symbol pulse, in ms. */
+const COL_STAGGER_MS = 80
+
+/** Cell border/shadow escalation per win tier — mirrors SlotSymbol TIER_PULSE intensity. */
+interface CellTier { shadowOpacity: number; shadowRadius: number; elevation: number }
+const CELL_TIER: Record<Exclude<WinType, 'none'>, CellTier> = {
+  normal:  { shadowOpacity: 0.45, shadowRadius: 6,  elevation: 3  },
+  bigWin:  { shadowOpacity: 0.62, shadowRadius: 10, elevation: 5  },
+  megaWin: { shadowOpacity: 0.78, shadowRadius: 16, elevation: 8  },
+  jackpot: { shadowOpacity: 0.92, shadowRadius: 22, elevation: 12 },
+}
 
 function ReelColumn({
   colIndex,
@@ -25,25 +36,40 @@ function ReelColumn({
   isSpinning: colSpinning,
   winningPositions,
   settleSignal,
+  winTier,
+  tierAccent,
 }: {
   colIndex: number
   column: ReelGridType[number]
   isSpinning: boolean
   winningPositions: Set<string>
   settleSignal: number
+  /** Win tier of the last resolved spin — used to escalate cell glow and symbol pulse. */
+  winTier: Exclude<WinType, 'none'>
+  /** Resolved accent color matching the win tier (gold/jackpot/primary/win). */
+  tierAccent: string
 }) {
   const t = useCasinoTheme()
+  const reduceMotion = useReducedMotion()
   const translateY = useSharedValue(0)
 
   useEffect(() => {
     if (settleSignal === 0) return
+    if (reduceMotion) {
+      // Snap directly to 0 without spring — respects reduced motion preference
+      translateY.value = withTiming(0, { duration: 0 })
+      return
+    }
     translateY.value = SETTLE_PX
     translateY.value = withSpring(0, { damping: 10, stiffness: 220, mass: 0.6 })
-  }, [settleSignal, translateY])
+  }, [settleSignal, translateY, reduceMotion])
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
   }))
+
+  const columnDelay = colIndex * COL_STAGGER_MS
+  const cellTier = CELL_TIER[winTier]
 
   return (
     <Animated.View style={[styles.col, animStyle]}>
@@ -57,15 +83,21 @@ function ReelColumn({
               styles.cell,
               { borderColor: t.border },
               isWin && {
-                borderColor: t.machineAccent,
-                shadowColor: t.machineAccent,
-                shadowOpacity: 0.55,
-                shadowRadius: 8,
-                elevation: 4,
+                borderColor: tierAccent,
+                shadowColor: tierAccent,
+                shadowOpacity: cellTier.shadowOpacity,
+                shadowRadius: cellTier.shadowRadius,
+                elevation: cellTier.elevation,
               },
             ]}
           >
-            <SlotSymbolView symbol={symbol} isWinning={isWin} isSpinning={colSpinning} />
+            <SlotSymbolView
+              symbol={symbol}
+              isWinning={isWin}
+              isSpinning={colSpinning}
+              columnDelay={isWin ? columnDelay : 0}
+              winTier={isWin ? winTier : undefined}
+            />
           </View>
         )
       })}
@@ -73,10 +105,24 @@ function ReelColumn({
   )
 }
 
-export function ReelGrid({ onSpinComplete }: ReelGridProps) {
+export function ReelGrid({ onSpinComplete, linesModalOpen = false }: ReelGridProps) {
   const t = useCasinoTheme()
-  const { reelGrid, isSpinning, reelsLocked, winningPositions, winningLines, stopSpin } = useGame()
-  const { reelStop } = useHaptics()
+  const { reelGrid, isSpinning, reelsLocked, winningPositions, winningLines, stopSpin, lastWinType } = useGame()
+
+  // Resolve the effective win tier (default to 'normal' when no win or type is 'none').
+  const activeTier: Exclude<WinType, 'none'> =
+    lastWinType === 'none' || lastWinType == null ? 'normal' : lastWinType
+
+  // Accent color for cell borders and shadows, matched to the win tier.
+  const tierAccent =
+    activeTier === 'jackpot' ? t.gold
+    : activeTier === 'megaWin' ? t.jackpot
+    : activeTier === 'bigWin'  ? t.primary
+    : t.win
+
+  const showCenterPaylineGuide =
+    !isSpinning && (linesModalOpen || winningLines.length > 0)
+  const { reelStop, reelStopFinal } = useHaptics()
 
   // Stable ref so the last-column stop timeout always calls the current callback
   const onSpinCompleteRef = useRef(onSpinComplete)
@@ -136,8 +182,11 @@ export function ReelGrid({ onSpinComplete }: ReelGridProps) {
         setSettleSignals((prev) => {
           const next = [...prev]; next[col] = prev[col] + 1; return next
         })
-        // Haptic for each reel landing
-        reelStop()
+        if (col === NUM_COLS - 1) {
+          reelStopFinal()
+        } else {
+          reelStop()
+        }
 
         if (col === NUM_COLS - 1) {
           auxTimeouts.push(
@@ -160,7 +209,9 @@ export function ReelGrid({ onSpinComplete }: ReelGridProps) {
         if (to) clearTimeout(to); spinTimeoutRefs.current[i] = null
       })
     }
-  }, [isSpinning, stopSpin, reelStop])
+  // reelStopFinal is included because it closes over hapticsEnabled — omitting
+  // it would cause a stale closure if haptics are toggled while reels are spinning.
+  }, [isSpinning, stopSpin, reelStop, reelStopFinal])
 
   useEffect(() => {
     if (!isSpinning) setDisplayGrid(reelGrid)
@@ -182,7 +233,9 @@ export function ReelGrid({ onSpinComplete }: ReelGridProps) {
   return (
     <View style={styles.wrap}>
       <View style={[styles.inner, { backgroundColor: t.reelBg, borderColor: t.reelBorder }]}>
-        <View style={[styles.payline, { backgroundColor: t.machineAccent }]} />
+        {showCenterPaylineGuide ? (
+          <View style={[styles.payline, { backgroundColor: t.machineAccent }]} />
+        ) : null}
         <View style={styles.grid}>
           {displayGrid.map((column, colIndex) => (
             <ReelColumn
@@ -192,6 +245,8 @@ export function ReelGrid({ onSpinComplete }: ReelGridProps) {
               isSpinning={spinningReels[colIndex]}
               winningPositions={winningPositions}
               settleSignal={settleSignals[colIndex]}
+              winTier={activeTier}
+              tierAccent={tierAccent}
             />
           ))}
         </View>

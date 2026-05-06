@@ -12,6 +12,7 @@ import { router } from 'expo-router'
 import { routes } from '@/lib/app-routes'
 import { useAuth } from '@/lib/auth-context'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { APP_NAME } from '@shared/brand'
 import { AppleSignInButton } from '@/components/apple-sign-in-button'
 import { GoogleSignInButton } from '@/components/social-auth-buttons/google/google-sign-in-button'
 import { AppButton } from '@/components/ui/AppButton'
@@ -67,7 +68,7 @@ export function LoginScreen() {
           ]}
         >
           <Text style={[styles.brandKicker, { color: t.textMuted }]} accessibilityRole="text">
-            SpinVault
+            {APP_NAME}
           </Text>
           <Text style={[styles.hero, { color: t.textPrimary }]} accessibilityRole="header">
             Welcome back

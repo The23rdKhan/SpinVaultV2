@@ -1,45 +1,157 @@
 import { memo, useEffect } from 'react'
-import { StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
   withSequence,
   withTiming,
+  withDelay,
   withSpring,
   cancelAnimation,
   Easing,
 } from 'react-native-reanimated'
+import FontAwesome from '@expo/vector-icons/FontAwesome'
 import type { SlotSymbol as SlotSymbolType } from '@/lib/game-context'
+import type { WinType } from '@shared/slot/evaluate-spin'
 import { hexWithAlpha } from '@/theme/tokens'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { useReducedMotion } from '@/lib/use-reduced-motion'
+
+// ---------------------------------------------------------------------------
+// Per-tier pulse configuration
+//
+// Every property escalates from Normal → Big Win → Mega Win → Jackpot so
+// that players feel the win intensity through the symbols themselves, not
+// just through the overlay modal.
+//
+//  glowHigh / glowLow   — ring opacity range; wider contrast = more drama
+//  scalePeak            — max scale on each pulse beat
+//  pulseDurationMs      — half-cycle duration; shorter = faster/more frantic
+//  cycles               — how many full beats before the symbol settles
+//  ringSize             — outer glow ring diameter in logical pixels
+//  ringBorderWidth      — ring stroke width
+//  ringShadowRadius     — ring shadow spread
+// ---------------------------------------------------------------------------
+interface TierPulse {
+  glowHigh: number
+  glowLow: number
+  scalePeak: number
+  pulseDurationMs: number
+  cycles: number
+  ringSize: number
+  ringBorderWidth: number
+  ringShadowRadius: number
+}
+
+const TIER_PULSE: Record<Exclude<WinType, 'none'>, TierPulse> = {
+  normal: {
+    glowHigh: 0.85, glowLow: 0.35,
+    scalePeak: 1.22, pulseDurationMs: 200, cycles: 5,
+    ringSize: 52, ringBorderWidth: 2,   ringShadowRadius: 10,
+  },
+  bigWin: {
+    glowHigh: 0.92, glowLow: 0.22,
+    scalePeak: 1.30, pulseDurationMs: 175, cycles: 5,
+    ringSize: 56, ringBorderWidth: 2.5, ringShadowRadius: 15,
+  },
+  megaWin: {
+    glowHigh: 0.97, glowLow: 0.12,
+    scalePeak: 1.38, pulseDurationMs: 145, cycles: 6,
+    ringSize: 63, ringBorderWidth: 3,   ringShadowRadius: 22,
+  },
+  jackpot: {
+    glowHigh: 1.0,  glowLow: 0.05,
+    scalePeak: 1.46, pulseDurationMs: 115, cycles: 7,
+    ringSize: 70, ringBorderWidth: 3.5, ringShadowRadius: 30,
+  },
+}
 
 interface Props {
   symbol: SlotSymbolType
   isWinning?: boolean
   isSpinning?: boolean
+  /**
+   * Stagger delay in ms before the winning pulse starts.
+   * Pass `colIndex * 80` from ReelGrid to stagger by column.
+   */
+  columnDelay?: number
+  /**
+   * Win tier for this symbol — drives glow intensity, ring size, and pulse speed.
+   * Defaults to 'normal' when omitted.
+   */
+  winTier?: Exclude<WinType, 'none'>
 }
 
-function SlotSymbolInner({ symbol, isWinning, isSpinning }: Props) {
+function SlotSymbolInner({
+  symbol,
+  isWinning,
+  isSpinning,
+  columnDelay = 0,
+  winTier = 'normal',
+}: Props) {
   const t = useCasinoTheme()
+  const reduceMotion = useReducedMotion()
   const scale = useSharedValue(1)
   const opacity = useSharedValue(1)
+  const glowOpacity = useSharedValue(0)
+
+  // Derive tier config once per render — avoids the double lookup that existed
+  // when the effect body AND JSX both independently called TIER_PULSE[winTier].
+  const tier = TIER_PULSE[winTier]
 
   useEffect(() => {
     if (isWinning) {
-      scale.value = withRepeat(
-        withSequence(
-          withTiming(1.22, { duration: 200, easing: Easing.out(Easing.quad) }),
-          withTiming(1.0, { duration: 200, easing: Easing.in(Easing.quad) }),
-        ),
-        -1,
-        false,
-      )
+      if (reduceMotion) {
+        // Single non-repeating bump — cancel any in-progress animation first
+        // so there's no glitch if this fires mid-cycle.
+        cancelAnimation(scale)
+        cancelAnimation(glowOpacity)
+        glowOpacity.value = tier.glowHigh
+        scale.value = withSequence(
+          withTiming(tier.scalePeak * 0.72, { duration: 160, easing: Easing.out(Easing.quad) }),
+          withTiming(1.0,                   { duration: 200, easing: Easing.out(Easing.quad) }),
+        )
+      } else {
+        // Finite repeating pulse: tier.cycles beats then the value settles at
+        // whatever the last frame of withRepeat leaves it (glowLow / 1.0).
+        glowOpacity.value = withDelay(
+          columnDelay,
+          withRepeat(
+            withSequence(
+              withTiming(tier.glowHigh, { duration: tier.pulseDurationMs, easing: Easing.out(Easing.quad) }),
+              withTiming(tier.glowLow,  { duration: tier.pulseDurationMs, easing: Easing.in(Easing.quad) }),
+            ),
+            tier.cycles,
+            false,
+          ),
+        )
+        scale.value = withDelay(
+          columnDelay,
+          withRepeat(
+            withSequence(
+              withTiming(tier.scalePeak, { duration: tier.pulseDurationMs, easing: Easing.out(Easing.quad) }),
+              withTiming(1.0,            { duration: tier.pulseDurationMs, easing: Easing.in(Easing.quad) }),
+            ),
+            tier.cycles,
+            false,
+          ),
+        )
+      }
     } else {
       cancelAnimation(scale)
+      cancelAnimation(glowOpacity)
+      glowOpacity.value = withTiming(0, { duration: 200 })
       scale.value = withSpring(1, { damping: 14, stiffness: 180 })
     }
-  }, [isWinning, scale])
+
+    // Cancel in-flight animations if the component unmounts or deps change
+    // mid-cycle. Without this, Reanimated can write to a disposed shared value.
+    return () => {
+      cancelAnimation(scale)
+      cancelAnimation(glowOpacity)
+    }
+  }, [isWinning, reduceMotion, columnDelay, winTier, tier, scale, glowOpacity])
 
   useEffect(() => {
     opacity.value = isSpinning ? 0.75 : 1
@@ -50,64 +162,134 @@ function SlotSymbolInner({ symbol, isWinning, isSpinning }: Props) {
     opacity: opacity.value,
   }))
 
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+  }))
+
+  // Ring color — Wild and Scatter use dedicated theme tokens; regular symbols
+  // use gold for Lucky Seven, win-green for everything else.
+  // Note: `isWinning` guard is not needed here because glowRingStyle is only
+  // rendered when isWinning is true (see JSX below).
+  const ringColor = symbol.isWild
+    ? t.win
+    : symbol.isScatter
+      ? t.freeSpin
+      : symbol.id === 'seven'
+        ? t.gold
+        : t.win
+
+  // Ring dimensions are tier-driven and only allocated when the symbol is
+  // actually winning, so this object is null (no allocation) during idle play.
+  const glowRingStyle = isWinning
+    ? {
+        width:         tier.ringSize,
+        height:        tier.ringSize,
+        borderRadius:  tier.ringSize / 2,
+        borderWidth:   tier.ringBorderWidth,
+        borderColor:   ringColor,
+        shadowColor:   ringColor,
+        shadowRadius:  tier.ringShadowRadius,
+        shadowOpacity: 0.85,
+        shadowOffset:  { width: 0, height: 0 },
+      }
+    : null
+
   if (symbol.isWild) {
     return (
-      <Animated.View style={[styles.badge, { backgroundColor: t.win }, animStyle]}>
-        <Text style={[styles.badgeText, { color: t.primaryForeground }]}>W</Text>
-      </Animated.View>
-    )
-  }
-  if (symbol.isScatter) {
-    return (
-      <Animated.View
-        style={[
-          styles.scatter,
-          {
-            borderColor: t.jackpot,
-            backgroundColor: hexWithAlpha(t.jackpot, '33'),
-          },
-          animStyle,
-        ]}
-      >
-        <Text style={[styles.scatterText, { color: t.jackpot }]}>S</Text>
-      </Animated.View>
+      <View style={styles.symbolWrap}>
+        {isWinning && glowRingStyle ? (
+          <Animated.View
+            style={[styles.glowRing, glowRingStyle, glowStyle]}
+            pointerEvents="none"
+          />
+        ) : null}
+        <Animated.View
+          style={[
+            styles.chip,
+            { borderColor: t.gold, backgroundColor: hexWithAlpha(t.gold, '35') },
+            isWinning && { borderColor: t.win, backgroundColor: hexWithAlpha(t.win, '35') },
+            animStyle,
+          ]}
+        >
+          <FontAwesome name="star" size={18} color={t.textPrimary} />
+        </Animated.View>
+      </View>
     )
   }
 
+  if (symbol.isScatter) {
+    return (
+      <View style={styles.symbolWrap}>
+        {isWinning && glowRingStyle ? (
+          <Animated.View
+            style={[styles.glowRing, glowRingStyle, glowStyle]}
+            pointerEvents="none"
+          />
+        ) : null}
+        <Animated.View
+          style={[
+            styles.chip,
+            styles.scatterChip,
+            { borderColor: t.freeSpin, backgroundColor: hexWithAlpha(t.freeSpin, '30') },
+            animStyle,
+          ]}
+        >
+          <FontAwesome name="bullseye" size={17} color={t.textPrimary} />
+        </Animated.View>
+      </View>
+    )
+  }
+
+  const isSeven = symbol.id === 'seven'
+
   return (
-    <Animated.Text
-      style={[
-        styles.emoji,
-        { color: t.textPrimary },
-        isWinning && { color: t.win, fontWeight: '900' },
-        animStyle,
-      ]}
-    >
-      {symbol.emoji}
-    </Animated.Text>
+    <View style={styles.symbolWrap}>
+      {isWinning && glowRingStyle ? (
+        <Animated.View
+          style={[styles.glowRing, glowRingStyle, glowStyle]}
+          pointerEvents="none"
+        />
+      ) : null}
+      <Animated.Text
+        style={[
+          styles.emoji,
+          { color: isSeven ? t.destructive : t.textPrimary },
+          isSeven && { fontWeight: '900' },
+          isWinning && { color: isSeven ? t.gold : t.win, fontWeight: '900' },
+          animStyle,
+        ]}
+      >
+        {symbol.emoji}
+      </Animated.Text>
+    </View>
   )
 }
 
 export const SlotSymbolView = memo(SlotSymbolInner)
 
 const styles = StyleSheet.create({
+  symbolWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   emoji: {
     fontSize: 28,
     textAlign: 'center',
   },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  badgeText: { fontWeight: '900', fontSize: 14 },
-  scatter: {
-    width: 36,
-    height: 36,
-    borderRadius: 6,
-    borderWidth: 2,
+  chip: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scatterText: { fontWeight: '900', fontSize: 14 },
+  scatterChip: {
+    borderWidth: 2,
+  },
+  // Base positioning only — tier-specific size, border, and shadow are applied
+  // as inline overrides so the static StyleSheet isn't thrashed per-tier.
+  glowRing: {
+    position: 'absolute',
+  },
 })

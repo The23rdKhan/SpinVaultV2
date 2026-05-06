@@ -56,7 +56,7 @@ export function FreeSpinsWallet() {
             <FontAwesome name="star" size={22} color={active ? t.primaryForeground : t.textMuted} />
           </View>
           <View>
-            <Text style={[styles.title, { color: t.textPrimary }]}>Free spins</Text>
+            <Text style={[styles.title, { color: t.textPrimary }]}>Free Spins</Text>
             <Text style={[styles.sub, { color: t.textSecondary }]}>
               {active ? 'Ready to use!' : 'Win from Scatters'}
             </Text>
@@ -79,7 +79,7 @@ export function FreeSpinsWallet() {
       </View>
       <View style={[styles.footer, { borderTopColor: t.border }]}>
         <Text style={[styles.hint, { color: t.textMuted }]}>
-          Land 3+ Scatter symbols to unlock 10 free spins. Free spins use your current spin amount without
+          Land 3+ Scatter symbols to unlock 10 Free Spins. Free Spins use your current bet without
           deducting virtual coins.
         </Text>
       </View>

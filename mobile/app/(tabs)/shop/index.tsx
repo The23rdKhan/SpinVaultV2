@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import {
+  Alert,
   Image,
   Modal,
   Pressable,
@@ -85,6 +86,7 @@ export default function ShopScreen() {
     equipVanityItem,
     userVanity,
     resyncWalletFromServer,
+    recordIapSpend,
   } = useGame()
   const [tab, setTab] = useState<VanityCategory>('avatar')
   /** Which IAP row is running (`product id` or starter sentinel); blocks parallel StoreKit flows. */
@@ -111,6 +113,23 @@ export default function ShopScreen() {
 
   const onCoinPack = (pack: ShopCoinPackRow) => {
     if (iapBusyKey) return
+    // Show a confirmation dialog for higher-value packs before invoking the store purchase sheet.
+    if (pack.priceUsd > 4.99) {
+      const displayPrice = priceLabelForSku(pack.id, pack.priceLabelFallback)
+      Alert.alert(
+        'Confirm purchase',
+        `You are about to purchase ${pack.title} for ${displayPrice}.\n\nVirtual coins have no cash value and cannot be refunded.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: `Buy — ${displayPrice}`, onPress: () => doCoinPackPurchase(pack) },
+        ],
+      )
+      return
+    }
+    doCoinPackPurchase(pack)
+  }
+
+  const doCoinPackPurchase = (pack: ShopCoinPackRow) => {
     void (async () => {
       if (!(await isReachable())) {
         Toast.show({
@@ -129,6 +148,7 @@ export default function ShopScreen() {
         const r = await purchaseConsumableSku(pack.id)
         if (r.ok) {
           await resyncWalletFromServer()
+          recordIapSpend(pack.priceUsd)
           track(AnalyticsEvents.PURCHASE_COMPLETED, {
             product_id: pack.id,
             kind: pack.kind,
@@ -147,6 +167,7 @@ export default function ShopScreen() {
           if (pack.freeSpins > 0) {
             addFreeSpins(pack.freeSpins)
           }
+          recordIapSpend(pack.priceUsd)
           track(AnalyticsEvents.PURCHASE_COMPLETED, {
             product_id: pack.id,
             kind: pack.kind,
@@ -201,6 +222,7 @@ export default function ShopScreen() {
         const r = await purchaseConsumableSku(STARTER_BUNDLE_SKU)
         if (r.ok) {
           await resyncWalletFromServer()
+          recordIapSpend(parseFloat(STARTER_BUNDLE_PRICE_FALLBACK.replace('$', '')))
           grantStarterBundleCosmetics()
           track(AnalyticsEvents.PURCHASE_COMPLETED, {
             product_id: STARTER_BUNDLE_SKU,
@@ -218,6 +240,7 @@ export default function ShopScreen() {
             label: 'Starter pack',
           })
           addFreeSpins(STARTER_BUNDLE_GRANT.freeSpins)
+          recordIapSpend(parseFloat(STARTER_BUNDLE_PRICE_FALLBACK.replace('$', '')))
           grantStarterBundleCosmetics()
           track(AnalyticsEvents.PURCHASE_COMPLETED, {
             product_id: STARTER_BUNDLE_SKU,
@@ -273,9 +296,7 @@ export default function ShopScreen() {
         ]}
       >
         <Text style={[styles.lead, { color: t.textSecondary }]}>
-          {hasRevenueCatPlatformApiKey()
-            ? 'Virtual coin packs — checkout uses your app store; your SpinVault vault syncs from the server.'
-            : 'Virtual coin packs & collectibles — simulated checkout (add RevenueCat keys for live purchases).'}
+          Buy virtual coin packs through your app store. Your SpinVault vault updates automatically.
         </Text>
 
         <LinearGradient
@@ -285,7 +306,7 @@ export default function ShopScreen() {
           style={[styles.starter, { borderColor: t.primary }]}
         >
           <View style={[styles.starterBadge, { backgroundColor: t.primary }]}>
-            <Text style={[styles.starterBadgeTxt, { color: t.primaryForeground }]}>LIMITED</Text>
+            <Text style={[styles.starterBadgeTxt, { color: t.primaryForeground }]}>STARTER OFFER</Text>
           </View>
           <View style={[styles.starterRow, starterStackVertical && styles.starterRowStacked]}>
             <Pressable
@@ -363,13 +384,26 @@ export default function ShopScreen() {
               key={p.id}
               style={[
                 styles.packCard,
+                p.featured && {
+                  borderWidth: 2,
+                  shadowColor: t.gold,
+                  shadowOpacity: 0.35,
+                  shadowRadius: 12,
+                  elevation: 8,
+                },
                 {
-                  borderColor: p.popular ? t.primary : t.border,
-                  backgroundColor: t.surfaceElevated,
+                  borderColor: p.featured ? t.gold : p.popular ? t.primary : t.border,
+                  backgroundColor: p.featured
+                    ? hexWithAlpha(t.gold, '0C')
+                    : t.surfaceElevated,
                 },
               ]}
             >
-              {p.popular ? (
+              {p.featured ? (
+                <View style={[styles.popTag, { backgroundColor: t.gold }]}>
+                  <Text style={[styles.popTagTxt, { color: '#1A1200' }]}>HIGH ROLLER</Text>
+                </View>
+              ) : p.popular ? (
                 <View style={[styles.popTag, { backgroundColor: t.primary }]}>
                   <Text style={[styles.popTagTxt, { color: t.primaryForeground }]}>BEST VALUE</Text>
                 </View>
@@ -384,8 +418,12 @@ export default function ShopScreen() {
                   style={[
                     styles.packArtWrap,
                     {
-                      borderColor: hexWithAlpha(t.primary, '33'),
-                      backgroundColor: hexWithAlpha(t.primary, '12'),
+                      borderColor: p.featured
+                        ? hexWithAlpha(t.gold, '55')
+                        : hexWithAlpha(t.primary, '33'),
+                      backgroundColor: p.featured
+                        ? hexWithAlpha(t.gold, '18')
+                        : hexWithAlpha(t.primary, '12'),
                     },
                   ]}
                 >
@@ -397,19 +435,33 @@ export default function ShopScreen() {
                   />
                 </View>
               </Pressable>
-              <Text style={[styles.packTitle, { color: t.textPrimary }]} numberOfLines={2}>
+              <Text
+                style={[
+                  styles.packTitle,
+                  { color: p.featured ? t.gold : t.textPrimary },
+                ]}
+                numberOfLines={2}
+              >
                 {p.title}
               </Text>
               <Text style={[styles.packCaption, { color: t.textSecondary }]} numberOfLines={2}>
                 {p.subtitle}
               </Text>
+              {p.unlockHint ? (
+                <Text style={[styles.packUnlockHint, { color: p.featured ? t.gold : t.textMuted }]} numberOfLines={1}>
+                  🔓 {p.unlockHint}
+                </Text>
+              ) : null}
               <AppButton
                 size="sm"
                 label={priceLabelForSku(p.id, p.priceLabelFallback)}
-                variant={p.popular ? 'primary' : 'outline'}
+                variant={p.featured || p.popular ? 'primary' : 'outline'}
                 disabled={iapLocked}
                 onPress={() => onCoinPack(p)}
-                style={styles.packButton}
+                style={[
+                  styles.packButton,
+                  p.featured && { backgroundColor: t.gold, borderColor: t.gold },
+                ]}
               />
             </View>
           ))}
@@ -751,6 +803,7 @@ const styles = StyleSheet.create({
   },
   packTitle: { fontSize: 14, fontWeight: '900', textAlign: 'center' },
   packCaption: { fontSize: 11, fontWeight: '700', textAlign: 'center', opacity: 0.92 },
+  packUnlockHint: { fontSize: 10, fontWeight: '700', textAlign: 'center', marginTop: 2 },
   packButton: { width: '100%' },
   card: {
     borderWidth: 1,

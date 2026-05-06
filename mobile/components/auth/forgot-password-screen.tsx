@@ -13,6 +13,7 @@ import { routes } from '@/lib/app-routes'
 import { useAuth } from '@/lib/auth-context'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { AppButton } from '@/components/ui/AppButton'
+import { APP_NAME } from '@shared/brand'
 
 export function ForgotPasswordScreen() {
   const t = useCasinoTheme()
@@ -53,7 +54,7 @@ export function ForgotPasswordScreen() {
     >
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
-          <Text style={[styles.brandKicker, { color: t.textMuted }]}>SpinVault</Text>
+          <Text style={[styles.brandKicker, { color: t.textMuted }]}>{APP_NAME}</Text>
           <Text style={[styles.hero, { color: t.textPrimary }]} accessibilityRole="header">
             Forgot password
           </Text>

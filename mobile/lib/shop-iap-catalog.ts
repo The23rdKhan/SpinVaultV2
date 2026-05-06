@@ -16,7 +16,16 @@ export type ShopCoinPackRow = {
    */
   priceLabelFallback: string
   popular: boolean
+  /** Renders a premium gold "HIGH ROLLER" badge; use for the top-tier pack. */
+  featured?: boolean
   subtitle: string
+  /** Short copy shown below the subtitle explaining what bet tiers this pack unlocks. */
+  unlockHint?: string
+  /**
+   * Base USD price used to record IAP spend for LTV tracking and tournament eligibility.
+   * Keep in sync with App Store Connect pricing. Store cut is NOT deducted here.
+   */
+  priceUsd: number
   artwork: ImageSourcePropType
 }
 
@@ -28,6 +37,7 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     freeSpins: 0,
     kind: 'coin_pack',
     priceLabelFallback: '$0.99',
+    priceUsd: 0.99,
     popular: false,
     subtitle: 'Quick Refill',
     artwork: require('@/assets/images/store-offers/quick_refill.png'),
@@ -39,6 +49,7 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     freeSpins: 10,
     kind: 'bundle',
     priceLabelFallback: '$4.99',
+    priceUsd: 4.99,
     popular: false,
     subtitle: 'Today only',
     artwork: require('@/assets/images/store-offers/daily_deal.png'),
@@ -50,6 +61,7 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     freeSpins: 5,
     kind: 'coin_pack',
     priceLabelFallback: '$4.99',
+    priceUsd: 4.99,
     popular: false,
     subtitle: 'Good Deal',
     artwork: require('@/assets/images/store-offers/basic.png'),
@@ -61,6 +73,7 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     freeSpins: 50,
     kind: 'bundle',
     priceLabelFallback: '$4.99',
+    priceUsd: 4.99,
     popular: false,
     subtitle: 'Spin boost',
     artwork: require('@/assets/images/store-offers/lucky_spin_bundle.png'),
@@ -72,6 +85,7 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     freeSpins: 15,
     kind: 'coin_pack',
     priceLabelFallback: '$9.99',
+    priceUsd: 9.99,
     popular: true,
     subtitle: 'Most Popular',
     artwork: require('@/assets/images/store-offers/popular.png'),
@@ -83,6 +97,7 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     freeSpins: 40,
     kind: 'coin_pack',
     priceLabelFallback: '$24.99',
+    priceUsd: 24.99,
     popular: false,
     subtitle: 'Best Value',
     artwork: require('@/assets/images/store-offers/premium.png'),
@@ -94,8 +109,10 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     freeSpins: 100,
     kind: 'coin_pack',
     priceLabelFallback: '$49.99',
+    priceUsd: 49.99,
     popular: false,
     subtitle: 'High Roller',
+    unlockHint: 'Unlocks $5K line bets',
     artwork: require('@/assets/images/store-offers/ultimate.png'),
   },
   {
@@ -105,8 +122,11 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     freeSpins: 250,
     kind: 'coin_pack',
     priceLabelFallback: '$99.99',
+    priceUsd: 99.99,
     popular: false,
-    subtitle: 'VIP Choice',
+    featured: true,
+    subtitle: 'The whale pack',
+    unlockHint: 'Unlocks $10K line bets',
     artwork: require('@/assets/images/store-offers/mega_vault.png'),
   },
 ]

@@ -79,8 +79,10 @@ function parseMissions(arr: unknown, fallback: Mission[]): Mission[] {
     const reward = Number(o.reward)
     const completed = Boolean(o.completed)
     const claimed = Boolean(o.claimed)
+    // xpReward may not exist in older saves — default to 0 so it's always present
+    const xpReward = typeof o.xpReward === 'number' ? o.xpReward : 0
     if (!id || !Number.isFinite(target) || !Number.isFinite(progress) || !Number.isFinite(reward)) continue
-    out.push({ id, name, description, target, progress, reward, completed, claimed })
+    out.push({ id, name, description, target, progress, reward, xpReward, completed, claimed })
   }
   return out.length > 0 ? out : fallback
 }
@@ -249,6 +251,9 @@ export function buildPlayerSavePayload(state: GameState): Record<string, unknown
     biggestWin: state.biggestWin,
     totalWins: state.totalWins,
     maxBetUsed: state.maxBetUsed,
+    totalIapSpent: state.totalIapSpent,
+    monthlySpins: state.monthlySpins,
+    monthlySpinsMonth: state.monthlySpinsMonth,
     userVanity: state.userVanity,
     trophies: state.trophies,
     leaderboardStats: state.leaderboardStats,
@@ -367,6 +372,13 @@ export function applyCloudPlayerSave(
     ...(Number.isFinite(biggestWin) && biggestWin >= 0 ? { biggestWin } : {}),
     ...(Number.isFinite(totalWins) && totalWins >= 0 ? { totalWins } : {}),
     maxBetUsed: typeof o.maxBetUsed === 'boolean' ? o.maxBetUsed : undefined,
+    ...(Number.isFinite(Number(o.totalIapSpent)) && Number(o.totalIapSpent) >= 0
+      ? { totalIapSpent: Math.round(Number(o.totalIapSpent) * 100) / 100 }
+      : {}),
+    ...(Number.isFinite(Number(o.monthlySpins)) && Number(o.monthlySpins) >= 0
+      ? { monthlySpins: Number(o.monthlySpins) }
+      : {}),
+    ...(typeof o.monthlySpinsMonth === 'string' ? { monthlySpinsMonth: o.monthlySpinsMonth } : {}),
     userVanity: parseUserVanity(o.userVanity, opt.fallbackUserVanity),
     trophies: parseTrophies(o.trophies, opt.fallbackTrophies),
     leaderboardStats: parseLeaderboardStats(o.leaderboardStats, opt.fallbackLeaderboard),

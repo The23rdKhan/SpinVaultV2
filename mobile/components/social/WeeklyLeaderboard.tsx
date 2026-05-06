@@ -6,6 +6,7 @@ import { ALL_VANITY_ITEMS } from '@/lib/vanity-data'
 import { rarityPresentation } from '@/lib/rarity-from-theme'
 import { getSupabase } from '@/lib/supabase'
 import { isServerSpinEnabled } from '@/lib/server-spin'
+import { useGame } from '@/lib/game-context'
 import { useCasinoTheme, type AppTheme } from '@/lib/use-casino-theme'
 import { hexWithAlpha } from '@/theme/tokens'
 
@@ -80,10 +81,12 @@ function Row({
   entry,
   onPress,
   t,
+  isJackpotWinner,
 }: {
   entry: Entry
   onPress: () => void
   t: AppTheme
+  isJackpotWinner?: boolean
 }) {
   const frameItem = entry.frame ? ALL_VANITY_ITEMS.find((i) => i.id === entry.frame) : null
   const frameParts = frameItem ? rarityPresentation(t, frameItem.rarity) : null
@@ -135,6 +138,14 @@ function Row({
           >
             {entry.username}
           </Text>
+          {isJackpotWinner ? (
+            <Text
+              style={[styles.jackpotBadge, { color: t.gold, backgroundColor: hexWithAlpha(t.gold, '22') }]}
+              accessibilityLabel="Mega Jackpot winner"
+            >
+              🎰
+            </Text>
+          ) : null}
           {entry.vipTier != null && entry.vipTier >= 3 ? (
             <Text
               style={[
@@ -162,13 +173,22 @@ function Row({
   )
 }
 
+interface JackpotFeedEntry {
+  username: string
+  ts: string
+  amount: number
+}
+
 export function WeeklyLeaderboard() {
   const t = useCasinoTheme()
+  const { bio, avatarUri } = useGame()
   const [type, setType] = useState<LeaderboardType>('biggestWin')
   const [pick, setPick] = useState<Entry | null>(null)
   const [viewState, setViewState] = useState<LeaderboardViewState>('loading')
   const [topEntries, setTopEntries] = useState<Entry[]>([])
   const [selfEntry, setSelfEntry] = useState<Entry | null>(null)
+  /** Last 3 jackpot hits from the authoritative `winner_feed` table. */
+  const [jackpotFeed, setJackpotFeed] = useState<JackpotFeedEntry[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -179,15 +199,14 @@ export function WeeklyLeaderboard() {
           setViewState('disabled')
           setTopEntries([])
           setSelfEntry(null)
+          setJackpotFeed([])
         }
         return
       }
 
       const supabase = getSupabase()
       if (!supabase) {
-        if (!cancelled) {
-          setViewState('error')
-        }
+        if (!cancelled) setViewState('error')
         return
       }
 
@@ -202,6 +221,7 @@ export function WeeklyLeaderboard() {
           setViewState('signed_out')
           setTopEntries([])
           setSelfEntry(null)
+          setJackpotFeed([])
         }
         return
       }
@@ -210,9 +230,9 @@ export function WeeklyLeaderboard() {
       const period = weekPeriodStartUTC()
       const leaderboardType = type === 'biggestWin' ? 'weekly_biggest_win' : 'weekly_total_winnings'
 
-      // Pull the visible leaderboard page and the current user's true weekly row
-      // from the same authoritative server projection.
-      const [topResult, selfResult] = await Promise.all([
+      // Pull leaderboard rows, current user's row, and the last 3 jackpot hits
+      // from winner_feed in a single parallel batch.
+      const [topResult, selfResult, feedResult] = await Promise.all([
         supabase
           .from('v_leaderboard_public')
           .select('rank, username, value, user_id, frame, title, pet')
@@ -227,6 +247,13 @@ export function WeeklyLeaderboard() {
           .eq('leaderboard_type', leaderboardType)
           .eq('user_id', uid)
           .maybeSingle(),
+        // winner_feed rows with an embedded profiles join for display name.
+        supabase
+          .from('winner_feed')
+          .select('win_amount, created_at, profiles!inner(username)')
+          .eq('win_type', 'jackpot')
+          .order('created_at', { ascending: false })
+          .limit(3),
       ])
 
       if (cancelled) return
@@ -244,6 +271,21 @@ export function WeeklyLeaderboard() {
       setTopEntries(top)
       setSelfEntry(self)
       setViewState(top.length > 0 ? 'ready' : 'empty')
+
+      // Populate jackpot wall from DB — silently skip on error (cosmetic feature).
+      if (!feedResult.error && feedResult.data) {
+        const feed: JackpotFeedEntry[] = feedResult.data
+          .map((row) => {
+            const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles
+            return {
+              username: (profile as { username?: string } | null)?.username ?? 'Player',
+              ts: row.created_at as string,
+              amount: Number(row.win_amount),
+            }
+          })
+          .filter((e) => e.amount > 0)
+        setJackpotFeed(feed)
+      }
     }
 
     void load()
@@ -265,8 +307,8 @@ export function WeeklyLeaderboard() {
         : viewState === 'disabled'
           ? {
               icon: 'lock' as const,
-              title: 'Leaderboard disabled',
-              body: 'Weekly rankings appear only when server-tracked spins are enabled.',
+              title: 'Rankings coming soon',
+              body: 'Weekly rankings come online when server-tracked spins are enabled. Keep playing!',
             }
           : viewState === 'signed_out'
             ? {
@@ -277,8 +319,8 @@ export function WeeklyLeaderboard() {
             : viewState === 'error'
               ? {
                   icon: 'warning' as const,
-                  title: 'Leaderboard unavailable',
-                  body: 'Real rankings could not be loaded right now.',
+                  title: 'Rankings unavailable',
+                  body: 'Could not load rankings right now. Check back in a moment.',
                 }
               : {
                   icon: 'trophy' as const,
@@ -303,6 +345,30 @@ export function WeeklyLeaderboard() {
         <FontAwesome name="trophy" size={18} color={t.primary} />
         <Text style={[styles.h3, { color: t.textPrimary }]}>Weekly leaderboard</Text>
       </View>
+
+      {/* ── Recent Jackpot Winners (sourced from authoritative winner_feed table) ── */}
+      {jackpotFeed.length > 0 ? (
+        <View style={[styles.jackpotWall, { borderColor: hexWithAlpha(t.gold, '40'), backgroundColor: hexWithAlpha(t.gold, '0C') }]}>
+          <View style={styles.jackpotWallHead}>
+            <Text style={[styles.jackpotWallIcon]}>🎰</Text>
+            <Text style={[styles.jackpotWallTitle, { color: t.gold }]}>Recent Jackpot Winners</Text>
+          </View>
+          {jackpotFeed.map((w, i) => {
+            const elapsed = Date.now() - new Date(w.ts).getTime()
+            const mins = Math.floor(elapsed / 60_000)
+            const relTime = mins < 1 ? 'just now' : mins < 60 ? `${mins}m ago` : `${Math.floor(mins / 60)}h ago`
+            return (
+              <View key={i} style={[styles.jackpotWallRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: hexWithAlpha(t.gold, '30') }]}>
+                <Text style={[styles.jackpotWallName, { color: t.textPrimary }]}>🏆 {w.username}</Text>
+                <View style={styles.jackpotWallRight}>
+                  <Text style={[styles.jackpotWallAmount, { color: t.gold }]}>${w.amount.toLocaleString()}</Text>
+                  <Text style={[styles.jackpotWallTime, { color: t.textMuted }]}>{relTime}</Text>
+                </View>
+              </View>
+            )
+          })}
+        </View>
+      ) : null}
 
       <View style={[styles.tabs, { backgroundColor: t.cardSoft }]}>
         <Pressable
@@ -338,7 +404,7 @@ export function WeeklyLeaderboard() {
               { color: type === 'totalWinnings' ? t.primaryForeground : t.textMuted },
             ]}
           >
-            Weekly coin rewards
+            Total Won
           </Text>
         </Pressable>
       </View>
@@ -356,7 +422,12 @@ export function WeeklyLeaderboard() {
                 index === topEntries.length - 1 && styles.lastListRow,
               ]}
             >
-              <Row entry={entry} onPress={() => setPick(entry)} t={t} />
+              <Row
+                entry={entry}
+                onPress={() => setPick(entry)}
+                t={t}
+                isJackpotWinner={jackpotFeed.some((w) => w.username === entry.username)}
+              />
             </View>
           ))
         )}
@@ -365,14 +436,25 @@ export function WeeklyLeaderboard() {
       {selfEntry && selfEntry.rank > topEntries.length ? (
         <View style={[styles.selfBox, { borderColor: t.primary }]}>
           <Text style={[styles.selfLbl, { color: t.textMuted }]}>Your position</Text>
-          <Row entry={selfEntry} onPress={() => setPick(selfEntry)} t={t} />
+          <Row
+            entry={selfEntry}
+            onPress={() => setPick(selfEntry)}
+            t={t}
+            isJackpotWinner={jackpotFeed.some((w) => w.username === selfEntry.username)}
+          />
         </View>
       ) : null}
 
       {pick != null ? (
         <PlayerProfileModal
-          player={pick}
-          metricLabel={type === 'biggestWin' ? 'Best spin (weekly)' : 'Total coins won (weekly)'}
+          player={
+            pick.isCurrentUser
+              ? { ...pick, bio: bio || undefined, avatarUri }
+              : pick
+          }
+          metricLabel={
+            type === 'biggestWin' ? 'Best spin (weekly)' : 'Total virtual coins won (weekly)'
+          }
           onClose={() => setPick(null)}
         />
       ) : null}
@@ -444,6 +526,13 @@ const styles = StyleSheet.create({
   mid: { flex: 1, minWidth: 0 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   name: { fontSize: 14, fontWeight: '800', flexShrink: 1 },
+  jackpotBadge: {
+    fontSize: 12,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
   vip: {
     fontSize: 10,
     fontWeight: '800',
@@ -452,6 +541,32 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     overflow: 'hidden',
   },
+  // Jackpot winners wall
+  jackpotWall: {
+    marginBottom: 12,
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    gap: 6,
+  },
+  jackpotWallHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  jackpotWallIcon: { fontSize: 16 },
+  jackpotWallTitle: { fontSize: 12, fontWeight: '800', letterSpacing: 0.3 },
+  jackpotWallRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 5,
+  },
+  jackpotWallName: { fontSize: 13, fontWeight: '700', flexShrink: 1 },
+  jackpotWallRight: { alignItems: 'flex-end', gap: 1 },
+  jackpotWallAmount: { fontSize: 13, fontWeight: '900' },
+  jackpotWallTime: { fontSize: 11 },
   titleHint: { fontSize: 11, marginTop: 2 },
   valCol: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   val: { fontSize: 14, fontWeight: '800' },

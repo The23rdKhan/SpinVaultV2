@@ -8,7 +8,7 @@ export function rarityPresentation(
   rarity: VanityRarity,
 ): { border: string; text: string; bg: string; glow: string } {
   const base =
-    rarity === 'common'
+    (rarity === 'common'
       ? t.rarity.common
       : rarity === 'rare'
         ? t.rarity.rare
@@ -16,7 +16,7 @@ export function rarityPresentation(
           ? t.rarity.epic
           : rarity === 'legendary'
             ? t.rarity.legendary
-            : t.rarity.mythic
+            : t.rarity.mythic) ?? '#64748b'
   return {
     border: base,
     text: base,

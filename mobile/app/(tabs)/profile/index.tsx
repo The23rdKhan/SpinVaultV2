@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import Toast from 'react-native-toast-message'
+import { EditProfileSheet } from '@/components/profile/EditProfileSheet'
 import { HelpFeedback } from '@/components/profile/HelpFeedback'
 import {
   AccountSection,
@@ -66,6 +67,10 @@ export default function ProfileScreen() {
   const {
     username,
     setUsername,
+    bio,
+    setBio,
+    avatarUri,
+    setAvatarUri,
     level,
     xp,
     coins,
@@ -105,8 +110,7 @@ export default function ProfileScreen() {
 
   const { mode: appearanceMode, setMode: setAppearanceMode } = useAppearance()
 
-  const [editing, setEditing] = useState(false)
-  const [name, setName] = useState(username)
+  const [editOpen, setEditOpen] = useState(false)
 
   const xpNeeded = level * 1000
   const xpPct = Math.min(100, Math.round((xp / Math.max(1, xpNeeded)) * 100))
@@ -124,15 +128,13 @@ export default function ProfileScreen() {
         )
       : 100
 
-  const saveName = () => {
-    if (name.trim()) setUsername(name.trim())
-    setEditing(false)
-    Toast.show({ type: 'success', text1: 'Profile updated' })
-  }
-
   const onRestore = async () => {
-    await restorePurchases()
-    Toast.show({ type: 'info', text1: 'Restore complete (simulated)' })
+    const ok = await restorePurchases()
+    if (ok) {
+      Toast.show({ type: 'success', text1: 'Restore complete', text2: 'Your purchases have been restored.' })
+    } else {
+      Toast.show({ type: 'error', text1: 'Restore failed — try again', text2: 'If the issue persists, contact support.' })
+    }
   }
 
   const appearanceOptions: { id: AppearanceMode; label: string }[] = [
@@ -141,7 +143,7 @@ export default function ProfileScreen() {
     { id: 'system', label: 'System' },
   ]
 
-  const bottomPad = Math.max(insets.bottom, 12) + 28
+  const bottomPad = Math.max(insets.bottom, 12) + 64
 
   return (
     <ScrollView
@@ -162,67 +164,61 @@ export default function ProfileScreen() {
         style={[styles.hero, { borderColor: t.border }]}
       >
         <View style={styles.heroTop}>
-          <View style={[styles.avatarRing, { borderColor: vipAccent }]}>
-            <View style={[styles.avatarInner, { backgroundColor: t.surfaceElevated }]}>
-              <FontAwesome name="user" size={28} color={t.textPrimary} />
+          <View style={styles.avatarCol}>
+            <View style={[styles.avatarRing, { borderColor: vipAccent }]}>
+              {avatarUri ? (
+                <Image source={{ uri: avatarUri }} style={styles.avatarPhoto} />
+              ) : (
+                <View style={[styles.avatarInner, { backgroundColor: t.surfaceElevated }]}>
+                  <FontAwesome name="user" size={28} color={t.textPrimary} />
+                </View>
+              )}
+            </View>
+            <View
+              style={[
+                styles.vipPill,
+                {
+                  borderWidth: 1,
+                  borderColor: vipAccent,
+                  backgroundColor: hexWithAlpha(vipAccent, '33'),
+                },
+              ]}
+            >
+              <FontAwesome name="star" size={10} color={vipAccent} />
+              <Text style={[styles.vipPillTxt, { color: t.textPrimary }]}>{currentVip.name}</Text>
             </View>
           </View>
-          <View
-            style={[
-              styles.vipPill,
-              {
-                borderWidth: 1,
-                borderColor: vipAccent,
-                backgroundColor: hexWithAlpha(vipAccent, '33'),
-              },
-            ]}
-          >
-            <FontAwesome name="star" size={10} color={vipAccent} />
-            <Text style={[styles.vipPillTxt, { color: t.textPrimary }]}>{currentVip.name}</Text>
-          </View>
           <View style={{ flex: 1, minWidth: 0 }}>
-            {editing ? (
-              <>
-                <TextInput
-                  value={name}
-                  onChangeText={setName}
-                  style={[
-                    styles.input,
-                    { color: t.textPrimary, borderColor: t.border, backgroundColor: t.input },
-                  ]}
-                  maxLength={20}
-                />
-                <AppButton label="Save" onPress={saveName} style={{ marginTop: 8 }} />
-              </>
-            ) : (
-              <>
-                <View style={styles.nameRow}>
-                  <Text style={[styles.username, { color: t.textPrimary }]} numberOfLines={1}>
-                    {username}
-                  </Text>
-                  <AppButton variant="ghost" size="sm" label="Edit" onPress={() => setEditing(true)} />
-                </View>
-                <View style={styles.badgeRow}>
-                  <View style={[styles.levelPill, { backgroundColor: hexWithAlpha(t.primary, '33') }]}>
-                    <Text style={[styles.levelPillTxt, { color: t.primary }]}>Lv {level}</Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.levelPill,
-                      {
-                        backgroundColor: isGuest
-                          ? hexWithAlpha(t.accent, '22')
-                          : hexWithAlpha(t.win, '33'),
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.levelPillTxt, { color: isGuest ? t.accent : t.win }]}>
-                      {accountProviderBadge(isGuest, user?.provider)}
-                    </Text>
-                  </View>
-                </View>
-              </>
-            )}
+            <View style={styles.nameRow}>
+              <Text style={[styles.username, { color: t.textPrimary }]} numberOfLines={1}>
+                {username}
+              </Text>
+              <AppButton variant="ghost" size="sm" label="Edit" onPress={() => setEditOpen(true)} />
+            </View>
+            {bio ? (
+              <Text style={[styles.heroBio, { color: t.textSecondary }]} numberOfLines={2}>
+                {bio}
+              </Text>
+            ) : null}
+            <View style={styles.badgeRow}>
+              <View style={[styles.levelPill, { backgroundColor: hexWithAlpha(t.primary, '33') }]}>
+                <Text style={[styles.levelPillTxt, { color: t.primary }]}>Lv {level}</Text>
+              </View>
+              <View
+                style={[
+                  styles.levelPill,
+                  {
+                    backgroundColor: isGuest
+                      ? hexWithAlpha(t.accent, '22')
+                      : hexWithAlpha(t.win, '33'),
+                  },
+                ]}
+              >
+                <Text style={[styles.levelPillTxt, { color: isGuest ? t.accent : t.win }]}>
+                  {accountProviderBadge(isGuest, user?.provider)}
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -243,7 +239,7 @@ export default function ProfileScreen() {
         <View style={styles.heroStats}>
           <View style={[styles.statCard, { backgroundColor: t.cardSoft }]}>
             <Text style={[styles.statLbl, { color: t.textMuted }]}>
-              Level {level} · XP {xp}/{xpNeeded}
+              Level {level} · XP {Math.min(xp, xpNeeded)}/{xpNeeded}
             </Text>
             <View style={[styles.xpTrack, { backgroundColor: t.muted }]}>
               <View style={[styles.xpFill, { width: `${xpPct}%`, backgroundColor: t.primary }]} />
@@ -358,6 +354,21 @@ export default function ProfileScreen() {
       <HelpFeedback />
 
       <SupportSection />
+
+      <EditProfileSheet
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        username={username}
+        bio={bio}
+        avatarUri={avatarUri}
+        isGuest={isGuest}
+        onSaveName={(n) => {
+          setUsername(n)
+          Toast.show({ type: 'success', text1: 'Profile updated' })
+        }}
+        onSaveBio={setBio}
+        onSaveAvatar={setAvatarUri}
+      />
     </ScrollView>
   )
 }
@@ -421,10 +432,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  avatarPhoto: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 999,
+  },
+  heroBio: { fontSize: 12, lineHeight: 17, marginTop: 2, marginBottom: 2 },
+  avatarCol: {
+    alignItems: 'center',
+    gap: 6,
+  },
   vipPill: {
-    position: 'absolute',
-    left: 52,
-    top: 56,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -460,13 +478,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 4,
     overflow: 'hidden',
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 10,
-    marginTop: 6,
-    fontSize: 16,
   },
   row: { flexDirection: 'row', gap: 8 },
   toggleRow: {

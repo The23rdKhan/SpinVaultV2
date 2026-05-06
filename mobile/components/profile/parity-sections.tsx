@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from 'react'
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { LegalDocumentModal } from '@/components/modals/LegalDocumentModal'
+import type { LegalDocType } from '@shared/legal-documents'
+import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { AppleSignInButton } from '@/components/apple-sign-in-button'
 import { GoogleSignInButton } from '@/components/social-auth-buttons/google/google-sign-in-button'
@@ -25,6 +27,44 @@ import {
   type Trophy,
   type UserVanity,
 } from '@/lib/vanity-data'
+
+/**
+ * Convert internal coin-ledger labels into clean user-facing copy.
+ * Only changes the display string — no IDs or database fields are touched.
+ */
+function formatLedgerLabel(raw: string): string {
+  // "Vanity avatar-lucky" → "Avatar Unlock"
+  const vanityMatch = raw.match(/^Vanity\s+(\w+)-(.+)$/i)
+  if (vanityMatch) {
+    const cat = vanityMatch[1]
+    if (!cat) return raw
+    return `${cat.charAt(0).toUpperCase() + cat.slice(1)} Unlock`
+  }
+
+  // "Coin pack (com.spinvault.deal.daily)" → friendly name
+  const coinPackMatch = raw.match(/^Coin pack \(([^)]+)\)$/i)
+  if (coinPackMatch) {
+    const sku = coinPackMatch[1] ?? ''
+    if (sku.includes('daily')) return 'Daily Deal Coin Pack'
+    if (sku.includes('starter')) return 'Starter Coin Pack'
+    if (sku.includes('mega')) return 'Mega Coin Pack'
+    return 'Coin Pack'
+  }
+
+  // "Spin win (bigWin)" → "Big Win", "Spin win (normal)" → "Spin Win", etc.
+  const spinWinMatch = raw.match(/^Spin win \(([^)]+)\)$/i)
+  if (spinWinMatch) {
+    const tier = spinWinMatch[1] ?? ''
+    switch (tier) {
+      case 'megaWin': return 'Jackpot'
+      case 'jackpot': return 'Mega Jackpot'
+      case 'bigWin': return 'Big Win'
+      default: return 'Spin Win'
+    }
+  }
+
+  return raw
+}
 
 /** RN fallback rows for notification prefs (same keys as `NotificationPrefs` / Expo UI pilot). */
 const NOTIFICATION_PREFS_ROWS_RN: {
@@ -227,7 +267,16 @@ export function AccountSection({
 
         {!isGuest ? (
           <Pressable
-            onPress={onSignOut}
+            onPress={() =>
+              Alert.alert(
+                'Sign out',
+                'You will be signed out of your account. Make sure your progress is synced before continuing.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Sign out', style: 'destructive', onPress: onSignOut },
+                ],
+              )
+            }
             style={({ pressed }) => [
               styles.signOutRow,
               {
@@ -321,7 +370,7 @@ export function CoinLedgerSection({ entries }: { entries: CoinLedgerEntry[] }) {
             >
               <View style={{ flex: 1, minWidth: 0, paddingRight: 10 }}>
                 <Text style={[styles.ledgerLabel, { color: t.textPrimary }]} numberOfLines={2}>
-                  {e.label}
+                  {formatLedgerLabel(e.label)}
                 </Text>
                 <Text style={[styles.ledgerTs, { color: t.textMuted }]}>
                   {new Date(e.ts).toLocaleString()}
@@ -381,7 +430,16 @@ export function EquippedVanitySection({ userVanity }: { userVanity: UserVanity }
                 )}
               </View>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={[styles.equippedCat, { color: t.textMuted }]}>{label}</Text>
+                <View style={styles.equippedCatRow}>
+                  <Text style={[styles.equippedCat, { color: t.textMuted }]}>{label}</Text>
+                  {item ? (
+                    <View style={[styles.equippedBadge, { backgroundColor: hexWithAlpha(rarity?.text ?? t.primary, '28'), borderColor: rarity?.border ?? t.border }]}>
+                      <Text style={[styles.equippedBadgeTxt, { color: rarity?.text ?? t.primary }]}>
+                        Equipped
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
                 <Text
                   style={[styles.equippedName, { color: rarity?.text ?? t.textMuted }]}
                   numberOfLines={1}
@@ -473,18 +531,31 @@ function TrophyParityCell({ trophy, t }: { trophy: Trophy; t: AppTheme }) {
 }
 
 function winTypeMeta(theme: AppTheme, type: WinType): { label: string; bg: string; fg: string } {
+  const muted = theme.textMuted ?? '#64748b'
   switch (type) {
     case 'jackpot':
-      return { label: 'Jackpot', bg: hexWithAlpha(theme.jackpot, '33'), fg: theme.jackpot }
+      return {
+        label: 'Mega Jackpot',
+        bg: hexWithAlpha(theme.jackpot ?? '#a855f7', '33'),
+        fg: theme.jackpot ?? '#a855f7',
+      }
     case 'megaWin':
-      return { label: 'Mega', bg: hexWithAlpha(theme.gold, '33'), fg: theme.gold }
+      return {
+        label: 'Jackpot',
+        bg: hexWithAlpha(theme.gold ?? '#f59e0b', '33'),
+        fg: theme.gold ?? '#f59e0b',
+      }
     case 'bigWin':
-      return { label: 'Big', bg: hexWithAlpha(theme.win, '33'), fg: theme.win }
+      return {
+        label: 'Big Win',
+        bg: hexWithAlpha(theme.win ?? '#22c55e', '33'),
+        fg: theme.win ?? '#22c55e',
+      }
     default:
       return {
-        label: String(type),
-        bg: hexWithAlpha(theme.textMuted, '33'),
-        fg: theme.textMuted,
+        label: 'Win',
+        bg: hexWithAlpha(muted, '33'),
+        fg: muted,
       }
   }
 }
@@ -499,7 +570,7 @@ export function RecentBigWinsSection({
   const slice = wins.slice(0, 5)
   return (
     <View>
-      <SectionTitle icon="area-chart" title="Recent showcase wins" />
+      <SectionTitle icon="area-chart" title="Recent wins" />
       <View style={[styles.card, { borderColor: t.border, backgroundColor: t.surfaceElevated, padding: 0 }]}>
         {slice.map((win, i) => {
           const meta = winTypeMeta(t, win.type)
@@ -688,11 +759,13 @@ const SESSION_CHIPS: { label: string; value: number | null }[] = [
   { label: '2 hr', value: 120 },
 ]
 
+// TODO(launch): Enforce dailyPurchaseLimit in the shop purchase flow before enabling this UI.
+// Values are stored but the spending cap is not yet enforced — see shop/index.tsx onCoinPack.
 const PURCHASE_LIMIT_CHIPS: { label: string; value: number | null }[] = [
   { label: 'Off', value: null },
-  { label: 'Low', value: 5 },
-  { label: 'Med', value: 10 },
-  { label: 'High', value: 25 },
+  { label: '$10 / day', value: 10 },
+  { label: '$25 / day', value: 25 },
+  { label: '$50 / day', value: 50 },
 ]
 
 export function ResponsiblePlaySection({
@@ -753,12 +826,18 @@ export function ResponsiblePlaySection({
             })}
           </View>
         </View>
-        <Pressable onPress={toggleCooldown} style={[styles.prefRow, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: sep }]}>
+        {/* TODO(launch): Remove opacity/disabled once cooldown is enforced in ControlDeck spin path. */}
+        <Pressable
+          onPress={toggleCooldown}
+          style={[styles.prefRow, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: sep, opacity: 0.5 }]}
+          accessibilityState={{ disabled: true }}
+          disabled
+        >
           <FontAwesome name="shield" size={14} color={iconC} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={[styles.rowTitle, { color: titleC }]}>Cooldown Mode</Text>
             <Text style={[styles.rowSub, { color: subC }]}>
-              30 second delay between spins
+              30 second delay between spins — coming soon
             </Text>
           </View>
           <View
@@ -773,15 +852,18 @@ export function ResponsiblePlaySection({
             <View style={[styles.switchKnob, { backgroundColor: t.surfaceElevated }]} />
           </View>
         </Pressable>
-        <View style={[styles.prefRow, { flexWrap: 'wrap', gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: sep }]}>
-          <FontAwesome name="credit-card" size={14} color={iconC} />
-          <View style={{ flex: 1, minWidth: 140 }}>
-            <Text style={[styles.rowTitle, { color: titleC }]}>Daily Purchase Limit</Text>
-            <Text style={[styles.rowSub, { color: subC }]}>
-              Optional daily cap on in-app purchases (Low / Med / High).
-            </Text>
+        {/* TODO(launch): Remove "coming soon" note once daily spend cap is enforced in shop/index.tsx. */}
+        <View style={[styles.prefRowCol, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: sep }]}>
+          <View style={styles.prefRowColHeader}>
+            <FontAwesome name="credit-card" size={14} color={iconC} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={[styles.rowTitle, { color: titleC }]}>Daily Purchase Limit</Text>
+              <Text style={[styles.rowSub, { color: subC }]}>
+                Spend cap — coming soon
+              </Text>
+            </View>
           </View>
-          <View style={styles.chipRow}>
+          <View style={styles.chipRowFull}>
             {PURCHASE_LIMIT_CHIPS.map((c) => {
               const selected =
                 (c.value === null && dailyPurchaseLimit === null) ||
@@ -791,12 +873,14 @@ export function ResponsiblePlaySection({
                   key={c.label}
                   onPress={() => setPurchaseLimit(c.value)}
                   style={[
-                    styles.chip,
+                    styles.chipFull,
                     {
                       borderColor: selected ? t.primary : sep,
                       backgroundColor: selected ? hexWithAlpha(t.primary, '33') : 'transparent',
                     },
                   ]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
                 >
                   <Text style={[styles.chipTxt, { color: selected ? t.primary : titleC }]}>
                     {c.label}
@@ -822,29 +906,52 @@ export function SupportSection() {
   const titleC = native?.label ?? t.textPrimary
   const sep = native?.separator ?? t.border
   const iconC = native?.rowIcon ?? t.textMuted
+  const [legalModal, setLegalModal] = useState<LegalDocType | null>(null)
 
-  const row = async (url: string) => {
-    await openExternalUrl(url)
-  }
   return (
-    <View>
-      <SectionTitle icon="question-circle" title="Support" />
-      <View style={[styles.card, { borderColor: t.border, backgroundColor: t.surfaceElevated, padding: 0 }]}>
-        <Pressable
-          onPress={() => row(SUPPORT_URLS.helpCenter)}
-          style={[styles.supportRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: sep }]}
-        >
-          <FontAwesome name="question-circle" size={14} color={iconC} />
-          <Text style={[styles.rowTitle, { color: titleC, flex: 1 }]}>Help Center</Text>
-          <FontAwesome name="chevron-right" size={12} color={iconC} />
-        </Pressable>
-        <Pressable onPress={() => row(SUPPORT_URLS.contactMail)} style={styles.supportRow}>
-          <FontAwesome name="envelope" size={14} color={iconC} />
-          <Text style={[styles.rowTitle, { color: titleC, flex: 1 }]}>Contact Support</Text>
-          <FontAwesome name="chevron-right" size={12} color={iconC} />
-        </Pressable>
+    <>
+      <View>
+        <SectionTitle icon="question-circle" title="Support" />
+        <View style={[styles.card, { borderColor: t.border, backgroundColor: t.surfaceElevated, padding: 0 }]}>
+          <Pressable
+            onPress={() => openExternalUrl(SUPPORT_URLS.helpCenter)}
+            style={[styles.supportRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: sep }]}
+          >
+            <FontAwesome name="question-circle" size={14} color={iconC} />
+            <Text style={[styles.rowTitle, { color: titleC, flex: 1 }]}>Help Center</Text>
+            <FontAwesome name="chevron-right" size={12} color={iconC} />
+          </Pressable>
+          <Pressable
+            onPress={() => openExternalUrl(SUPPORT_URLS.contactMail)}
+            style={[styles.supportRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: sep }]}
+          >
+            <FontAwesome name="envelope" size={14} color={iconC} />
+            <Text style={[styles.rowTitle, { color: titleC, flex: 1 }]}>Contact Support</Text>
+            <FontAwesome name="chevron-right" size={12} color={iconC} />
+          </Pressable>
+          <Pressable
+            onPress={() => setLegalModal('privacy')}
+            style={[styles.supportRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: sep }]}
+          >
+            <FontAwesome name="file-text-o" size={14} color={iconC} />
+            <Text style={[styles.rowTitle, { color: titleC, flex: 1 }]}>Privacy Policy</Text>
+            <FontAwesome name="chevron-right" size={12} color={iconC} />
+          </Pressable>
+          <Pressable onPress={() => setLegalModal('terms')} style={styles.supportRow}>
+            <FontAwesome name="file-text-o" size={14} color={iconC} />
+            <Text style={[styles.rowTitle, { color: titleC, flex: 1 }]}>Terms of Service</Text>
+            <FontAwesome name="chevron-right" size={12} color={iconC} />
+          </Pressable>
+        </View>
       </View>
-    </View>
+
+      {/* Always mounted so the slide-out dismiss animation plays correctly. */}
+      <LegalDocumentModal
+        visible={legalModal !== null}
+        type={legalModal ?? 'terms'}
+        onClose={() => setLegalModal(null)}
+      />
+    </>
   )
 }
 
@@ -960,11 +1067,30 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   equippedPreview: { width: 40, alignItems: 'center', justifyContent: 'center' },
+  equippedCatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 4,
+    marginBottom: 2,
+  },
   equippedCat: {
     fontSize: 9,
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  equippedBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  equippedBadgeTxt: {
+    fontSize: 8,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   equippedName: { fontSize: 12, fontWeight: '800' },
   equippedRarity: { fontSize: 9, fontWeight: '800', textTransform: 'uppercase', marginTop: 2 },
@@ -1069,6 +1195,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   chipTxt: { fontSize: 11, fontWeight: '700' },
+  prefRowCol: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  prefRowColHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  chipRowFull: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  chipFull: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 38,
+  },
   disclaimer: { fontSize: 10, marginTop: 8, paddingHorizontal: 4, lineHeight: 14 },
   supportRow: {
     flexDirection: 'row',

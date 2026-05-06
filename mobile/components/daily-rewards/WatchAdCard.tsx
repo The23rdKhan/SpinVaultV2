@@ -117,10 +117,10 @@ export function WatchAdCard() {
               },
             ]}
           >
-            <Text style={[styles.ctaSmall, { color: t.primaryForeground }]}>FREE</Text>
+            <Text style={[styles.ctaSmall, { color: t.primaryForeground }]}>Watch</Text>
             <View style={styles.ctaCoins}>
               <FontAwesome name="circle" size={14} color={t.primaryForeground} />
-              <Text style={[styles.ctaAmt, { color: t.primaryForeground }]}>100+</Text>
+              <Text style={[styles.ctaAmt, { color: t.primaryForeground }]}>100–300 coins</Text>
             </View>
           </Pressable>
         </View>
@@ -188,7 +188,9 @@ export function WatchAdCard() {
               <Text style={[styles.heroSub, { color: hexWithAlpha(t.primaryForeground, 'DD') }]}>
                 {adState === 'complete'
                   ? `You received ${reward.toLocaleString()} virtual coins`
-                  : 'Simulated sponsor message — thanks for your support!'}
+                  : __DEV__
+                    ? '[DEV] Simulated ad — real ad will play here in production'
+                    : 'Watch the full video to unlock your coin reward'}
               </Text>
             </LinearGradient>
 

@@ -17,7 +17,11 @@ import { useHaptics } from '@/lib/use-haptics'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 
 function wheelSegmentFills(t: ReturnType<typeof useCasinoTheme>): string[] {
-  return [t.primary, t.win, t.freeSpin, t.jackpot, t.bonus, t.accent, t.gold, t.destructive]
+  // Use only shell-stable or reward-positive tokens here.
+  // t.jackpot is intentionally excluded: Vegas skin overrides it to red (#ef4444),
+  // which reads as a penalty segment on a reward wheel.
+  // t.freeSpin (cyan) and t.gold are never overridden by machine skins.
+  return [t.primary, t.win, t.freeSpin, t.gold, t.bonus, t.accent, t.freeSpin, t.destructive]
 }
 
 const W = 200

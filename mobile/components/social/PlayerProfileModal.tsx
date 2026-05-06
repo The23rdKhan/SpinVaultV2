@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import {
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -23,6 +24,8 @@ export interface PlayerProfileEntry {
   pet?: string
   vipTier?: number
   isCurrentUser?: boolean
+  bio?: string
+  avatarUri?: string | null
 }
 
 function mulberry32(seed: number) {
@@ -128,7 +131,11 @@ export function PlayerProfileModal({
                   },
                 ]}
               >
-                <FontAwesome name="user" size={36} color={t.textMuted} />
+                {player.avatarUri ? (
+                  <Image source={{ uri: player.avatarUri }} style={styles.avatarPhoto} />
+                ) : (
+                  <FontAwesome name="user" size={36} color={t.textMuted} />
+                )}
               </View>
               {showPet ? (
                 <View
@@ -148,6 +155,12 @@ export function PlayerProfileModal({
             </View>
 
             <Text style={[styles.userName, { color: t.textPrimary }]}>{player.username}</Text>
+
+            {player.bio ? (
+              <Text style={[styles.bioTxt, { color: t.textSecondary }]} numberOfLines={3}>
+                {player.bio}
+              </Text>
+            ) : null}
 
             <View style={styles.titleRow}>
               {titleItem ? (
@@ -421,7 +434,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  avatarPhoto: { width: '100%', height: '100%', borderRadius: 999 },
   userName: { fontSize: 20, fontWeight: '900' },
+  bioTxt: { fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: 4, paddingHorizontal: 12 },
   titleRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',

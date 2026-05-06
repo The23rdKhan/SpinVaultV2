@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { HeaderActions } from '@/components/navigation/HeaderActions'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { APP_NAME } from '@shared/brand'
 
 function HeaderBrandMark({ title }: { title: string }) {
   const t = useCasinoTheme()
@@ -12,7 +13,7 @@ function HeaderBrandMark({ title }: { title: string }) {
         <FontAwesome name="archive" size={15} color={t.primaryForeground} accessibilityLabel="" />
       </View>
       <View style={styles.brandText}>
-        <Text style={[styles.brandName, { color: t.textPrimary }]}>SpinVault</Text>
+        <Text style={[styles.brandName, { color: t.textPrimary }]}>{APP_NAME}</Text>
         <Text style={[styles.brandSubtitle, { color: t.textSecondary }]} numberOfLines={1}>
           {title}
         </Text>

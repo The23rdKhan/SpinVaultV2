@@ -6,8 +6,11 @@
 export type CasinoThemeId = 'vegas' | 'cyber' | 'treasure'
 
 /** RN supports #RRGGBBAA on modern iOS/Android; fallback returns the original string. */
-export function hexWithAlpha(hex: string, alphaByte = '99'): string {
-  return hex.startsWith('#') && hex.length === 7 ? `${hex}${alphaByte}` : hex
+export function hexWithAlpha(hex: string | undefined, alphaByte = '99'): string {
+  if (typeof hex !== 'string' || !hex.startsWith('#') || hex.length !== 7) {
+    return typeof hex === 'string' ? hex : '#64748b'
+  }
+  return `${hex}${alphaByte}`
 }
 
 /** Tier colors for cosmetics / loot (mode-specific for contrast). */
@@ -42,7 +45,33 @@ export function getRarityPalette(mode: 'dark' | 'light'): RarityPalette {
   return mode === 'dark' ? RARITY_PALETTE_DARK : RARITY_PALETTE_LIGHT
 }
 
-/** Keys machine skins may override (Play / celebration only — never shell text, tabs, or auth). */
+/**
+ * MACHINE_OVERRIDE_KEYS — the complete, exhaustive list of tokens that a
+ * machine skin is permitted to change. Every other SemanticPalette key belongs
+ * to the Global Brand Shell and must not be altered by a skin.
+ *
+ * Intended consumers of skin-overridable tokens:
+ *   ✅ SlotMachine.tsx     — cabinetBg, cabinetBorder, machineAccent
+ *   ✅ ReelGrid.tsx        — reelBg, reelBorder, machineAccent, win (reel win highlight)
+ *   ✅ ControlDeck.tsx     — cabinetBg, cabinetBorder, spinButtonStart, spinButtonEnd
+ *   ✅ WinDisplay.tsx      — jackpot, win (win celebration overlay)
+ *   ✅ Marquee.tsx         — jackpot (jackpot ticker glow)
+ *   ✅ RecentSpinsRow.tsx  — jackpot, win (spin history chips on Play screen)
+ *   ✅ InfoModal.tsx       — jackpot (payout table — machine context)
+ *
+ * ⚠️  DO NOT use t.jackpot or t.machineAccent in:
+ *   ✗ Profile / account screens
+ *   ✗ Daily rewards / missions / wheel (use t.gold for premium reward indicators)
+ *   ✗ Onboarding / auth screens
+ *   ✗ Shop coin pack listings
+ *   ✗ Legal / support screens
+ *   Reason: Vegas skin maps jackpot → red (#ef4444), which reads as error/penalty
+ *   outside the machine UI. Cyber maps it to pink/magenta.
+ *
+ * t.win is used more broadly (success/positive indicator across the app).
+ * Its per-theme variants are all green shades — acceptable drift for a
+ * "success" semantic color. This is an intentional design-system tradeoff.
+ */
 const MACHINE_OVERRIDE_KEYS = [
   'cabinetBg',
   'cabinetBorder',
@@ -356,3 +385,34 @@ export function getSpinVaultShellBackground(mode: 'dark' | 'light'): string {
 export function getSpinVaultShellPrimary(mode: 'dark' | 'light'): string {
   return mode === 'light' ? MASTER_SEMANTIC_LIGHT.primary : MASTER_SEMANTIC_DARK.primary
 }
+
+// ---------------------------------------------------------------------------
+// Brand color reference — SpinVault identity
+// ---------------------------------------------------------------------------
+//
+// Shell palette (both modes):
+//   Gold accent        #D4AF37  → t.gold / t.accent
+//   Jackpot yellow     #F6B800 (light) / #FFD700 (dark) → t.jackpot
+//
+// Shell palette (light mode):
+//   Warm cream bg      #FFF8EA  → t.background
+//   Teal primary       #0F9F8C  → t.primary
+//   Text primary       #1F2933  → t.textPrimary
+//
+// Shell palette (dark mode):
+//   Cinematic dark bg  #071311  → t.background
+//   Teal primary       #14B8A6  → t.primary
+//   Text primary       #F8FAFC  → t.textPrimary
+//
+// Splash / launch screen only (NOT a runtime theme token):
+//   Splash background  #140707  — hardcoded in app.config.ts splash.backgroundColor
+//                                 and android.adaptiveIcon.backgroundColor
+//   This is a one-time cinematic red-black shown only during app launch.
+//   It does not map to any SemanticPalette token.
+//
+// Usage rules:
+//   1. Always use semantic token names (t.gold, t.primary, t.accent) in components.
+//   2. Never hardcode theme hex values in components except the splash/adaptive-icon config.
+//   3. Machine skins may override only the keys listed in MACHINE_OVERRIDE_KEYS.
+//   4. Shell tokens (textPrimary, background, card, etc.) are never overridden by skins.
+// ---------------------------------------------------------------------------
