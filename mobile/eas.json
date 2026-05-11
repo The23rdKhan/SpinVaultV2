@@ -7,9 +7,6 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_APP_NAME": "SpinVault Lucky Slots Dev"
-      },
       "android": {
         "buildType": "apk"
       },
@@ -18,16 +15,9 @@
       }
     },
     "preview": {
-      "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_APP_NAME": "SpinVault Lucky Slots Preview"
-      }
+      "distribution": "internal"
     },
-    "production": {
-      "env": {
-        "EXPO_PUBLIC_APP_NAME": "SpinVault Lucky Slots"
-      }
-    }
+    "production": {}
   },
   "submit": {
     "production": {}

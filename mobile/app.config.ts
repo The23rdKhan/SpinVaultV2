@@ -40,8 +40,8 @@ const withRevenueCatAndroidBilling: ConfigPlugin = (config) =>
 
 const googleIosUrlScheme = process.env.EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME
 
-/** Display name under the icon; override per profile via EAS `env.EXPO_PUBLIC_APP_NAME`. */
-const appName = process.env.EXPO_PUBLIC_APP_NAME ?? 'SpinVault Lucky Slots'
+/** Display name under the icon on the home screen. */
+const appName = 'SpinVault'
 
 const plugins: NonNullable<ExpoConfig['plugins']> = [
   'expo-dev-client',
