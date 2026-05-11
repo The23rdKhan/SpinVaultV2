@@ -2,8 +2,10 @@ import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
 import { ADMIN_SETUP_INTENT_COOKIE } from "@/lib/auth/cookies";
-import { adminSchema } from "@/lib/supabase/admin-db";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import {
+  completeBootstrapIfSetupIntent,
+  upsertAdminUserRow,
+} from "@/lib/auth/post-login-sync";
 
 /**
  * OAuth/magic-link redirect handler — exchanges `code` for a session and optionally completes one-time bootstrap.
@@ -48,48 +50,13 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (user?.email) {
-    const admin = adminSchema(supabase);
-    await admin.from("admin_users").upsert(
-      {
-        id: user.id,
-        email: user.email,
-        display_name:
-          (user.user_metadata?.full_name as string | undefined) ?? null,
-      },
-      { onConflict: "id" },
-    );
+    await upsertAdminUserRow(supabase, user);
 
     const setupIntent =
       request.cookies.get(ADMIN_SETUP_INTENT_COOKIE)?.value === "1";
 
     if (setupIntent) {
-      const service = createSupabaseServiceClient();
-      const svcAdmin = adminSchema(service);
-
-      const { data: boot } = await svcAdmin
-        .from("bootstrap_state")
-        .select("completed_at")
-        .eq("id", 1)
-        .maybeSingle();
-
-      if (!boot?.completed_at) {
-        await svcAdmin.from("admin_roles").upsert(
-          {
-            user_id: user.id,
-            role: "super_admin",
-          },
-          { onConflict: "user_id,role" },
-        );
-
-        await svcAdmin
-          .from("bootstrap_state")
-          .update({
-            completed_at: new Date().toISOString(),
-            completed_by: user.id,
-          })
-          .eq("id", 1);
-      }
-
+      await completeBootstrapIfSetupIntent(user.id);
       response.cookies.delete(ADMIN_SETUP_INTENT_COOKIE);
     }
   }

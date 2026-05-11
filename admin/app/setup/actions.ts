@@ -9,7 +9,8 @@ export type SetupVerifyState =
   | { ok: false; message: string };
 
 /**
- * Validates `ADMIN_SETUP_TOKEN` and sets a short-lived cookie consumed by `/auth/callback`.
+ * Validates `ADMIN_SETUP_TOKEN` and sets a short-lived cookie consumed at first sign-in
+ * (`/auth/callback` for magic link, or `finalizeLoginSession` for password).
  */
 export async function verifySetupToken(
   _prev: SetupVerifyState | undefined,

@@ -9,7 +9,7 @@ export default function LoginPage() {
       <div className="bg-card text-card-foreground w-full max-w-md rounded-xl border p-8 shadow-sm">
         <h1 className="text-2xl font-semibold tracking-tight">SpinVault Admin</h1>
         <p className="text-muted-foreground mt-2 text-sm">
-          Sign in with a magic link sent to your email.
+          Sign in with email and password, or request a one-time email link.
         </p>
         <div className="mt-8">
           <Suspense

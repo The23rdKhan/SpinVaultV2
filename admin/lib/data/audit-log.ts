@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { isAdminAuthBypass } from "@/lib/auth/dev-bypass";
 import { adminSchema } from "@/lib/supabase/admin-db";
 
 export type AuditInsert = {
@@ -17,7 +18,10 @@ export async function insertAuditLog(
   row: AuditInsert,
 ): Promise<void> {
   const admin = adminSchema(supabase);
-  const { error } = await admin.from("audit_log").insert(row);
+  const { error } = await admin.from("audit_log").insert({
+    ...row,
+    actor_id: isAdminAuthBypass() ? null : row.actor_id,
+  });
   if (error) {
     console.error("audit_log insert failed", error);
   }

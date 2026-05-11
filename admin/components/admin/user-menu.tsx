@@ -18,10 +18,15 @@ import type { AdminRole } from "@/lib/auth/types";
 export type UserMenuProps = {
   email: string;
   roles: readonly AdminRole[];
+  authBypass?: boolean;
 };
 
-export function UserMenu({ email, roles }: UserMenuProps) {
+export function UserMenu({ email, roles, authBypass = false }: UserMenuProps) {
   async function signOut() {
+    if (authBypass) {
+      window.location.href = "/admin/dashboard";
+      return;
+    }
     const supabase = createSupabaseBrowserClient();
     await supabase.auth.signOut();
     window.location.href = "/login";
@@ -47,7 +52,7 @@ export function UserMenu({ email, roles }: UserMenuProps) {
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => void signOut()}>
           <LogOut className="mr-2 size-4" />
-          Sign out
+          {authBypass ? "Reload dashboard" : "Sign out"}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

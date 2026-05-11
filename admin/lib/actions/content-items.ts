@@ -5,6 +5,7 @@ import { flattenError } from "zod";
 
 import { failure, success, type ActionResult } from "@/lib/actions/result";
 import { MSG_FORBIDDEN, MSG_SAVE_FAILED } from "@/lib/actions/safe-action-message";
+import { adminUsersFkOrNull } from "@/lib/auth/dev-bypass";
 import { PermissionError, requirePermission } from "@/lib/auth/require-permission";
 import { insertAuditLog } from "@/lib/data/audit-log";
 import {
@@ -13,7 +14,10 @@ import {
   updateContentItemSchema,
   updateThemeTokensSchema,
 } from "@/lib/schemas/content";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  createSupabaseServerClient,
+  getServerAuthUser,
+} from "@/lib/supabase/server";
 import { adminSchema } from "@/lib/supabase/admin-db";
 import { scanStoreCopy } from "@/lib/validators/copy";
 import {
@@ -51,9 +55,7 @@ export async function createThemeAction(
       );
     }
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getServerAuthUser();
     if (!user) {
       return failure("unauthorized", "Sign in required.");
     }
@@ -82,7 +84,7 @@ export async function createThemeAction(
         store_copy: parsed.data.storeCopy,
         rarity: parsed.data.rarity,
         price_coins: parsed.data.priceCoins ?? null,
-        created_by: user.id,
+        created_by: adminUsersFkOrNull(user.id),
         publish_status: "draft",
       })
       .select("id")
@@ -138,9 +140,7 @@ export async function createCollectibleAction(
       );
     }
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getServerAuthUser();
     if (!user) {
       return failure("unauthorized", "Sign in required.");
     }
@@ -169,7 +169,7 @@ export async function createCollectibleAction(
         store_copy: parsed.data.storeCopy,
         rarity: parsed.data.rarity,
         price_coins: parsed.data.priceCoins ?? null,
-        created_by: user.id,
+        created_by: adminUsersFkOrNull(user.id),
         publish_status: "draft",
       })
       .select("id")
@@ -223,9 +223,7 @@ export async function updateContentItemAction(
       );
     }
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getServerAuthUser();
     if (!user) {
       return failure("unauthorized", "Sign in required.");
     }
@@ -324,9 +322,7 @@ export async function updateThemeTokensAction(
       );
     }
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getServerAuthUser();
     if (!user) {
       return failure("unauthorized", "Sign in required.");
     }
@@ -372,9 +368,7 @@ export async function archiveContentItemAction(input: {
 }): Promise<ActionResult<{ id: string }>> {
   try {
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getServerAuthUser();
     if (!user) {
       return failure("unauthorized", "Sign in required.");
     }

@@ -1,6 +1,10 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { adminSchema } from "@/lib/supabase/admin-db";
+import { createSessionSupabaseServerClient } from "@/lib/supabase/server";
 
+import {
+  ADMIN_DEV_BYPASS_USER,
+  isAdminAuthBypass,
+} from "./dev-bypass";
 import type { AdminRole } from "./types";
 import { isAdminRole } from "./types";
 
@@ -14,6 +18,14 @@ export type AdminContext = {
  * Loads the signed-in Supabase user plus `admin` schema roles (may be empty before bootstrap).
  */
 export async function getAdminContext(): Promise<AdminContext | null> {
+  if (isAdminAuthBypass()) {
+    return {
+      userId: ADMIN_DEV_BYPASS_USER.id,
+      email: ADMIN_DEV_BYPASS_USER.email,
+      roles: ["super_admin"],
+    };
+  }
+
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -21,7 +33,7 @@ export async function getAdminContext(): Promise<AdminContext | null> {
     return null;
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSessionSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

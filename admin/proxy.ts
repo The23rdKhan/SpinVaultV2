@@ -1,10 +1,16 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
+import { isAdminAuthBypass } from "@/lib/auth/dev-bypass";
+
 /**
  * Refreshes Supabase Auth cookies and gates `/admin/**` behind a logged-in session.
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
+  if (isAdminAuthBypass()) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -45,10 +51,10 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   if (path.startsWith("/admin") && !user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("next", path);
-    return NextResponse.redirect(url);
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/login";
+    redirectUrl.searchParams.set("next", path);
+    return NextResponse.redirect(redirectUrl);
   }
 
   return supabaseResponse;

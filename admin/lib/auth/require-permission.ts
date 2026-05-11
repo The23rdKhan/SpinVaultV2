@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { adminSchema } from "@/lib/supabase/admin-db";
 
+import { isAdminAuthBypass } from "./dev-bypass";
 import type { AdminRole } from "./types";
 import { isAdminRole } from "./types";
 
@@ -28,6 +29,10 @@ export async function requirePermission(
   userId: string,
   allowed: readonly AdminRole[],
 ): Promise<AdminRole[]> {
+  if (isAdminAuthBypass()) {
+    return ["super_admin"];
+  }
+
   const admin = adminSchema(supabase);
   const { data: rows, error } = await admin
     .from("admin_roles")

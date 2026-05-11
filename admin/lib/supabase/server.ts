@@ -1,11 +1,17 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
+import {
+  ADMIN_DEV_BYPASS_USER,
+  isAdminAuthBypass,
+} from "@/lib/auth/dev-bypass";
+
+import { createSupabaseServiceClient } from "./service";
+
 /**
- * Supabase client for Server Components, Server Actions, and Route Handlers.
- * Uses the user session (anon key + cookies) so RLS applies.
+ * Session-bound client (anon key + cookies). RLS uses `auth.uid()`.
  */
-export async function createSupabaseServerClient() {
+export async function createSessionSupabaseServerClient() {
   const cookieStore = await cookies();
 
   return createServerClient(
@@ -28,4 +34,39 @@ export async function createSupabaseServerClient() {
       },
     },
   );
+}
+
+/**
+ * Supabase client for Server Components, Server Actions, and Route Handlers.
+ * With `ADMIN_SKIP_AUTH=1` in development, uses the service-role client (RLS bypassed).
+ */
+export async function createSupabaseServerClient() {
+  if (isAdminAuthBypass()) {
+    return createSupabaseServiceClient();
+  }
+  return createSessionSupabaseServerClient();
+}
+
+/**
+ * Signed-in user for server code. In dev bypass mode, returns a synthetic user
+ * (not in `auth.users`); use with {@link createSupabaseServerClient} bypass only.
+ */
+export async function getServerAuthUser(): Promise<{
+  id: string;
+  email: string;
+} | null> {
+  if (isAdminAuthBypass()) {
+    return { ...ADMIN_DEV_BYPASS_USER };
+  }
+
+  const supabase = await createSessionSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user?.email) {
+    return null;
+  }
+
+  return { id: user.id, email: user.email };
 }

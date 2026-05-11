@@ -37,6 +37,8 @@ import { UserMenu } from "./user-menu";
 export type AdminChromeProps = {
   email: string;
   roles: readonly AdminRole[];
+  /** When true, sign out only reloads admin (no Supabase session). */
+  authBypass?: boolean;
   children: ReactNode;
 };
 
@@ -197,7 +199,12 @@ function SideNav({ pathname, onNavigate }: { pathname: string; onNavigate?: () =
   );
 }
 
-export function AdminChrome({ email, roles, children }: AdminChromeProps) {
+export function AdminChrome({
+  email,
+  roles,
+  authBypass = false,
+  children,
+}: AdminChromeProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const env = getAdminEnvLabel();
@@ -285,7 +292,7 @@ export function AdminChrome({ email, roles, children }: AdminChromeProps) {
                 Alerts
               </Button>
             </div>
-            <UserMenu email={email} roles={roles} />
+            <UserMenu email={email} roles={roles} authBypass={authBypass} />
           </div>
         </header>
 

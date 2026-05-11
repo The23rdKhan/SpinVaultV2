@@ -9,9 +9,13 @@ import {
   MSG_PUBLISH_FAILED,
   MSG_SAVE_FAILED,
 } from "@/lib/actions/safe-action-message";
+import { adminUsersFkOrNull } from "@/lib/auth/dev-bypass";
 import { PermissionError, requirePermission } from "@/lib/auth/require-permission";
 import { insertAuditLog } from "@/lib/data/audit-log";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  createSupabaseServerClient,
+  getServerAuthUser,
+} from "@/lib/supabase/server";
 import { adminSchema } from "@/lib/supabase/admin-db";
 
 async function loadItem(supabase: SupabaseClient, id: string) {
@@ -28,9 +32,7 @@ export async function submitForQaAction(
 ): Promise<ActionResult<{ id: string }>> {
   try {
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getServerAuthUser();
     if (!user) {
       return failure("unauthorized", "Sign in required.");
     }
@@ -75,9 +77,7 @@ export async function submitForQaAction(
 export async function approveQaAction(id: string): Promise<ActionResult<{ id: string }>> {
   try {
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getServerAuthUser();
     if (!user) {
       return failure("unauthorized", "Sign in required.");
     }
@@ -103,7 +103,7 @@ export async function approveQaAction(id: string): Promise<ActionResult<{ id: st
       content_item_id: id,
       gate: "qa",
       status: "approved",
-      reviewer_id: user.id,
+      reviewer_id: adminUsersFkOrNull(user.id),
       notes: "QA approved",
     });
 
@@ -130,9 +130,7 @@ export async function rejectQaAction(
 ): Promise<ActionResult<{ id: string }>> {
   try {
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getServerAuthUser();
     if (!user) {
       return failure("unauthorized", "Sign in required.");
     }
@@ -157,7 +155,7 @@ export async function rejectQaAction(
       content_item_id: id,
       gate: "qa",
       status: "rejected",
-      reviewer_id: user.id,
+      reviewer_id: adminUsersFkOrNull(user.id),
       notes,
     });
 
@@ -184,9 +182,7 @@ export async function approveLegalAction(
 ): Promise<ActionResult<{ id: string }>> {
   try {
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getServerAuthUser();
     if (!user) {
       return failure("unauthorized", "Sign in required.");
     }
@@ -211,7 +207,7 @@ export async function approveLegalAction(
       content_item_id: id,
       gate: "legal",
       status: "approved",
-      reviewer_id: user.id,
+      reviewer_id: adminUsersFkOrNull(user.id),
       notes: "Legal approved",
     });
 
@@ -238,9 +234,7 @@ export async function rejectLegalAction(
 ): Promise<ActionResult<{ id: string }>> {
   try {
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getServerAuthUser();
     if (!user) {
       return failure("unauthorized", "Sign in required.");
     }
@@ -265,7 +259,7 @@ export async function rejectLegalAction(
       content_item_id: id,
       gate: "legal",
       status: "rejected",
-      reviewer_id: user.id,
+      reviewer_id: adminUsersFkOrNull(user.id),
       notes,
     });
 
@@ -290,9 +284,7 @@ export async function rejectLegalAction(
 export async function publishItemAction(id: string): Promise<ActionResult<{ id: string }>> {
   try {
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getServerAuthUser();
     if (!user) {
       return failure("unauthorized", "Sign in required.");
     }
@@ -337,7 +329,7 @@ export async function publishItemAction(id: string): Promise<ActionResult<{ id: 
         version: nextVersion,
         snapshot: row,
         catalog_version: catalogVersion,
-        published_by: user.id,
+        published_by: adminUsersFkOrNull(user.id),
       })
       .select("id")
       .single();

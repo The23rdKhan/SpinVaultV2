@@ -41,8 +41,8 @@ export function SetupForm() {
         <div className="bg-muted/60 space-y-3 rounded-lg border p-4 text-sm">
           <p className="font-medium">Token verified.</p>
           <p className="text-muted-foreground">
-            Continue to sign in with the same email you&apos;ll use as the first super admin.
-            After the magic link completes, this browser session will receive{" "}
+            Continue to sign in with the same email you&apos;ll use as the first super admin
+            (password or magic link). After sign-in completes, this session will receive{" "}
             <code className="text-xs">super_admin</code>.
           </p>
           <Button asChild className="w-full">

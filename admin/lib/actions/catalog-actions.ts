@@ -9,13 +9,17 @@ import {
   MSG_FORBIDDEN,
   MSG_PUBLISH_FAILED,
 } from "@/lib/actions/safe-action-message";
+import { adminUsersFkOrNull } from "@/lib/auth/dev-bypass";
 import { PermissionError, requirePermission } from "@/lib/auth/require-permission";
 import {
   buildCatalogPayload,
   type CatalogContentRow,
 } from "@/lib/catalog/build";
 import { insertAuditLog } from "@/lib/data/audit-log";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  createSupabaseServerClient,
+  getServerAuthUser,
+} from "@/lib/supabase/server";
 import { adminSchema } from "@/lib/supabase/admin-db";
 
 /** Rebuild catalog JSON from published rows and bump `catalog_meta` ([§L.6]). */
@@ -24,9 +28,7 @@ export async function publishCatalogAction(): Promise<
 > {
   try {
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getServerAuthUser();
     if (!user) {
       return failure("unauthorized", "Sign in required.");
     }
@@ -72,7 +74,7 @@ export async function publishCatalogAction(): Promise<
       payload,
       payload_sha256: sha,
       payload_url: "",
-      built_by: user.id,
+      built_by: adminUsersFkOrNull(user.id),
       notes: "MVP inline JSON row",
     });
 

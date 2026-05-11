@@ -6,10 +6,14 @@ import { z } from "zod";
 
 import { failure, success, type ActionResult } from "@/lib/actions/result";
 import { MSG_FORBIDDEN, MSG_SAVE_FAILED } from "@/lib/actions/safe-action-message";
+import { adminUsersFkOrNull } from "@/lib/auth/dev-bypass";
 import { PermissionError, requirePermission } from "@/lib/auth/require-permission";
 import { type AdminRole, isAdminRole } from "@/lib/auth/types";
 import { insertAuditLog } from "@/lib/data/audit-log";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  createSupabaseServerClient,
+  getServerAuthUser,
+} from "@/lib/supabase/server";
 import { adminSchema } from "@/lib/supabase/admin-db";
 
 const assignSchema = z.object({
@@ -31,9 +35,7 @@ export async function assignRoleAction(
     }
 
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getServerAuthUser();
     if (!user) {
       return failure("unauthorized", "Sign in required.");
     }
@@ -44,7 +46,7 @@ export async function assignRoleAction(
       {
         user_id: parsed.data.userId,
         role: parsed.data.role,
-        granted_by: user.id,
+        granted_by: adminUsersFkOrNull(user.id),
       },
       { onConflict: "user_id,role" },
     );

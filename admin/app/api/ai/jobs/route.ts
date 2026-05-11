@@ -3,10 +3,14 @@ import { flattenError } from "zod";
 import { z } from "zod";
 
 import { estimateOpenAiImageCostUsd } from "@/lib/ai/openai-image-cost-estimate";
+import { adminUsersFkOrNull } from "@/lib/auth/dev-bypass";
 import { requirePermission } from "@/lib/auth/require-permission";
 import { generateElevenLabsSfx } from "@/lib/providers/audio/elevenlabs-sfx";
 import { generateOpenAiImages } from "@/lib/providers/image/openai-images";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  createSupabaseServerClient,
+  getServerAuthUser,
+} from "@/lib/supabase/server";
 import { adminSchema } from "@/lib/supabase/admin-db";
 
 const bodySchema = z.object({
@@ -33,9 +37,7 @@ export async function POST(req: Request) {
   }
 
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getServerAuthUser();
   if (!user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
@@ -76,7 +78,7 @@ export async function POST(req: Request) {
       count: parsed.data.count,
       cost_estimate_usd: estimateUsd,
       status: "queued",
-      created_by: user.id,
+      created_by: adminUsersFkOrNull(user.id),
     })
     .select("id")
     .single();
