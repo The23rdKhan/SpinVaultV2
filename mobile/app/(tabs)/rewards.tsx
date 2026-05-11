@@ -27,8 +27,8 @@ export default function RewardsScreen() {
 
   const nextClaimableDay = dailyStreak + 1
 
-  const handleClaim = (day: number) => {
-    if (claimDailyReward(day)) {
+  const handleClaim = async (day: number) => {
+    if (await claimDailyReward(day)) {
       setClaimFlash(day)
       setTimeout(() => setClaimFlash(null), 800)
       Toast.show({ type: 'success', text1: `Day ${day} claimed` })
@@ -125,8 +125,8 @@ export default function RewardsScreen() {
             size="sm"
             label={m.claimed ? 'Done' : m.completed ? 'Claim' : '…'}
             disabled={!m.completed || m.claimed}
-            onPress={() => {
-              if (claimMissionReward(m.id)) Toast.show({ type: 'success', text1: 'Reward claimed' })
+            onPress={async () => {
+              if (await claimMissionReward(m.id)) Toast.show({ type: 'success', text1: 'Reward claimed' })
             }}
           />
         </View>

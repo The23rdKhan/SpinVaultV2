@@ -2,13 +2,13 @@
  * Deep link target for Supabase "Reset password" emails.
  * Add this exact URL to Supabase Dashboard → Authentication → URL Configuration → Redirect URLs.
  *
- * Defaults to app scheme from app.config (`mobile`) + path `reset-password`.
+ * Defaults to app scheme from app.config (`spinvault`) + path `reset-password`.
  * Override with EXPO_PUBLIC_SUPABASE_RESET_REDIRECT_URL if you use a universal link / web handoff.
  */
 export function getPasswordResetRedirectUrl(): string {
   const custom = process.env.EXPO_PUBLIC_SUPABASE_RESET_REDIRECT_URL?.trim()
   if (custom) return custom
-  return 'mobile://reset-password'
+  return 'spinvault://reset-password'
 }
 
 export type ParsedRecoveryTokens = {

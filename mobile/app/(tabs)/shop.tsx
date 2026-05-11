@@ -32,14 +32,14 @@ export default function ShopScreen() {
     msg(`Added ${(pack.coins + pack.bonus).toLocaleString()} coins`)
   }
 
-  const onBuyTheme = (theme: Theme) => {
+  const onBuyTheme = async (theme: Theme) => {
     const price = THEME_CONFIGS[theme].price
     if (ownedThemes.includes(theme)) {
       setTheme(theme)
       msg(`${THEME_CONFIGS[theme].name} equipped`)
       return
     }
-    if (buyTheme(theme, price)) {
+    if (await buyTheme(theme, price)) {
       setTheme(theme)
       msg(`${THEME_CONFIGS[theme].name} unlocked`)
     } else {

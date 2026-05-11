@@ -49,5 +49,4 @@ export const APP_COMPLIANCE_LINE = 'Virtual coins only. No cash value.' as const
  * Do not alter wording without legal review.
  */
 export const APP_COMPLIANCE_FULL =
-  'Virtual coins and rewards are for entertainment only. No cash value. ' +
-  'SpinVault does not offer real-money gambling or cash prizes.' as const
+  'Virtual coins and rewards are for entertainment only. No cash value. SpinVault does not offer real-money gambling or cash prizes.' as const
