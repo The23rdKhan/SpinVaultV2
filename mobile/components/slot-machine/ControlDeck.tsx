@@ -385,75 +385,99 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
 
       <View style={[styles.panel, { borderColor: hexWithAlpha(t.gold, '40'), backgroundColor: t.cabinetBg }]}>
         <View style={styles.panelRow}>
-          <View style={styles.leftBetColumn}>
-            <View
-              style={[
-                styles.betCapsule,
-                {
-                  borderColor: hexWithAlpha(t.gold, '44'),
-                  backgroundColor: hexWithAlpha(t.surface, 'CC'),
-                },
-              ]}
-            >
-              <View style={styles.betCluster}>
-                <AppButton
-                  variant="outline"
-                  size="icon"
-                  disabled={isSpinning || autoSpinRemaining != null || currentBet === unlockedBets[0]}
-                  onPress={decreaseBet}
-                >
-                  <FontAwesome name="minus" size={16} color={t.textPrimary} />
-                </AppButton>
-                <View style={styles.betMid}>
-                  <Text style={[styles.betLabel, { color: t.textMuted }]}>Bet</Text>
-                  <Text style={[styles.betAmt, { color: t.textPrimary }]}>{formatBet(currentBet)}</Text>
-                  {nextLockedBet != null && currentBet === unlockedBets[unlockedBets.length - 1] ? (
-                    <Text style={[styles.betUnlockHint, { color: t.gold }]} numberOfLines={1}>
-                      {`🔒 ${formatBet(nextLockedBet)} · Need ${formatBet(coinGateForBet(nextLockedBet))}`}
-                    </Text>
-                  ) : null}
-                </View>
-                <AppButton
-                  variant="outline"
-                  size="icon"
-                  disabled={isSpinning || autoSpinRemaining != null || currentBet === unlockedBets[unlockedBets.length - 1]}
-                  onPress={increaseBet}
-                >
-                  <FontAwesome name="plus" size={16} color={t.textPrimary} />
-                </AppButton>
-              </View>
-            </View>
-
-            <View style={styles.multRowUnderBet}>
-              {([2, 5, 10] as const).map((factor) => {
-                const target = unlockedBets.find((b) => b >= currentBet * factor)
-                  ?? unlockedBets[unlockedBets.length - 1]
-                const alreadyAtMax = target === currentBet
-                return (
+          <View style={styles.panelSide}>
+            <View style={styles.leftBetColumn}>
+              <View
+                style={[
+                  styles.betCapsule,
+                  {
+                    borderColor: hexWithAlpha(t.gold, '44'),
+                    backgroundColor: hexWithAlpha(t.surface, 'CC'),
+                  },
+                ]}
+              >
+                <View style={styles.betCluster}>
                   <Pressable
-                    key={factor}
-                    onPress={() => jumpBetByFactor(factor)}
-                    disabled={isSpinning || autoSpinRemaining != null || alreadyAtMax}
-                    style={({ pressed }) => [
-                      styles.multChip,
-                      {
-                        borderColor: alreadyAtMax ? t.border : hexWithAlpha(t.gold, '40'),
-                        backgroundColor: pressed && !alreadyAtMax
-                          ? hexWithAlpha(t.gold, '14')
-                          : hexWithAlpha(t.gold, '06'),
-                        opacity: alreadyAtMax ? 0.35 : 1,
-                      },
-                    ]}
                     accessibilityRole="button"
-                    accessibilityLabel={`Multiply bet by ${factor}`}
-                    accessibilityHint={`Jumps bet to ${formatBet(target)}`}
+                    accessibilityLabel="Decrease bet"
+                    disabled={isSpinning || autoSpinRemaining != null || currentBet === unlockedBets[0]}
+                    onPress={decreaseBet}
+                    style={({ pressed }) => [
+                      styles.betStepBtn,
+                      {
+                        borderColor: hexWithAlpha(t.border, 'CC'),
+                        backgroundColor: pressed
+                          ? hexWithAlpha(t.primary, '14')
+                          : hexWithAlpha(t.surface, '90'),
+                      },
+                      (isSpinning || autoSpinRemaining != null || currentBet === unlockedBets[0]) &&
+                        styles.betStepBtnDisabled,
+                    ]}
                   >
-                    <Text style={[styles.multChipTxt, { color: alreadyAtMax ? t.textMuted : t.gold }]}>
-                      ×{factor}
-                    </Text>
+                    <FontAwesome name="minus" size={14} color={t.textPrimary} />
                   </Pressable>
-                )
-              })}
+                  <View style={styles.betMid}>
+                    <Text style={[styles.betLabel, { color: t.textMuted }]}>Bet</Text>
+                    <Text style={[styles.betAmt, { color: t.textPrimary }]}>{formatBet(currentBet)}</Text>
+                    {nextLockedBet != null && currentBet === unlockedBets[unlockedBets.length - 1] ? (
+                      <Text style={[styles.betUnlockHint, { color: t.gold }]} numberOfLines={1}>
+                        {`🔒 ${formatBet(nextLockedBet)} · Need ${formatBet(coinGateForBet(nextLockedBet))}`}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Increase bet"
+                    disabled={isSpinning || autoSpinRemaining != null || currentBet === unlockedBets[unlockedBets.length - 1]}
+                    onPress={increaseBet}
+                    style={({ pressed }) => [
+                      styles.betStepBtn,
+                      {
+                        borderColor: hexWithAlpha(t.border, 'CC'),
+                        backgroundColor: pressed
+                          ? hexWithAlpha(t.primary, '14')
+                          : hexWithAlpha(t.surface, '90'),
+                      },
+                      (isSpinning || autoSpinRemaining != null || currentBet === unlockedBets[unlockedBets.length - 1]) &&
+                        styles.betStepBtnDisabled,
+                    ]}
+                  >
+                    <FontAwesome name="plus" size={14} color={t.textPrimary} />
+                  </Pressable>
+                </View>
+              </View>
+
+              <View style={styles.multRowUnderBet}>
+                {([2, 5, 10] as const).map((factor) => {
+                  const target = unlockedBets.find((b) => b >= currentBet * factor)
+                    ?? unlockedBets[unlockedBets.length - 1]
+                  const alreadyAtMax = target === currentBet
+                  return (
+                    <Pressable
+                      key={factor}
+                      onPress={() => jumpBetByFactor(factor)}
+                      disabled={isSpinning || autoSpinRemaining != null || alreadyAtMax}
+                      style={({ pressed }) => [
+                        styles.multChip,
+                        {
+                          borderColor: alreadyAtMax ? t.border : hexWithAlpha(t.gold, '40'),
+                          backgroundColor: pressed && !alreadyAtMax
+                            ? hexWithAlpha(t.gold, '14')
+                            : hexWithAlpha(t.gold, '06'),
+                          opacity: alreadyAtMax ? 0.35 : 1,
+                        },
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Multiply bet by ${factor}`}
+                      accessibilityHint={`Jumps bet to ${formatBet(target)}`}
+                    >
+                      <Text style={[styles.multChipTxt, { color: alreadyAtMax ? t.textMuted : t.gold }]}>
+                        ×{factor}
+                      </Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
             </View>
           </View>
 
@@ -471,7 +495,8 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
             />
           </View>
 
-          <View style={styles.rightCol}>
+          <View style={[styles.panelSide, styles.panelSideRight]}>
+            <View style={styles.rightCol}>
             {/* Max bet button + unlock-hint icon */}
             <View style={styles.maxRow}>
               <Pressable
@@ -552,6 +577,7 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
             <Animated.Text style={[styles.balVal, { color: hexWithAlpha(t.gold, 'EE') }, balAnimStyle]}>
               {`$${coins.toLocaleString()}`}
             </Animated.Text>
+          </View>
           </View>
         </View>
 
@@ -919,30 +945,60 @@ const styles = StyleSheet.create({
   },
   panelRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 12,
+    alignItems: 'center',
+    width: '100%',
   },
-  leftBetColumn: {
+  panelSide: {
     flex: 1,
     minWidth: 0,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  panelSideRight: {
+    alignItems: 'flex-end',
+  },
+  leftBetColumn: {
+    width: '100%',
+    maxWidth: 172,
     gap: 8,
   },
   betCapsule: {
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    paddingVertical: 4,
-    paddingHorizontal: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
   },
-  betCluster: { flexDirection: 'row', alignItems: 'center', gap: 4, justifyContent: 'center' },
-  betMid: { alignItems: 'center', minWidth: 72 },
+  betCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    gap: 8,
+  },
+  betStepBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  betStepBtnDisabled: {
+    opacity: 0.38,
+  },
+  betMid: { flex: 1, alignItems: 'center', justifyContent: 'center', minWidth: 56, paddingHorizontal: 4 },
   betLabel: { fontSize: 10, fontWeight: '600' },
-  betAmt: { fontSize: 22, fontWeight: '900' },
+  betAmt: { fontSize: 20, fontWeight: '900' },
   betUnlockHint: { fontSize: 9, fontWeight: '700', marginTop: 2, letterSpacing: 0.2 },
   multRowUnderBet: { flexDirection: 'row', justifyContent: 'center', gap: 6 },
   multChip: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
   multChipTxt: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
-  spinColumn: { paddingHorizontal: 4, alignItems: 'center' },
+  spinColumn: {
+    width: 100,
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   spinWrapper: {
     alignItems: 'center',
     gap: 5,
@@ -990,17 +1046,25 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 22,
   },
-  rightCol: { alignItems: 'center', gap: 4, minWidth: 80, maxWidth: 112, position: 'relative' },
-  maxRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  maxBetPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    minHeight: 40,
-    justifyContent: 'center',
+  rightCol: {
+    alignItems: 'flex-end',
+    gap: 4,
+    width: '100%',
+    maxWidth: 108,
+    flexShrink: 0,
+    position: 'relative',
   },
-  maxBetPillTxt: { fontSize: 11, fontWeight: '800' },
+  maxRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4, width: '100%' },
+  maxBetPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    minHeight: 36,
+    justifyContent: 'center',
+    maxWidth: '100%',
+  },
+  maxBetPillTxt: { fontSize: 10, fontWeight: '800', textAlign: 'center' },
   tooltipIcon: { padding: 2 },
   tooltipIconTxt: { fontSize: 15, fontWeight: '700' },
   tooltipPanel: {
@@ -1024,8 +1088,8 @@ const styles = StyleSheet.create({
   tooltipBet: { fontSize: 11, fontWeight: '700' },
   tooltipNeed: { fontSize: 11, fontWeight: '600' },
   tooltipDismiss: { fontSize: 9, textAlign: 'center', marginTop: 2 },
-  balLabel: { fontSize: 10, fontWeight: '600' },
-  balVal: { fontSize: 15, fontWeight: '800' },
+  balLabel: { fontSize: 10, fontWeight: '600', alignSelf: 'flex-end' },
+  balVal: { fontSize: 14, fontWeight: '800', alignSelf: 'flex-end' },
   warnBlock: { marginTop: 10, gap: 10, alignItems: 'stretch', width: '100%' },
   warn: {
     textAlign: 'center',
