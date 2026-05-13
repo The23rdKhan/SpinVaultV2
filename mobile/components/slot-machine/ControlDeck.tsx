@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Pressable, StyleSheet, Text, View, TouchableWithoutFeedback } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import Toast from 'react-native-toast-message'
 import Animated, {
   useSharedValue,
@@ -64,13 +64,6 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
   const { betChange: betChangeSfx } = useAudio()
   const reduceMotion = useReducedMotion()
 
-  // Capture theme colors for use inside Reanimated worklets (worklets can't
-  // close over objects that change reference, and returning undefined for a
-  // color prop crashes on the UI thread).
-  const foregroundColor = t.foreground
-  const winFlashColor = t.win
-  const lossFlashColor = t.destructive
-
   const [displayedWin, setDisplayedWin] = useState(0)
   const [fastMode, setFastMode] = useState(false)
   const [recoveryOpen, setRecoveryOpen] = useState(false)
@@ -81,31 +74,6 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
   const AUTO_SPIN_DEFAULT = 50
   const [autoSpinRemaining, setAutoSpinRemaining] = useState<number | null>(null)
   const autoSpinRef = useRef(false)
-
-  // Balance flash
-  const balScale = useSharedValue(1)
-  const balColorIdx = useSharedValue(0) // 1 = win, -1 = loss, 0 = neutral
-  const prevCoinsRef = useRef(coins)
-
-  useEffect(() => {
-    if (isSpinning) return
-    if (coins > prevCoinsRef.current) {
-      balScale.value = withSequence(
-        withTiming(1.15, { duration: 100 }),
-        withTiming(1.0, { duration: 300, easing: Easing.out(Easing.quad) }),
-      )
-      balColorIdx.value = withSequence(
-        withTiming(1, { duration: 80 }),
-        withTiming(0, { duration: 600 }),
-      )
-    } else if (coins < prevCoinsRef.current) {
-      balColorIdx.value = withSequence(
-        withTiming(-1, { duration: 80 }),
-        withTiming(0, { duration: 400 }),
-      )
-    }
-    prevCoinsRef.current = coins
-  }, [coins, isSpinning, balScale, balColorIdx])
 
   useEffect(() => {
     if (lastWin > 0 && !isSpinning) {
@@ -234,16 +202,6 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
     }
   }, [addCoins, canWatchAd, goRewards, watchAd])
 
-  const balAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: balScale.value }],
-    color:
-      balColorIdx.value > 0.5
-        ? winFlashColor
-        : balColorIdx.value < -0.5
-          ? lossFlashColor
-          : foregroundColor,
-  }))
-
   const decreaseBet = () => {
     betChange()
     betChangeSfx()
@@ -272,48 +230,6 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
     const next = unlockedBets.find((b) => b >= target) ?? unlockedBets[unlockedBets.length - 1]
     setBet(next)
   }, [currentBet, unlockedBets, betChange, betChangeSfx, setBet])
-
-  // ── Bet-tier tooltip ──────────────────────────────────────────────────────
-  const [tooltipOpen, setTooltipOpen] = useState(false)
-  const tooltipOpacity = useSharedValue(0)
-  const tooltipScale = useSharedValue(0.88)
-  const tooltipDismissRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const tooltipAnimStyle = useAnimatedStyle(() => ({
-    opacity: tooltipOpacity.value,
-    transform: [{ scale: tooltipScale.value }],
-  }))
-
-  // closeTooltip declared first so openTooltip can reference it without a stale closure.
-  const closeTooltip = useCallback(() => {
-    if (tooltipDismissRef.current) clearTimeout(tooltipDismissRef.current)
-    tooltipOpacity.value = withTiming(0, { duration: 140 }, (done) => {
-      if (done) setTooltipOpen(false)
-    })
-    tooltipScale.value = withTiming(0.88, { duration: 140 })
-  }, [tooltipOpacity, tooltipScale])
-
-  const openTooltip = useCallback(() => {
-    if (tooltipDismissRef.current) clearTimeout(tooltipDismissRef.current)
-    setTooltipOpen(true)
-    tooltipOpacity.value = withTiming(1, { duration: 180 })
-    tooltipScale.value = withTiming(1, { duration: 180, easing: Easing.out(Easing.back(1.4)) })
-    // Auto-dismiss after 5 s; closeTooltip is stable (shared value deps never change).
-    tooltipDismissRef.current = setTimeout(closeTooltip, 5_000)
-  }, [closeTooltip, tooltipOpacity, tooltipScale])
-
-  // Clear pending auto-dismiss on unmount to avoid setState after unmount.
-  useEffect(() => () => {
-    if (tooltipDismissRef.current) clearTimeout(tooltipDismissRef.current)
-  }, [])
-
-  /** All bet tiers that are still locked for the current player, with their gates. */
-  const lockedTiers = useMemo(() =>
-    BET_OPTIONS
-      .filter((b) => !isBetUnlocked(b, coins))
-      .map((b) => ({ bet: b, need: coinGateForBet(b) })),
-    [coins],
-  )
 
   return (
     <View style={styles.wrap}>
@@ -511,8 +427,6 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
 
           <View style={[styles.panelSide, styles.panelSideRight]}>
             <View style={styles.rightCol}>
-            {/* Max bet button + unlock-hint icon */}
-            <View style={styles.maxRow}>
               <Pressable
                 onPress={setMaxBet}
                 disabled={isSpinning || autoSpinRemaining != null}
@@ -528,6 +442,7 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel="Max bet"
+                accessibilityHint="Uses your highest unlocked bet. Coin balance is shown in the header."
               >
                 <Text
                   style={[styles.maxBetPillTxt, { color: t.gold }]}
@@ -539,65 +454,7 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
                   Max {formatBet(unlockedBets[unlockedBets.length - 1] ?? BET_OPTIONS[0])}
                 </Text>
               </Pressable>
-              {lockedTiers.length > 0 ? (
-                <Pressable
-                  onPress={tooltipOpen ? closeTooltip : openTooltip}
-                  hitSlop={10}
-                  accessibilityRole="button"
-                  accessibilityLabel="Bet unlock info"
-                  accessibilityHint="Shows how to unlock higher bet tiers"
-                  style={styles.tooltipIcon}
-                >
-                  <Text style={[styles.tooltipIconTxt, { color: t.gold }]}>ⓘ</Text>
-                </Pressable>
-              ) : null}
             </View>
-
-            {/* Floating tooltip panel */}
-            {tooltipOpen ? (
-              <TouchableWithoutFeedback onPress={closeTooltip}>
-                <Animated.View
-                  style={[
-                    styles.tooltipPanel,
-                    {
-                      backgroundColor: t.surface,
-                      borderColor: hexWithAlpha(t.gold, '55'),
-                    },
-                    tooltipAnimStyle,
-                  ]}
-                >
-                  <Text style={[styles.tooltipTitle, { color: t.gold }]}>
-                    🔒 Unlock Higher Bets
-                  </Text>
-                  {lockedTiers.map(({ bet, need }, i) => {
-                    const isNext = i === 0
-                    return (
-                      <View
-                        key={bet}
-                        style={[
-                          styles.tooltipRow,
-                          isNext && { backgroundColor: hexWithAlpha(t.gold, '12'), borderRadius: 6 },
-                        ]}
-                      >
-                        <Text style={[styles.tooltipBet, { color: isNext ? t.gold : t.textSecondary }]}>
-                          {isNext ? '→ ' : '   '}{formatBet(bet)} bet
-                        </Text>
-                        <Text style={[styles.tooltipNeed, { color: isNext ? t.textPrimary : t.textMuted }]}>
-                          Need {formatBet(need)} coins
-                        </Text>
-                      </View>
-                    )
-                  })}
-                  <Text style={[styles.tooltipDismiss, { color: t.textMuted }]}>Tap to dismiss</Text>
-                </Animated.View>
-              </TouchableWithoutFeedback>
-            ) : null}
-
-            <Text style={[styles.balLabel, { color: t.textMuted }]}>Balance</Text>
-            <Animated.Text style={[styles.balVal, { color: hexWithAlpha(t.gold, 'EE') }, balAnimStyle]}>
-              {`$${coins.toLocaleString()}`}
-            </Animated.Text>
-          </View>
           </View>
         </View>
 
@@ -1094,14 +951,11 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   rightCol: {
-    alignItems: 'flex-end',
-    gap: 4,
+    alignItems: 'stretch',
     width: '100%',
-    maxWidth: 118,
+    maxWidth: 100,
     flexShrink: 0,
-    position: 'relative',
   },
-  maxRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4, width: '100%' },
   maxBetPill: {
     paddingHorizontal: 8,
     paddingVertical: 7,
@@ -1109,34 +963,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     minHeight: 36,
     justifyContent: 'center',
-    maxWidth: '100%',
+    alignSelf: 'stretch',
   },
   maxBetPillTxt: { fontSize: 10, fontWeight: '800', textAlign: 'center' },
-  tooltipIcon: { padding: 2 },
-  tooltipIconTxt: { fontSize: 15, fontWeight: '700' },
-  tooltipPanel: {
-    position: 'absolute',
-    top: 36,
-    right: 0,
-    width: 210,
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 10,
-    gap: 6,
-    zIndex: 999,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.28,
-    shadowRadius: 8,
-    elevation: 12,
-  },
-  tooltipTitle: { fontSize: 11, fontWeight: '800', letterSpacing: 0.3, marginBottom: 2 },
-  tooltipRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3, paddingHorizontal: 4 },
-  tooltipBet: { fontSize: 11, fontWeight: '700' },
-  tooltipNeed: { fontSize: 11, fontWeight: '600' },
-  tooltipDismiss: { fontSize: 9, textAlign: 'center', marginTop: 2 },
-  balLabel: { fontSize: 10, fontWeight: '600', alignSelf: 'flex-end' },
-  balVal: { fontSize: 14, fontWeight: '800', alignSelf: 'flex-end' },
   warnBlock: { marginTop: 10, gap: 10, alignItems: 'stretch', width: '100%' },
   warn: {
     textAlign: 'center',
