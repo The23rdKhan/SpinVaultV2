@@ -62,6 +62,17 @@ function selection() {
 export function useHaptics() {
   const { hapticsEnabled } = useGame()
 
+  const reelSpinStart = useCallback(() => {
+    if (!hapticsEnabled || !isNative()) return
+    impact(Haptics.ImpactFeedbackStyle.Light)
+  }, [hapticsEnabled])
+
+  /** Auto-spin countdown crossed a milestone (40 / 30 / 20 / 10 remaining). */
+  const autoSpinMilestone = useCallback(() => {
+    if (!hapticsEnabled || !isNative()) return
+    selection()
+  }, [hapticsEnabled])
+
   const reelStop = useCallback(() => {
     if (!hapticsEnabled || !isNative()) return
     impact(Haptics.ImpactFeedbackStyle.Light)
@@ -147,22 +158,50 @@ export function useHaptics() {
 
   /**
    * Line-win tier feedback. Maps server `WinType` to UI tier names:
-   * - normal  → Win           (0.5x–4.9x)
+   * - normal  → Win (0–5× vs bet, exclusive of 5); under 1× uses a light tap when `options.winMultiplier` is passed
    * - bigWin  → Big Win       (5x–9.9x)
    * - megaWin → Jackpot       (10x–24.9x)
    * - jackpot → Mega Jackpot  (25x+)
+   *
+   * When `winType === 'normal'`, pass `options?.winMultiplier`: values in (0, 1) use a light tap; omit `options` for other tiers.
    *
    * Each tier is deliberately distinct so players feel the escalation.
    * Delayed impacts (up to 580 ms) are fire-and-forget — see freeSpinStreakAdvance
    * for rationale on why cleanup refs are not stored.
    */
   const winFeedback = useCallback(
-    (winType: WinType) => {
+    (
+      winType: WinType,
+      options?: {
+        winMultiplier?: number
+        /** Softer haptics when celebration preset is calmer (e.g. reduced-motion pool). */
+        celebrationIntensity?: 'subtle' | 'medium' | 'high' | 'legendary'
+      },
+    ) => {
       if (!hapticsEnabled || !isNative()) return
+
+      const mult = options?.winMultiplier
+      const ci = options?.celebrationIntensity
+
+      if (winType === 'normal' && mult != null && mult > 0 && mult < 1) {
+        impact(Haptics.ImpactFeedbackStyle.Light)
+        return
+      }
 
       // Mega Jackpot — maximum escalation: 4 heavy impacts after success notification
       if (winType === 'jackpot') {
         notification(Haptics.NotificationFeedbackType.Success)
+        if (ci === 'subtle') {
+          setTimeout(() => impact(Haptics.ImpactFeedbackStyle.Heavy), 120)
+          setTimeout(() => impact(Haptics.ImpactFeedbackStyle.Heavy), 280)
+          return
+        }
+        if (ci === 'medium') {
+          setTimeout(() => impact(Haptics.ImpactFeedbackStyle.Heavy), 110)
+          setTimeout(() => impact(Haptics.ImpactFeedbackStyle.Heavy), 260)
+          setTimeout(() => impact(Haptics.ImpactFeedbackStyle.Heavy), 420)
+          return
+        }
         setTimeout(() => impact(Haptics.ImpactFeedbackStyle.Heavy), 110)
         setTimeout(() => impact(Haptics.ImpactFeedbackStyle.Heavy), 260)
         setTimeout(() => impact(Haptics.ImpactFeedbackStyle.Heavy), 420)
@@ -170,9 +209,18 @@ export function useHaptics() {
         return
       }
 
-      // Jackpot display (megaWin tier) — 3 heavy impacts
+      // Jackpot (10×–24.9× tier, engine `megaWin`) — 3 heavy impacts
       if (winType === 'megaWin') {
         notification(Haptics.NotificationFeedbackType.Success)
+        if (ci === 'subtle') {
+          setTimeout(() => impact(Haptics.ImpactFeedbackStyle.Heavy), 130)
+          return
+        }
+        if (ci === 'medium') {
+          setTimeout(() => impact(Haptics.ImpactFeedbackStyle.Heavy), 115)
+          setTimeout(() => impact(Haptics.ImpactFeedbackStyle.Heavy), 300)
+          return
+        }
         setTimeout(() => impact(Haptics.ImpactFeedbackStyle.Heavy), 115)
         setTimeout(() => impact(Haptics.ImpactFeedbackStyle.Heavy), 275)
         setTimeout(() => impact(Haptics.ImpactFeedbackStyle.Heavy), 440)
@@ -181,6 +229,14 @@ export function useHaptics() {
 
       // Big Win — heavy impact + success, distinct from jackpot tiers
       if (winType === 'bigWin') {
+        if (ci === 'subtle') {
+          impact(Haptics.ImpactFeedbackStyle.Medium)
+          return
+        }
+        if (ci === 'medium') {
+          impact(Haptics.ImpactFeedbackStyle.Heavy)
+          return
+        }
         impact(Haptics.ImpactFeedbackStyle.Heavy)
         setTimeout(() => notification(Haptics.NotificationFeedbackType.Success), 80)
         return
@@ -196,6 +252,7 @@ export function useHaptics() {
   )
 
   return {
+    reelSpinStart,
     reelStop,
     reelStopFinal,
     spinPress,
@@ -208,6 +265,7 @@ export function useHaptics() {
     wheelSpin,
     freeSpinsAwarded,
     freeSpinStreakAdvance,
+    autoSpinMilestone,
     winFeedback,
   }
 }

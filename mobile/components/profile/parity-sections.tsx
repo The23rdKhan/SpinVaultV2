@@ -20,6 +20,7 @@ import {
 import { openExternalUrl, SUPPORT_URLS } from '@/lib/support-links'
 import { hexWithAlpha } from '@/theme/tokens'
 import type { CoinLedgerEntry, WinType } from '@/lib/game-context'
+import { getWinTypeDisplayTitle, isEngineWinType } from '@/lib/vault-copy'
 import {
   ALL_VANITY_ITEMS,
   RARITY_LABELS,
@@ -51,16 +52,11 @@ function formatLedgerLabel(raw: string): string {
     return 'Coin Pack'
   }
 
-  // "Spin win (bigWin)" → "Big Win", "Spin win (normal)" → "Spin Win", etc.
+  // "Spin win (bigWin)" → "Big Win", "Spin win (normal)" → "Win", etc.
   const spinWinMatch = raw.match(/^Spin win \(([^)]+)\)$/i)
   if (spinWinMatch) {
     const tier = spinWinMatch[1] ?? ''
-    switch (tier) {
-      case 'megaWin': return 'Jackpot'
-      case 'jackpot': return 'Mega Jackpot'
-      case 'bigWin': return 'Big Win'
-      default: return 'Spin Win'
-    }
+    return isEngineWinType(tier) ? getWinTypeDisplayTitle(tier) : getWinTypeDisplayTitle('normal')
   }
 
   return raw
@@ -533,27 +529,33 @@ function TrophyParityCell({ trophy, t }: { trophy: Trophy; t: AppTheme }) {
 function winTypeMeta(theme: AppTheme, type: WinType): { label: string; bg: string; fg: string } {
   const muted = theme.textMuted ?? '#64748b'
   switch (type) {
+    case 'none':
+      return {
+        label: getWinTypeDisplayTitle('none'),
+        bg: hexWithAlpha(muted, '22'),
+        fg: muted,
+      }
     case 'jackpot':
       return {
-        label: 'Mega Jackpot',
+        label: getWinTypeDisplayTitle('jackpot'),
         bg: hexWithAlpha(theme.jackpot ?? '#a855f7', '33'),
         fg: theme.jackpot ?? '#a855f7',
       }
     case 'megaWin':
       return {
-        label: 'Jackpot',
+        label: getWinTypeDisplayTitle('megaWin'),
         bg: hexWithAlpha(theme.gold ?? '#f59e0b', '33'),
         fg: theme.gold ?? '#f59e0b',
       }
     case 'bigWin':
       return {
-        label: 'Big Win',
+        label: getWinTypeDisplayTitle('bigWin'),
         bg: hexWithAlpha(theme.win ?? '#22c55e', '33'),
         fg: theme.win ?? '#22c55e',
       }
-    default:
+    case 'normal':
       return {
-        label: 'Win',
+        label: getWinTypeDisplayTitle('normal'),
         bg: hexWithAlpha(muted, '33'),
         fg: muted,
       }

@@ -17,8 +17,12 @@ import { paylineAccentColors } from './payline-accent-colors'
 
 const AnimatedPolyline = Animated.createAnimatedComponent(Polyline)
 
+export type PaylineStrokeStyle = 'classic' | 'neon' | 'gold' | 'treasure'
+
 interface Props {
   winningLines: WinningLine[]
+  /** Visual accent for payline strokes; defaults to `classic` when omitted. */
+  effectStyle?: PaylineStrokeStyle
 }
 
 const COLS = 5
@@ -43,7 +47,7 @@ function toPoints(positions: [number, number][]): string {
   return positions.map(([col, row]) => `${cx(col)},${cy(row)}`).join(' ')
 }
 
-export function PaylineOverlay({ winningLines }: Props) {
+export function PaylineOverlay({ winningLines, effectStyle = 'classic' }: Props) {
   const t = useCasinoTheme()
   const strokeColors = paylineAccentColors(t)
 
@@ -63,6 +67,7 @@ export function PaylineOverlay({ winningLines }: Props) {
             line={line}
             index={i}
             color={strokeColors[i % strokeColors.length]}
+            effectStyle={effectStyle}
           />
         ))}
       </Svg>
@@ -73,14 +78,31 @@ export function PaylineOverlay({ winningLines }: Props) {
 /** Number of slow pulse cycles after the initial reveal. */
 const PULSE_CYCLES = 3
 
+function strokeStyleProps(style: PaylineStrokeStyle): {
+  strokeDasharray: string
+  strokeWidth: string
+} {
+  switch (style) {
+    case 'neon':
+      return { strokeDasharray: '10 4', strokeWidth: '3' }
+    case 'gold':
+    case 'treasure':
+      return { strokeDasharray: '4 2', strokeWidth: '3' }
+    default:
+      return { strokeDasharray: '6 3', strokeWidth: '2.5' }
+  }
+}
+
 function AnimatedWinLine({
   line,
   index,
   color,
+  effectStyle,
 }: {
   line: WinningLine
   index: number
   color: string
+  effectStyle: PaylineStrokeStyle
 }) {
   const reduceMotion = useReducedMotion()
   const opacity = useSharedValue(0)
@@ -123,16 +145,18 @@ function AnimatedWinLine({
 
   const animProps = useAnimatedProps(() => ({ opacity: opacity.value }))
 
+  const { strokeDasharray, strokeWidth } = strokeStyleProps(effectStyle)
+
   return (
     <AnimatedPolyline
       animatedProps={animProps}
       points={toPoints(line.positions)}
       stroke={color}
-      strokeWidth="2.5"
+      strokeWidth={strokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
       fill="none"
-      strokeDasharray="6 3"
+      strokeDasharray={strokeDasharray}
     />
   )
 }

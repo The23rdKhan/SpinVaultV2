@@ -2,8 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Animated, StyleSheet, Text, View } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import Animated2, {
+  cancelAnimation,
   useSharedValue,
   useAnimatedStyle,
+  withRepeat,
+  withSequence,
   withSpring,
   withTiming,
   Easing,
@@ -15,6 +18,12 @@ import { useGame } from '@/lib/game-context'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { useReducedMotion } from '@/lib/use-reduced-motion'
 import { hexWithAlpha } from '@/theme/tokens'
+import { CelebrationParticles } from '@/components/animations/CelebrationParticles'
+import {
+  JACKPOT_MODE_BURST_SUB,
+  JACKPOT_MODE_BURST_TITLE,
+  JACKPOT_MODE_LABEL,
+} from '@/lib/vault-copy'
 import { ControlDeck } from './ControlDeck'
 import { SpinSyncBanner } from './SpinSyncBanner'
 import { InfoModal } from './InfoModal'
@@ -22,6 +31,14 @@ import { LinesModal } from './LinesModal'
 import { Marquee } from './Marquee'
 import { ReelGrid } from './ReelGrid'
 import { WinDisplay } from './WinDisplay'
+import type { PaylineStrokeStyle } from './PaylineOverlay'
+import {
+  getAnimationWinType,
+  pickWinAnimationVariant,
+  pickSymbolWinMotion,
+  type WinAnimationVariant,
+  type SymbolWinMotion,
+} from '@/lib/win-animation-variants'
 
 export function SlotMachine() {
   const t = useCasinoTheme()
@@ -38,10 +55,16 @@ export function SlotMachine() {
     lastSpinXpGained,
     lastBonusMeterPayout,
     clearLastSpinFreeSpinsBonus,
+    currentTheme,
+    lastScatterCount,
   } = useGame()
   const [showWin, setShowWin] = useState(false)
   const [winAmount, setWinAmount] = useState(0)
   const [winType, setWinType] = useState<typeof lastWinType>('none')
+  const [winAnimationVariant, setWinAnimationVariant] = useState<WinAnimationVariant | null>(null)
+  const [symbolWinMotion, setSymbolWinMotion] = useState<SymbolWinMotion>('pulse')
+  const previousWinAnimationVariantIdRef = useRef<string | null>(null)
+  const suppressFsBurstForSeqRef = useRef<{ seq: number; suppress: boolean } | null>(null)
   const [showInfoModal, setShowInfoModal] = useState(false)
   const [showLinesModal, setShowLinesModal] = useState(false)
   const dismissedSpinSeqRef = useRef(0)
@@ -52,14 +75,112 @@ export function SlotMachine() {
   const fsBurstOpacity = useSharedValue(0)
   const fsBurstScale = useSharedValue(0.94)
 
+  const jackpotFxSeqRef = useRef(-1)
+  const [jackpotBurstRunId, setJackpotBurstRunId] = useState<number | null>(null)
+  const jpBurstOpacity = useSharedValue(0)
+  const jpBurstScale = useSharedValue(0.9)
+  const reelJackpotGlow = useSharedValue(0)
+
   // Keep screen on while game is active
   useKeepAwake()
 
+  useEffect(() => {
+    if (spinSequence <= dismissedSpinSeqRef.current) return
+    if (isSpinning) return
+
+    const lineWin = lastWin > 0 && winningLines.length > 0 && lastWinType !== 'none'
+    const fsOnly = lastSpinFreeSpinsWon > 0 && !lineWin
+
+    const animationWinType = getAnimationWinType({
+      lastWinType,
+      lastSpinFreeSpinsWon,
+      lastScatterCount,
+    })
+
+    const variant = pickWinAnimationVariant({
+      winType: animationWinType,
+      themeId: currentTheme,
+      previousVariantId: previousWinAnimationVariantIdRef.current,
+      reducedMotion: reduceMotion,
+    })
+
+    if (lastSpinFreeSpinsWon > 0) {
+      // Suppress reel toast whenever WinDisplay will carry free-spin copy (modal path or unknown variant).
+      const suppressFsBurst =
+        fsOnly ||
+        (lineWin &&
+          lastSpinFreeSpinsWon > 0 &&
+          (variant == null || variant.overlayMode !== 'none'))
+      suppressFsBurstForSeqRef.current = { seq: spinSequence, suppress: suppressFsBurst }
+    } else {
+      suppressFsBurstForSeqRef.current = null
+    }
+
+    setWinAnimationVariant(variant)
+    if (variant) {
+      previousWinAnimationVariantIdRef.current = variant.id
+    }
+
+    if (lineWin) {
+      setWinAmount(lastWin)
+      setWinType(lastWinType)
+      setSymbolWinMotion(pickSymbolWinMotion())
+      if (variant?.overlayMode === 'none') {
+        setShowWin(false)
+        dismissedSpinSeqRef.current = spinSequence
+        clearLastSpinFreeSpinsBonus()
+        return
+      }
+      setShowWin(true)
+      return
+    }
+    if (fsOnly) {
+      setWinAmount(0)
+      setWinType('normal')
+      setSymbolWinMotion('pulse')
+      if (variant?.overlayMode === 'none') {
+        setShowWin(false)
+        dismissedSpinSeqRef.current = spinSequence
+        clearLastSpinFreeSpinsBonus()
+        return
+      }
+      setShowWin(true)
+      return
+    }
+    dismissedSpinSeqRef.current = spinSequence
+  }, [
+    spinSequence,
+    isSpinning,
+    lastWin,
+    lastWinType,
+    winningLines,
+    lastSpinFreeSpinsWon,
+    lastScatterCount,
+    currentTheme,
+    reduceMotion,
+    clearLastSpinFreeSpinsBonus,
+  ])
+
+  /**
+   * Maintenance: this effect must remain **after** the spin-resolve `useEffect` above.
+   *
+   * The spin-resolve effect runs first for a finished spin and writes `suppressFsBurstForSeqRef`
+   * for the current `spinSequence` (whether to suppress the reel burst/toast). This effect reads
+   * that ref so we do not duplicate free-spin messaging when `WinDisplay` already owns the
+   * bonus / free-spin moment (modal path, unknown variant, etc.).
+   */
   /** Brief Free Spins award toast over reels when scatters grant spins (not persistent). */
   useEffect(() => {
     if (isSpinning) return
     if (lastSpinFreeSpinsWon <= 0) return
     if (fsBurstSeqRef.current === spinSequence) return
+
+    const plan = suppressFsBurstForSeqRef.current
+    if (plan?.seq === spinSequence && plan.suppress) {
+      fsBurstSeqRef.current = spinSequence
+      return
+    }
+
     fsBurstSeqRef.current = spinSequence
     setFsBurstLabel(
       lastSpinFreeSpinsWon === 1 ? '1 Free Spin' : `${lastSpinFreeSpinsWon} Free Spins`,
@@ -84,6 +205,61 @@ export function SlotMachine() {
   const fsBurstStyle = useAnimatedStyle(() => ({
     opacity: fsBurstOpacity.value,
     transform: [{ scale: fsBurstScale.value }],
+  }))
+
+  /** One-shot burst + particles when a center-row jackpot resolves (`isJackpotMode` flips on). */
+  useEffect(() => {
+    if (isSpinning) {
+      setJackpotBurstRunId(null)
+      jpBurstOpacity.value = withTiming(0, { duration: 140 })
+      return
+    }
+    if (!isJackpotMode) return
+    if (jackpotFxSeqRef.current === spinSequence) return
+    jackpotFxSeqRef.current = spinSequence
+    setJackpotBurstRunId(spinSequence)
+    jpBurstOpacity.value = 0
+    jpBurstScale.value = 0.88
+    jpBurstOpacity.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.quad) })
+    jpBurstScale.value = withSpring(1, { damping: 14, stiffness: 210 })
+    const visibleMs = reduceMotion ? 800 : 1450
+    const hide = setTimeout(() => {
+      jpBurstOpacity.value = withTiming(0, { duration: 360, easing: Easing.in(Easing.quad) })
+    }, visibleMs)
+    const clear = setTimeout(() => {
+      setJackpotBurstRunId(null)
+    }, visibleMs + 420)
+    return () => {
+      clearTimeout(hide)
+      clearTimeout(clear)
+    }
+  }, [spinSequence, isSpinning, isJackpotMode, reduceMotion, jpBurstOpacity, jpBurstScale])
+
+  const jpBurstStyle = useAnimatedStyle(() => ({
+    opacity: jpBurstOpacity.value,
+    transform: [{ scale: jpBurstScale.value }],
+  }))
+
+  useEffect(() => {
+    if (!isJackpotMode || reduceMotion) {
+      cancelAnimation(reelJackpotGlow)
+      reelJackpotGlow.value = 0
+      return
+    }
+    reelJackpotGlow.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.quad) }),
+        withTiming(0, { duration: 1100, easing: Easing.inOut(Easing.quad) }),
+      ),
+      -1,
+      false,
+    )
+    return () => cancelAnimation(reelJackpotGlow)
+  }, [isJackpotMode, reduceMotion, reelJackpotGlow])
+
+  const reelJackpotAuraStyle = useAnimatedStyle(() => ({
+    shadowOpacity: 0.1 + reelJackpotGlow.value * 0.34,
+    shadowRadius: 10 + reelJackpotGlow.value * 20,
   }))
 
   useEffect(() => {
@@ -121,31 +297,14 @@ export function SlotMachine() {
     return () => loop.stop()
   }, [cornerPulse, reduceMotion])
 
-  useEffect(() => {
-    if (spinSequence <= dismissedSpinSeqRef.current) return
-    if (isSpinning) return
-
-    const lineWin = lastWin > 0 && winningLines.length > 0 && lastWinType !== 'none'
-    const fsOnly = lastSpinFreeSpinsWon > 0 && !lineWin
-    if (lineWin) {
-      setWinAmount(lastWin)
-      setWinType(lastWinType)
-      setShowWin(true)
-      return
-    }
-    if (fsOnly) {
-      setWinAmount(0)
-      setWinType('normal')
-      setShowWin(true)
-      return
-    }
-    dismissedSpinSeqRef.current = spinSequence
-  }, [spinSequence, isSpinning, lastWin, lastWinType, winningLines, lastSpinFreeSpinsWon])
+  const paylineStrokeStyle: PaylineStrokeStyle =
+    currentTheme === 'cyber' ? 'neon' : currentTheme === 'treasure' ? 'treasure' : 'gold'
 
   const handleWinClose = useCallback(() => {
     dismissedSpinSeqRef.current = spinSequence
     setShowWin(false)
     setWinType('none')
+    setWinAnimationVariant(null)
     clearLastSpinFreeSpinsBonus()
   }, [clearLastSpinFreeSpinsBonus, spinSequence])
 
@@ -155,13 +314,15 @@ export function SlotMachine() {
         style={[
           styles.cabinet,
           {
-            borderColor: hexWithAlpha(t.gold, '66'),
+            borderColor: isJackpotMode
+              ? hexWithAlpha(t.jackpot, 'AA')
+              : hexWithAlpha(t.gold, '66'),
             backgroundColor: t.cabinetBg,
-            shadowColor: t.gold,
+            shadowColor: isJackpotMode ? t.jackpot : t.gold,
             shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.28,
-            shadowRadius: 18,
-            elevation: 10,
+            shadowOpacity: isJackpotMode ? 0.4 : 0.28,
+            shadowRadius: isJackpotMode ? 22 : 18,
+            elevation: isJackpotMode ? 12 : 10,
           },
         ]}
       >
@@ -206,9 +367,58 @@ export function SlotMachine() {
           ]}
         />
         <Marquee />
-        <View style={styles.reelSection}>
-          <ReelGrid linesModalOpen={showLinesModal} />
-        </View>
+        <Animated2.View
+          style={[
+            styles.reelSection,
+            isJackpotMode && {
+              shadowColor: t.jackpot,
+              shadowOffset: { width: 0, height: 0 },
+              elevation: 10,
+            },
+            isJackpotMode && reduceMotion
+              ? { shadowOpacity: 0.3, shadowRadius: 18 }
+              : null,
+            isJackpotMode && !reduceMotion ? reelJackpotAuraStyle : null,
+          ]}
+        >
+          <View style={styles.reelPadInner}>
+            <ReelGrid
+              linesModalOpen={showLinesModal}
+              paylineStrokeStyle={paylineStrokeStyle}
+              symbolWinMotion={symbolWinMotion}
+            />
+            {jackpotBurstRunId != null ? (
+              <>
+                <CelebrationParticles
+                  key={`jpfx-${jackpotBurstRunId}`}
+                  count={reduceMotion ? 0 : 40}
+                  colors={[
+                    t.jackpot,
+                    t.gold,
+                    hexWithAlpha(t.gold, 'EE'),
+                    hexWithAlpha(t.jackpot, 'CC'),
+                    t.accent,
+                  ]}
+                  duration={1500}
+                />
+                <Animated2.View style={[styles.jpBurst, jpBurstStyle]} pointerEvents="none">
+                  <View
+                    style={[
+                      styles.jpBurstInner,
+                      {
+                        borderColor: hexWithAlpha(t.jackpot, '88'),
+                        backgroundColor: hexWithAlpha(t.jackpot, '24'),
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.jpBurstTitle, { color: t.gold }]}>{JACKPOT_MODE_BURST_TITLE}</Text>
+                    <Text style={[styles.jpBurstSub, { color: t.textPrimary }]}>{JACKPOT_MODE_BURST_SUB}</Text>
+                  </View>
+                </Animated2.View>
+              </>
+            ) : null}
+          </View>
+        </Animated2.View>
         {fsBurstLabel ? (
           <Animated2.View style={[styles.fsBurst, fsBurstStyle]} pointerEvents="none">
             <View
@@ -226,31 +436,33 @@ export function SlotMachine() {
           </Animated2.View>
         ) : null}
         <View style={[styles.legend, { borderTopColor: hexWithAlpha(t.gold, '22') }]}>
-          <Text style={[styles.legendMeta, { color: hexWithAlpha(t.gold, 'CC') }]}>9 paylines</Text>
-          <View style={styles.legendBadges}>
-            <View
-              style={[
-                styles.symBadge,
-                {
-                  borderColor: hexWithAlpha(t.gold, '35'),
-                  backgroundColor: hexWithAlpha(t.gold, '12'),
-                },
-              ]}
-            >
-              <FontAwesome name="star" size={11} color={hexWithAlpha(t.gold, 'EE')} />
-              <Text style={[styles.symLbl, { color: t.textMuted }]}>Wild</Text>
-            </View>
-            <View
-              style={[
-                styles.symBadge,
-                {
-                  borderColor: hexWithAlpha(t.freeSpin, '30'),
-                  backgroundColor: hexWithAlpha(t.freeSpin, '10'),
-                },
-              ]}
-            >
-              <FontAwesome name="bullseye" size={11} color={hexWithAlpha(t.freeSpin, 'AA')} />
-              <Text style={[styles.symLbl, { color: t.textMuted }]}>Scatter</Text>
+          <View style={styles.legendInner}>
+            <Text style={[styles.legendMeta, { color: hexWithAlpha(t.gold, 'CC') }]}>9 paylines</Text>
+            <View style={styles.legendBadges}>
+              <View
+                style={[
+                  styles.symBadge,
+                  {
+                    borderColor: hexWithAlpha(t.gold, '35'),
+                    backgroundColor: hexWithAlpha(t.gold, '12'),
+                  },
+                ]}
+              >
+                <FontAwesome name="star" size={11} color={hexWithAlpha(t.gold, 'EE')} />
+                <Text style={[styles.symLbl, { color: t.textMuted }]}>Wild</Text>
+              </View>
+              <View
+                style={[
+                  styles.symBadge,
+                  {
+                    borderColor: hexWithAlpha(t.freeSpin, '30'),
+                    backgroundColor: hexWithAlpha(t.freeSpin, '10'),
+                  },
+                ]}
+              >
+                <FontAwesome name="bullseye" size={11} color={hexWithAlpha(t.freeSpin, 'AA')} />
+                <Text style={[styles.symLbl, { color: t.textMuted }]}>Scatter</Text>
+              </View>
             </View>
           </View>
         </View>
@@ -258,7 +470,7 @@ export function SlotMachine() {
           <View
             accessible
             accessibilityRole="text"
-            accessibilityLabel="Jackpot Mode"
+            accessibilityLabel={JACKPOT_MODE_LABEL}
             accessibilityHint="Sevens on the center row. Details in Paytable."
             style={[
               styles.jackpotBadge,
@@ -268,7 +480,7 @@ export function SlotMachine() {
               },
             ]}
           >
-            <Text style={[styles.jackpotText, { color: t.textPrimary }]}>Jackpot Mode</Text>
+            <Text style={[styles.jackpotText, { color: t.textPrimary }]}>{JACKPOT_MODE_LABEL}</Text>
           </View>
         ) : null}
       </View>
@@ -284,6 +496,7 @@ export function SlotMachine() {
         freeSpins={lastSpinFreeSpinsWon}
         xpGained={lastSpinXpGained}
         onClose={handleWinClose}
+        animationVariant={showWin ? winAnimationVariant : null}
       />
 
       <InfoModal open={showInfoModal} onClose={() => setShowInfoModal(false)} />
@@ -324,6 +537,28 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 6,
   },
+  reelPadInner: {
+    position: 'relative',
+    width: '100%',
+  },
+  jpBurst: {
+    position: 'absolute',
+    left: 10,
+    right: 10,
+    top: '32%',
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  jpBurstInner: {
+    paddingVertical: 11,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    gap: 3,
+  },
+  jpBurstTitle: { fontWeight: '900', fontSize: 14, letterSpacing: 1 },
+  jpBurstSub: { fontWeight: '800', fontSize: 12, letterSpacing: 0.2 },
   fsBurst: {
     position: 'absolute',
     left: 12,
@@ -343,14 +578,20 @@ const styles = StyleSheet.create({
   fsBurstTitle: { fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
   fsBurstSub: { fontWeight: '800', fontSize: 17 },
   legend: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: 12,
     paddingTop: 8,
     paddingBottom: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
-    gap: 10,
+  },
+  legendInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+    maxWidth: '100%',
   },
   legendMeta: { fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase' },
   legendBadges: { flexDirection: 'row', alignItems: 'center', gap: 8 },

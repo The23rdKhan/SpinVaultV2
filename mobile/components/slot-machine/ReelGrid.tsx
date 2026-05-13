@@ -8,13 +8,17 @@ import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { hexWithAlpha } from '@/theme/tokens'
 import { useReducedMotion } from '@/lib/use-reduced-motion'
 import { SlotSymbolView } from './SlotSymbol'
-import { PaylineOverlay } from './PaylineOverlay'
+import { PaylineOverlay, type PaylineStrokeStyle } from './PaylineOverlay'
 import { useHaptics } from '@/lib/use-haptics'
 
 interface ReelGridProps {
   onSpinComplete?: () => void
   /** When true, show the center row guide (e.g. while the Lines sheet is open). */
   linesModalOpen?: boolean
+  /** Payline SVG stroke accent; derived from machine theme in parent. */
+  paylineStrokeStyle?: PaylineStrokeStyle
+  /** Subtle win motion variety on winning cells. */
+  symbolWinMotion?: 'pulse' | 'bounce' | 'glow' | 'sparkle'
 }
 
 const NUM_COLS = 5
@@ -40,6 +44,7 @@ function ReelColumn({
   settleSignal,
   winTier,
   tierAccent,
+  symbolWinMotion,
 }: {
   colIndex: number
   column: ReelGridType[number]
@@ -50,6 +55,7 @@ function ReelColumn({
   winTier: Exclude<WinType, 'none'>
   /** Resolved accent color matching the win tier (gold/jackpot/primary/win). */
   tierAccent: string
+  symbolWinMotion: 'pulse' | 'bounce' | 'glow' | 'sparkle'
 }) {
   const t = useCasinoTheme()
   const reduceMotion = useReducedMotion()
@@ -111,6 +117,7 @@ function ReelColumn({
               isSpinning={colSpinning}
               columnDelay={isWin ? columnDelay : 0}
               winTier={isWin ? winTier : undefined}
+              winMotion={isWin ? symbolWinMotion : undefined}
             />
           </View>
         )
@@ -119,7 +126,12 @@ function ReelColumn({
   )
 }
 
-export function ReelGrid({ onSpinComplete, linesModalOpen = false }: ReelGridProps) {
+export function ReelGrid({
+  onSpinComplete,
+  linesModalOpen = false,
+  paylineStrokeStyle = 'classic',
+  symbolWinMotion = 'pulse',
+}: ReelGridProps) {
   const t = useCasinoTheme()
   const { reelGrid, isSpinning, reelsLocked, winningPositions, winningLines, stopSpin, lastWinType } = useGame()
 
@@ -136,7 +148,7 @@ export function ReelGrid({ onSpinComplete, linesModalOpen = false }: ReelGridPro
 
   const showCenterPaylineGuide =
     !isSpinning && (linesModalOpen || winningLines.length > 0)
-  const { reelStop, reelStopFinal } = useHaptics()
+  const { reelStop, reelStopFinal, reelSpinStart } = useHaptics()
 
   // Stable ref so the last-column stop timeout always calls the current callback
   const onSpinCompleteRef = useRef(onSpinComplete)
@@ -165,6 +177,7 @@ export function ReelGrid({ onSpinComplete, linesModalOpen = false }: ReelGridPro
     reelDelays.forEach((delay, col) => {
       startTimeouts.push(
         setTimeout(() => {
+          if (col === 0) reelSpinStart()
           setSpinningReels((prev) => {
             const next = [...prev]; next[col] = true; return next
           })
@@ -225,7 +238,7 @@ export function ReelGrid({ onSpinComplete, linesModalOpen = false }: ReelGridPro
     }
   // reelStopFinal is included because it closes over hapticsEnabled — omitting
   // it would cause a stale closure if haptics are toggled while reels are spinning.
-  }, [isSpinning, stopSpin, reelStop, reelStopFinal])
+  }, [isSpinning, stopSpin, reelStop, reelStopFinal, reelSpinStart])
 
   useEffect(() => {
     if (!isSpinning) setDisplayGrid(reelGrid)
@@ -274,11 +287,12 @@ export function ReelGrid({ onSpinComplete, linesModalOpen = false }: ReelGridPro
               settleSignal={settleSignals[colIndex]}
               winTier={activeTier}
               tierAccent={tierAccent}
+              symbolWinMotion={symbolWinMotion}
             />
           ))}
         </View>
         {!isSpinning && winningLines.length > 0 && (
-          <PaylineOverlay winningLines={winningLines} />
+          <PaylineOverlay winningLines={winningLines} effectStyle={paylineStrokeStyle} />
         )}
       </View>
     </View>

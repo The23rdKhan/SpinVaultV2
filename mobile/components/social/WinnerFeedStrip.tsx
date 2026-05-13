@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth-context'
 import { getSupabase } from '@/lib/supabase'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { hexWithAlpha } from '@/theme/tokens'
+import { getWinTypeDisplayTitleOrRaw } from '@/lib/vault-copy'
 
 type FeedRow = {
   id: string
@@ -199,7 +200,7 @@ export function WinnerFeedStrip() {
               </View>
             </View>
             <Text style={[styles.meta, { color: t.textMuted }]}>
-              {row.win_type} · {mult}x
+              {getWinTypeDisplayTitleOrRaw(row.win_type)} · {mult}x
             </Text>
             <View style={styles.rxRow}>
               {REACTIONS.map((rx) => {

@@ -1,12 +1,19 @@
 import { useState } from 'react'
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BlurView } from 'expo-blur'
-import { SYMBOLS } from '@/lib/game-context'
-import { SCATTER_PAYOUT_MULTIPLIERS } from '@shared/slot/evaluate-spin'
+import { BONUS_METER_XP, DAILY_STREAK_FREE_SPINS_PER_CLAIM, SYMBOLS, xpForLevel } from '@/lib/game-context'
+import {
+  BET_OPTIONS,
+  JACKPOT_BASE_PAYOUT,
+  SCATTER_PAYOUT_MULTIPLIERS,
+  bonusMeterPayoutForBet,
+} from '@shared/slot/evaluate-spin'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { hexWithAlpha } from '@/theme/tokens'
 import { AppButton } from '@/components/ui/AppButton'
 import { AppScrollView } from '@/components/ui/AppScrollView'
+import { JACKPOT_MODE_LABEL, getWinTierPaytableRows } from '@/lib/vault-copy'
 
 type Tab = 'symbols' | 'paylines' | 'bonus'
 
@@ -31,24 +38,7 @@ function payoutMultipliers(value: number) {
   }
 }
 
-const PAYLINE_NAMES = [
-  { name: 'Line 1', desc: 'Middle row — R2·R2·R2·R2·R2' },
-  { name: 'Line 2', desc: 'Top row — R1·R1·R1·R1·R1' },
-  { name: 'Line 3', desc: 'Bottom row — R3·R3·R3·R3·R3' },
-  { name: 'Line 4', desc: 'V shape — R1·R2·R3·R2·R1' },
-  { name: 'Line 5', desc: 'Inverted V — R3·R2·R1·R2·R3' },
-  { name: 'Line 6', desc: 'Diagonal down — R1·R1·R2·R3·R3' },
-  { name: 'Line 7', desc: 'Diagonal up — R3·R3·R2·R1·R1' },
-  { name: 'Line 8', desc: 'Top bump — R2·R1·R1·R1·R2' },
-  { name: 'Line 9', desc: 'Bottom bump — R2·R3·R3·R3·R2' },
-]
-
-const WIN_TYPES = [
-  { label: 'Win',          range: '0.5× – 4.9× bet',  colorKey: 'textPrimary' as const },
-  { label: 'Big Win',      range: '5× – 9.9× bet',    colorKey: 'primary' as const },
-  { label: 'Mega Win',     range: '10× – 24.9× bet',  colorKey: 'win' as const },
-  { label: 'Mega Jackpot', range: '25×+ bet',          colorKey: 'jackpot' as const },
-]
+const WIN_TYPES_PAYTABLE = getWinTierPaytableRows()
 
 interface Props {
   open: boolean
@@ -57,34 +47,43 @@ interface Props {
 
 export function InfoModal({ open, onClose }: Props) {
   const t = useCasinoTheme()
+  const insets = useSafeAreaInsets()
   const [activeTab, setActiveTab] = useState<Tab>('symbols')
 
   const regular = SYMBOLS.filter((s) => !s.isWild && !s.isScatter)
   const special = SYMBOLS.filter((s) => s.isWild === true || s.isScatter === true)
 
+  const betList = BET_OPTIONS.map((b) => b.toLocaleString()).join(' · ')
+  const xpBarL1 = xpForLevel(1).toLocaleString()
+  const xpBarL30 = xpForLevel(30).toLocaleString()
+
   return (
     <Modal visible={open} animationType="slide" transparent onRequestClose={onClose}>
-      {/* Backdrop blur */}
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: t.overlay }]}>
-        <BlurView
-          intensity={45}
-          tint="dark"
-          blurMethod="dimezisBlurView"
-          style={StyleSheet.absoluteFill}
-        />
-      </View>
+      <View style={styles.modalFill}>
+        {/* Backdrop blur */}
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: t.overlay }]}>
+          <BlurView
+            intensity={45}
+            tint="dark"
+            blurMethod="dimezisBlurView"
+            style={StyleSheet.absoluteFill}
+          />
+        </View>
 
-      {/* Tap outside to close */}
-      <Pressable style={styles.backdrop} onPress={onClose}>
         {/*
-          Plain View (not Pressable) so it never swallows the ScrollView's
-          pan-gesture. Touch propagation to the backdrop is stopped via
-          onStartShouldSetResponder.
+          Do not wrap the sheet in the same Pressable as "tap outside" — that steals
+          scroll gestures. Backdrop is a sibling behind the sheet; sheet receives pans.
         */}
-        <View
-          style={[styles.sheet, { backgroundColor: t.surfaceElevated, borderColor: t.border }]}
-          onStartShouldSetResponder={() => true}
-        >
+        <View style={styles.modalStack} pointerEvents="box-none">
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Close game info"
+          />
+          <View
+            style={[styles.sheet, { backgroundColor: t.surfaceElevated, borderColor: t.border }]}
+          >
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: t.border }]}>
             <Text style={[styles.title, { color: t.textPrimary }]}>Game Info</Text>
@@ -181,17 +180,12 @@ export function InfoModal({ open, onClose }: Props) {
                   </View>
                 ))}
 
-                {/* Jackpot Mode bonus note */}
+                {/* Pointer to Bonus tab for center-row jackpot */}
                 <View style={[styles.infoCallout, { backgroundColor: hexWithAlpha(t.gold, '0E'), borderColor: hexWithAlpha(t.gold, '40') }]}>
-                  <Text style={[styles.infoCalloutText, { color: t.gold }]}>
-                    Jackpot Mode bonus:
-                  </Text>
+                  <Text style={[styles.infoCalloutText, { color: t.gold }]}>Center-row jackpot</Text>
                   <Text style={[styles.meta, { color: t.textSecondary }]}>
-                    5 Lucky Sevens (or Wilds) on the middle row triggers Jackpot Mode. Standard bets pay a flat{' '}
-                    <Text style={{ fontWeight: '800', color: t.gold }}>$250,000</Text>
-                    {' '}prize. Whale bets ($1M+) scale to{' '}
-                    <Text style={{ fontWeight: '800', color: t.gold }}>bet × 25</Text>
-                    {' '}— a $1M bet pays $25M. Payline wins are paid on top.
+                    Five Lucky Sevens or Wilds on the <Text style={{ fontWeight: '700', color: t.textPrimary }}>middle row</Text> (payline 1) triggers Jackpot Mode. Full rules: <Text style={{ fontWeight: '800', color: t.gold }}>Bonus · Jackpot Mode (center row)</Text> — prize is the greater of{' '}
+                    <Text style={{ fontWeight: '800', color: t.gold }}>${JACKPOT_BASE_PAYOUT.toLocaleString()}</Text> and your line bet × 25.
                   </Text>
                 </View>
               </>
@@ -201,37 +195,13 @@ export function InfoModal({ open, onClose }: Props) {
             {activeTab === 'paylines' && (
               <>
                 <Text style={[styles.body, { color: t.textSecondary, marginBottom: 12 }]}>
-                  9 fixed paylines. Match 3 or more identical symbols starting from the leftmost reel on the same payline to win. Wins pay left-to-right only. Tap the{' '}
-                  <Text style={{ fontWeight: '800', color: t.textPrimary }}>Lines</Text> button on the Play screen to see each payline visualized.
+                  Nine fixed paths (rows, V-shapes, diagonals, bumps). You need 3 or more matching symbols along a path,
+                  starting from the left reel, paying left-to-right only. Wild helps complete runs for paying symbols;
+                  scatter does not substitute on paylines — it pays separately from anywhere on the grid (see Bonus tab).
                 </Text>
-                {PAYLINE_NAMES.map(({ name, desc }, i) => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.paylineRow,
-                      {
-                        borderColor: t.border,
-                        backgroundColor: hexWithAlpha(t.primary, '0A'),
-                      },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.lineBadge,
-                        {
-                          backgroundColor: hexWithAlpha(t.primary, '22'),
-                          borderColor: t.primary,
-                        },
-                      ]}
-                    >
-                      <Text style={[styles.lineBadgeNum, { color: t.primary }]}>{i + 1}</Text>
-                    </View>
-                    <View>
-                      <Text style={[styles.name, { color: t.textPrimary }]}>{name}</Text>
-                      <Text style={[styles.meta, { color: t.textSecondary }]}>{desc}</Text>
-                    </View>
-                  </View>
-                ))}
+                <Text style={[styles.body, { color: t.textSecondary }]}>
+                  Open the <Text style={{ fontWeight: '800', color: t.textPrimary }}>Lines</Text> control on the Play screen to step through each path with a diagram. That modal is the source of truth for shapes; this tab stays short on purpose to avoid duplicate lists.
+                </Text>
               </>
             )}
 
@@ -283,6 +253,9 @@ export function InfoModal({ open, onClose }: Props) {
                     Scatter coins are paid in addition to any payline wins on the same spin.
                     Free spins use your current bet at no cost, so bigger bets mean bigger free spin payouts.
                   </Text>
+                  <Text style={[styles.meta, { color: t.textMuted, marginTop: 6, fontSize: 11 }]}>
+                    6 or more scatters still use the 5-scatter coin tier (100× bet) and still award +10 free spins — counts above 5 are capped for payout math.
+                  </Text>
                 </View>
 
                 {/* Free Spin Streak Multiplier */}
@@ -299,7 +272,7 @@ export function InfoModal({ open, onClose }: Props) {
                   <Text style={[styles.body, { color: t.textSecondary }]}>
                     During a Free Spin session, consecutive{' '}
                     <Text style={{ fontWeight: '800', color: t.textPrimary }}>winning</Text>{' '}
-                    spins build a streak multiplier that boosts your next spin's entire payout — including scatter coins:
+                    spins build a streak multiplier that boosts your next spin's win total (bonus meter coins when the meter fills are still separate):
                   </Text>
 
                   {/* Streak tier table */}
@@ -324,25 +297,36 @@ export function InfoModal({ open, onClose }: Props) {
 
                   <Text style={[styles.meta, { color: t.textMuted, marginTop: 6 }]}>
                     A blank free spin resets the streak to 1×. Returning to a paid spin also resets it.
-                    Jackpot and Bonus Meter payouts are not multiplied.
+                    Bonus Meter coins when the meter fills are paid separately and are not multiplied by the streak.
+                  </Text>
+                  <Text style={[styles.meta, { color: t.textMuted, marginTop: 4 }]}>
+                    Free spins do not grant XP toward your level (paid spins do).
+                  </Text>
+                  <Text style={[styles.meta, { color: t.textMuted, marginTop: 4, fontSize: 11 }]}>
+                    Streak multipliers apply on device; server-backed spins may not use the same streak yet.
                   </Text>
                 </View>
 
-                {/* Mega Jackpot */}
+                {/* Center-row jackpot (Jackpot Mode / Mega Jackpot win label) */}
                 <View
                   style={[
                     styles.bonusCard,
                     {
-                      backgroundColor: hexWithAlpha(t.jackpot, '10'),
-                      borderColor: hexWithAlpha(t.jackpot, '40'),
+                      backgroundColor: hexWithAlpha(t.gold, '0E'),
+                      borderColor: hexWithAlpha(t.gold, '40'),
                     },
                   ]}
                 >
-                  <Text style={[styles.bonusCardTitle, { color: t.jackpot }]}>Mega Jackpot</Text>
+                  <Text style={[styles.bonusCardTitle, { color: t.gold }]}>{JACKPOT_MODE_LABEL} (center row)</Text>
                   <Text style={[styles.body, { color: t.textSecondary }]}>
-                    Land 5 Lucky Sevens (or Wilds) across the middle payline to win a flat{' '}
-                    <Text style={{ fontWeight: '800', color: t.jackpot }}>$250,000</Text>{' '}
-                    virtual coin jackpot — the biggest single-spin prize in SpinVault. Same prize regardless of bet size.
+                    When all five middle-row positions show Lucky Seven{' '}
+                    <Text style={{ fontWeight: '800', color: t.textPrimary }}>or Wild ★</Text>
+                    {', '}you hit Jackpot Mode. The flat center-row prize stacks on your normal payline wins. Your celebration title still follows total return vs bet (Win → Mega Jackpot).
+                  </Text>
+                  <Text style={[styles.body, { color: t.textSecondary }]}>
+                    Virtual coin prize is the <Text style={{ fontWeight: '800', color: t.textPrimary }}>greater</Text> of a{' '}
+                    <Text style={{ fontWeight: '800', color: t.gold }}>${JACKPOT_BASE_PAYOUT.toLocaleString()}</Text> floor and{' '}
+                    <Text style={{ fontWeight: '800', color: t.gold }}>your line bet × 25</Text>. Typical line bets hit the floor; very large bets scale up (e.g. $1M bet → $25M, $100M bet → $2.5B).
                   </Text>
                   <View style={styles.demoRow}>
                     {['7️⃣', '7️⃣', '7️⃣', '7️⃣', '7️⃣'].map((em, i) => (
@@ -353,27 +337,23 @@ export function InfoModal({ open, onClose }: Props) {
                   </View>
                 </View>
 
-                {/* Jackpot Mode */}
+                {/* Mystery Multiplier */}
                 <View
                   style={[
                     styles.bonusCard,
                     {
-                      backgroundColor: hexWithAlpha(t.gold, '0E'),
-                      borderColor: hexWithAlpha(t.gold, '40'),
+                      backgroundColor: hexWithAlpha(t.win, '0C'),
+                      borderColor: hexWithAlpha(t.win, '35'),
                     },
                   ]}
                 >
-                  <Text style={[styles.bonusCardTitle, { color: t.gold }]}>Jackpot Mode</Text>
+                  <Text style={[styles.bonusCardTitle, { color: t.win }]}>Mystery Multiplier</Text>
                   <Text style={[styles.body, { color: t.textSecondary }]}>
-                    When all 5 center-row positions show Lucky Seven{' '}
-                    <Text style={{ fontWeight: '800', color: t.textPrimary }}>or Wild ★</Text>
-                    {', '}Jackpot Mode activates and pays on top of your normal payline wins.{'\n\n'}
-                    <Text style={{ fontWeight: '700', color: t.textPrimary }}>Standard bets ($10–$10K):{' '}</Text>
-                    <Text style={{ fontWeight: '800', color: t.gold }}>$250,000</Text>
-                    {' '}flat prize.{'\n'}
-                    <Text style={{ fontWeight: '700', color: t.textPrimary }}>Whale bets ($1M+):{' '}</Text>
-                    <Text style={{ fontWeight: '800', color: t.gold }}>bet × 25</Text>
-                    {' '}— e.g. $1M bet → $25M jackpot, $100M bet → $2.5B jackpot.
+                    On spins that already have a base win (paylines, scatter coins, and/or center-row
+                    jackpot prize), there is a small chance the entire base win is multiplied before it
+                    is added to your balance. Possible values:{' '}
+                    <Text style={{ fontWeight: '800', color: t.textPrimary }}>2×, 3×, 5×, 8×, or 10×</Text>
+                    . Does not apply to the Bonus Meter payout when the meter fills on the same spin.
                   </Text>
                 </View>
 
@@ -394,8 +374,30 @@ export function InfoModal({ open, onClose }: Props) {
                     Reach 100% to claim a bonus coin reward.
                   </Text>
                   <Text style={[styles.body, { color: t.textSecondary }]}>
-                    Bonus reward = your bet × 8 (minimum 350, maximum 5,000 virtual coins).
-                    Higher bets earn larger bonus payouts.
+                    Bonus reward is at least{' '}
+                    <Text style={{ fontWeight: '800', color: t.textPrimary }}>350</Text> coins and scales as{' '}
+                    <Text style={{ fontWeight: '800', color: t.textPrimary }}>bet × 8</Text> (no upper cap), so
+                    higher line bets earn larger meter prizes — e.g. at 100 coins:{' '}
+                    <Text style={{ fontWeight: '800', color: t.primary }}>{bonusMeterPayoutForBet(100).toLocaleString()}</Text> coins.
+                  </Text>
+                </View>
+
+                {/* Fast — cosmetic count-up only (ControlDeck) */}
+                <View
+                  style={[
+                    styles.bonusCard,
+                    {
+                      backgroundColor: hexWithAlpha(t.primary, '08'),
+                      borderColor: hexWithAlpha(t.primary, '22'),
+                    },
+                  ]}
+                >
+                  <Text style={[styles.bonusCardTitle, { color: t.textPrimary }]}>Fast</Text>
+                  <Text style={[styles.body, { color: t.textSecondary }]}>
+                    Tap <Text style={{ fontWeight: '800', color: t.textPrimary }}>Fast</Text> next to Info / Lines / Auto
+                    to speed up only the <Text style={{ fontWeight: '800', color: t.textPrimary }}>Last Win</Text> coin
+                    count-up after a spin. Reel animation timing and payout math are unchanged — it is a display
+                    convenience, not a turbo for the slot engine.
                   </Text>
                 </View>
 
@@ -416,7 +418,27 @@ export function InfoModal({ open, onClose }: Props) {
                     Play screen to run{' '}
                     <Text style={{ fontWeight: '800', color: t.textPrimary }}>50 spins</Text>{' '}
                     automatically at your current bet. Auto Spin stops early if your balance runs
-                    out or a Free Spin session begins.
+                    out or a Free Spin session begins. Tap <Text style={{ fontWeight: '800', color: t.textPrimary }}>Stop</Text> while running to cancel the rest.
+                  </Text>
+                </View>
+
+                {/* Daily streak free spins */}
+                <View
+                  style={[
+                    styles.bonusCard,
+                    {
+                      backgroundColor: hexWithAlpha(t.freeSpin, '0C'),
+                      borderColor: hexWithAlpha(t.freeSpin, '33'),
+                    },
+                  ]}
+                >
+                  <Text style={[styles.bonusCardTitle, { color: t.freeSpin }]}>Daily streak</Text>
+                  <Text style={[styles.body, { color: t.textSecondary }]}>
+                    On the <Text style={{ fontWeight: '800', color: t.textPrimary }}>Rewards</Text> tab, claiming the next
+                    day in your login streak awards coins and adds{' '}
+                    <Text style={{ fontWeight: '800', color: t.freeSpin }}>{DAILY_STREAK_FREE_SPINS_PER_CLAIM} free spins</Text>
+                    {' '}(offline / local economy). Cloud saves follow the server wallet — amounts may differ but the
+                    streak lives there too.
                   </Text>
                 </View>
 
@@ -432,8 +454,56 @@ export function InfoModal({ open, onClose }: Props) {
                 >
                   <Text style={[styles.bonusCardTitle, { color: t.textPrimary }]}>Bet Range</Text>
                   <Text style={[styles.body, { color: t.textSecondary }]}>
-                    Bets per spin: 10 · 25 · 50 · 100 · 250 · 500 virtual coins.{'\n'}
-                    Free Spins always spin at 250 coins per line at no cost to you.
+                    Line bets (virtual coins):{'\n'}
+                    {betList}.{'\n'}
+                    Higher tiers unlock when your vault holds at least{' '}
+                    <Text style={{ fontWeight: '800', color: t.textPrimary }}>50×</Text> that bet in coins
+                    (starter tiers up to 500 are always available).{'\n\n'}
+                    <Text style={{ fontWeight: '700', color: t.textPrimary }}>Free spins</Text> cost no coins and
+                    pay using your <Text style={{ fontWeight: '800', color: t.textPrimary }}>current line bet</Text> — same
+                    payout math as a paid spin at that amount.
+                  </Text>
+                </View>
+
+                {/* Level & XP */}
+                <View
+                  style={[
+                    styles.bonusCard,
+                    {
+                      backgroundColor: hexWithAlpha(t.primary, '08'),
+                      borderColor: hexWithAlpha(t.primary, '28'),
+                    },
+                  ]}
+                >
+                  <Text style={[styles.bonusCardTitle, { color: t.textPrimary }]}>Level &amp; XP</Text>
+                  <Text style={[styles.body, { color: t.textSecondary }]}>
+                    <Text style={{ fontWeight: '800', color: t.textPrimary }}>Paid spins</Text> earn XP when the
+                    reels resolve. <Text style={{ fontWeight: '800', color: t.textPrimary }}>Free spins</Text> do
+                    not (they still pay coins normally).
+                  </Text>
+                  <Text style={[styles.body, { color: t.textSecondary }]}>
+                    Each paid spin grants a{' '}
+                    <Text style={{ fontWeight: '800', color: t.textPrimary }}>base</Text> amount from your line bet
+                    (at least 10 XP, plus about 1 XP per 10 coins bet, up to 500 XP from bet alone), plus a{' '}
+                    <Text style={{ fontWeight: '800', color: t.textPrimary }}>win bonus</Text> when that spin pays
+                    coins: up to 100 XP from the spin win (about 1 XP per 1,000 coins won on that spin). When the{' '}
+                    <Text style={{ fontWeight: '800', color: t.textPrimary }}>Bonus Meter</Text> fills on the same
+                    paid spin, you also get <Text style={{ fontWeight: '800', color: t.primary }}>+{BONUS_METER_XP} XP</Text>.
+                  </Text>
+                  <Text style={[styles.body, { color: t.textSecondary }]}>
+                    XP fills your level bar. The amount needed for the{' '}
+                    <Text style={{ fontWeight: '800', color: t.textPrimary }}>next</Text> level grows on a curve
+                    (roughly +15% per level). For example, level 1→2 needs about{' '}
+                    <Text style={{ fontWeight: '800', color: t.primary }}>{xpBarL1}</Text> XP; level 30→31 needs about{' '}
+                    <Text style={{ fontWeight: '800', color: t.primary }}>{xpBarL30}</Text> XP.
+                  </Text>
+                  <Text style={[styles.body, { color: t.textSecondary }]}>
+                    Leveling up always pays <Text style={{ fontWeight: '800', color: t.textPrimary }}>bonus coins</Text>
+                    . Landmark levels 5, 10, 20, 30, 50, 75, and 100 replace the default with larger preset coin bundles and may add{' '}
+                    <Text style={{ fontWeight: '800', color: t.textPrimary }}>free spins</Text>
+                    {' '}(they do <Text style={{ fontWeight: '800', color: t.textPrimary }}>not</Text> stack the small “level × 500” formula on top). Every other level grants{' '}
+                    <Text style={{ fontWeight: '800', color: t.textPrimary }}>level × 500</Text> bonus coins. Claiming{' '}
+                    <Text style={{ fontWeight: '800', color: t.textPrimary }}>missions</Text> and some other rewards can grant bonus XP on top of spins.
                   </Text>
                 </View>
 
@@ -447,13 +517,26 @@ export function InfoModal({ open, onClose }: Props) {
                     { borderColor: t.border, backgroundColor: hexWithAlpha(t.card, 'CC') },
                   ]}
                 >
-                  {WIN_TYPES.map(({ label, range, colorKey }) => (
-                    <View key={label} style={[styles.winRow, { borderColor: t.border }]}>
+                  {WIN_TYPES_PAYTABLE.map(({ winType, label, range, colorKey }) => (
+                    <View key={winType} style={[styles.winRow, { borderColor: t.border }]}>
                       <Text style={[styles.winLabel, { color: t[colorKey] }]}>{label}</Text>
                       <Text style={[styles.winRange, { color: t.textSecondary }]}>{range}</Text>
                     </View>
                   ))}
                 </View>
+
+                <Text style={[styles.body, { color: t.textMuted, marginTop: 8, fontSize: 11 }]}>
+                  Wins below <Text style={{ fontWeight: '700', color: t.textSecondary }}>1×</Text> your line bet still
+                  credit coins; the in-game result uses a compact tally instead of the full “Win” celebration.
+                </Text>
+
+                <Text style={[styles.body, { color: t.textMuted, marginTop: 8, fontSize: 11 }]}>
+                  <Text style={{ fontWeight: '700', color: t.textSecondary }}>Jackpot</Text> and{' '}
+                  <Text style={{ fontWeight: '700', color: t.textSecondary }}>Mega Jackpot</Text> here mean how big
+                  the spin paid overall (after mystery multiplier if any). Those titles are not the same as{' '}
+                  <Text style={{ fontWeight: '700', color: t.textSecondary }}>{JACKPOT_MODE_LABEL}</Text> (five 7s or Wilds on
+                  the middle row — see above).
+                </Text>
 
                 <Text style={[styles.body, { color: t.textMuted, marginTop: 8, fontSize: 11 }]}>
                   All amounts are virtual coins. No real-money payouts.
@@ -462,17 +545,28 @@ export function InfoModal({ open, onClose }: Props) {
             )}
           </AppScrollView>
 
-          <AppButton label="Close" onPress={onClose} style={styles.closeBtn} />
+          <View
+            style={[
+              styles.sheetFooter,
+              { paddingBottom: Math.max(12, insets.bottom + 8), borderTopColor: t.border },
+            ]}
+          >
+            <AppButton label="Close" onPress={onClose} style={styles.closeBtn} />
+          </View>
+          </View>
         </View>
-      </Pressable>
+      </View>
     </Modal>
   )
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
+  modalFill: {
     flex: 1,
-    backgroundColor: 'transparent',
+  },
+  /** Tap-to-dismiss layer + bottom sheet; sheet is last so it sits above the Pressable. */
+  modalStack: {
+    flex: 1,
     justifyContent: 'flex-end',
   },
   sheet: {
@@ -586,27 +680,6 @@ const styles = StyleSheet.create({
   },
   specialEmoji: { fontSize: 18, fontWeight: '900' },
 
-  // Paylines tab
-  paylineRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    marginBottom: 6,
-  },
-  lineBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  lineBadgeNum: { fontSize: 12, fontWeight: '900' },
-
   // Bonus tab
   bonusCard: {
     borderRadius: 14,
@@ -644,5 +717,9 @@ const styles = StyleSheet.create({
   winLabel: { fontWeight: '800', fontSize: 14 },
   winRange: { fontSize: 12 },
 
-  closeBtn: { marginVertical: 16 },
+  sheetFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: 8,
+  },
+  closeBtn: { marginVertical: 8 },
 })

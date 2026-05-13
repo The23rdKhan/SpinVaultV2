@@ -21,7 +21,7 @@ import { useReducedMotion } from '@/lib/use-reduced-motion'
 // ---------------------------------------------------------------------------
 // Per-tier pulse configuration
 //
-// Every property escalates from Normal → Big Win → Mega Win → Jackpot so
+// Every property escalates from Win → Big Win → Jackpot → Mega Jackpot (engine keys unchanged).
 // that players feel the win intensity through the symbols themselves, not
 // just through the overlay modal.
 //
@@ -76,11 +76,12 @@ interface Props {
    * Pass `colIndex * 80` from ReelGrid to stagger by column.
    */
   columnDelay?: number
-  /**
-   * Win tier for this symbol — drives glow intensity, ring size, and pulse speed.
-   * Defaults to 'normal' when omitted.
-   */
+  /** Win tier from the resolved spin — drives pulse intensity. */
   winTier?: Exclude<WinType, 'none'>
+  /**
+   * Subtle motion variety for winning cells (normal wins feel less repetitive).
+   */
+  winMotion?: 'pulse' | 'bounce' | 'glow' | 'sparkle'
 }
 
 function SlotSymbolInner({
@@ -89,6 +90,7 @@ function SlotSymbolInner({
   isSpinning,
   columnDelay = 0,
   winTier = 'normal',
+  winMotion = 'pulse',
 }: Props) {
   const t = useCasinoTheme()
   const reduceMotion = useReducedMotion()
@@ -113,16 +115,30 @@ function SlotSymbolInner({
           withTiming(1.0,                   { duration: 200, easing: Easing.out(Easing.quad) }),
         )
       } else {
-        // Finite repeating pulse: tier.cycles beats then the value settles at
-        // whatever the last frame of withRepeat leaves it (glowLow / 1.0).
+        const motion = winMotion
+        let pulseMs = tier.pulseDurationMs
+        let scalePk = tier.scalePeak
+        let glowHi = tier.glowHigh
+        let glowLo = tier.glowLow
+        let cycles = tier.cycles
+        if (motion === 'bounce') {
+          scalePk = Math.min(1.55, tier.scalePeak * 1.08)
+          pulseMs = Math.max(90, tier.pulseDurationMs * 0.88)
+        } else if (motion === 'glow') {
+          scalePk = 1.0 + (tier.scalePeak - 1) * 0.38
+          cycles = Math.max(3, tier.cycles - 1)
+        } else if (motion === 'sparkle') {
+          pulseMs = Math.max(85, tier.pulseDurationMs * 0.8)
+          glowHi = Math.min(1, tier.glowHigh + 0.06)
+        }
         glowOpacity.value = withDelay(
           columnDelay,
           withRepeat(
             withSequence(
-              withTiming(tier.glowHigh, { duration: tier.pulseDurationMs, easing: Easing.out(Easing.quad) }),
-              withTiming(tier.glowLow,  { duration: tier.pulseDurationMs, easing: Easing.in(Easing.quad) }),
+              withTiming(glowHi, { duration: pulseMs, easing: Easing.out(Easing.quad) }),
+              withTiming(glowLo, { duration: pulseMs, easing: Easing.in(Easing.quad) }),
             ),
-            tier.cycles,
+            cycles,
             false,
           ),
         )
@@ -130,10 +146,10 @@ function SlotSymbolInner({
           columnDelay,
           withRepeat(
             withSequence(
-              withTiming(tier.scalePeak, { duration: tier.pulseDurationMs, easing: Easing.out(Easing.quad) }),
-              withTiming(1.0,            { duration: tier.pulseDurationMs, easing: Easing.in(Easing.quad) }),
+              withTiming(scalePk, { duration: pulseMs, easing: Easing.out(Easing.quad) }),
+              withTiming(1.0, { duration: pulseMs, easing: Easing.in(Easing.quad) }),
             ),
-            tier.cycles,
+            cycles,
             false,
           ),
         )
@@ -151,7 +167,7 @@ function SlotSymbolInner({
       cancelAnimation(scale)
       cancelAnimation(glowOpacity)
     }
-  }, [isWinning, reduceMotion, columnDelay, winTier, tier, scale, glowOpacity])
+  }, [isWinning, reduceMotion, columnDelay, winTier, tier, scale, glowOpacity, winMotion])
 
   useEffect(() => {
     opacity.value = isSpinning ? 0.75 : 1
