@@ -379,7 +379,14 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
                 </View>
               </View>
 
-              <View style={styles.multRowUnderBet}>
+              <View style={styles.multSection}>
+                <Text
+                  style={[styles.multSectionTitle, { color: t.textMuted }]}
+                  accessibilityRole="header"
+                >
+                  Multipliers
+                </Text>
+                <View style={styles.multRowUnderBet}>
                 {([2, 5, 10] as const).map((factor) => {
                   const target = unlockedBets.find((b) => b >= currentBet * factor)
                     ?? unlockedBets[unlockedBets.length - 1]
@@ -431,6 +438,7 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
                     Max
                   </Text>
                 </Pressable>
+              </View>
               </View>
             </View>
           </View>
@@ -888,6 +896,19 @@ const styles = StyleSheet.create({
   betLabel: { fontSize: 10, fontWeight: '600' },
   betAmt: { fontSize: 19, fontWeight: '900', textAlign: 'center', width: '100%' },
   betUnlockHint: { fontSize: 9, fontWeight: '700', marginTop: 2, letterSpacing: 0.2 },
+  multSection: {
+    alignSelf: 'flex-start',
+    width: '100%',
+    maxWidth: 248,
+    gap: 5,
+    marginTop: 2,
+  },
+  multSectionTitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.55,
+    textTransform: 'uppercase',
+  },
   multRowUnderBet: {
     flexDirection: 'row',
     flexWrap: 'wrap',
