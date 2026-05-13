@@ -7,7 +7,6 @@ import {
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -25,6 +24,7 @@ try {
   ImagePicker = null
 }
 import { AppButton } from '@/components/ui/AppButton'
+import { AppScrollView } from '@/components/ui/AppScrollView'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { hexWithAlpha } from '@/theme/tokens'
 
@@ -156,11 +156,10 @@ export function EditProfileSheet({
           {/* Handle bar */}
           <View style={[styles.handle, { backgroundColor: t.muted }]} />
 
-          <ScrollView
+          <AppScrollView
             style={{ flex: 1 }}
             contentContainerStyle={styles.body}
             keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
           >
             {/* Header */}
             <View style={styles.headerRow}>
@@ -314,7 +313,7 @@ export function EditProfileSheet({
                 style={{ flex: 1 }}
               />
             </View>
-          </ScrollView>
+          </AppScrollView>
         </View>
       </KeyboardAvoidingView>
     </Modal>

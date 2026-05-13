@@ -2,7 +2,6 @@ import { useState } from 'react'
 import {
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -13,6 +12,7 @@ import { routes } from '@/lib/app-routes'
 import { useAuth } from '@/lib/auth-context'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { AppButton } from '@/components/ui/AppButton'
+import { AppScrollView } from '@/components/ui/AppScrollView'
 import { APP_NAME } from '@shared/brand'
 
 export function RegisterScreen() {
@@ -51,7 +51,7 @@ export function RegisterScreen() {
       style={[styles.flex, { backgroundColor: t.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <AppScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
           <Text style={[styles.brandKicker, { color: t.textMuted }]}>{APP_NAME}</Text>
           <Text style={[styles.hero, { color: t.textPrimary }]} accessibilityRole="header">
@@ -114,7 +114,7 @@ export function RegisterScreen() {
             onPress={() => router.replace(routes.login)}
           />
         </View>
-      </ScrollView>
+      </AppScrollView>
     </KeyboardAvoidingView>
   )
 }

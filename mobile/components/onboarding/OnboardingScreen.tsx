@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import {
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -14,6 +13,7 @@ import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { AppleSignInButton } from '@/components/apple-sign-in-button'
 import { GoogleSignInButton } from '@/components/social-auth-buttons/google/google-sign-in-button'
 import { AppButton } from '@/components/ui/AppButton'
+import { AppScrollView } from '@/components/ui/AppScrollView'
 import { track } from '@/lib/analytics/track'
 import { AnalyticsEvents } from '@shared/analytics/event-names'
 import { LegalDocumentModal } from '@/components/modals/LegalDocumentModal'
@@ -86,7 +86,7 @@ export function OnboardingScreen() {
       style={[styles.flex, { backgroundColor: t.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <AppScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View
           style={[
             styles.card,
@@ -260,7 +260,7 @@ export function OnboardingScreen() {
             </View>
           ) : null}
         </View>
-      </ScrollView>
+      </AppScrollView>
 
       {/* Always mounted so the slide-out dismiss animation plays correctly. */}
       <LegalDocumentModal

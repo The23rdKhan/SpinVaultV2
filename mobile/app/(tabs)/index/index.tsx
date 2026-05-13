@@ -1,6 +1,7 @@
-import { ScrollView, StyleSheet, View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { SlotMachine } from '@/components/slot-machine/SlotMachine'
+import { AppScrollView } from '@/components/ui/AppScrollView'
 import { SCREEN_PAD_H } from '@/lib/screen-edge'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 
@@ -10,7 +11,7 @@ export default function PlayScreen() {
   const bottomPad = Math.max(insets.bottom, 12) + 24
 
   return (
-    <ScrollView
+    <AppScrollView
       style={[styles.scroll, { backgroundColor: t.background }]}
       contentContainerStyle={[styles.content, { paddingBottom: bottomPad, paddingHorizontal: SCREEN_PAD_H }]}
       keyboardShouldPersistTaps="handled"
@@ -18,7 +19,7 @@ export default function PlayScreen() {
       <View collapsable={false}>
         <SlotMachine />
       </View>
-    </ScrollView>
+    </AppScrollView>
   )
 }
 

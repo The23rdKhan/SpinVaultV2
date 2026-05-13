@@ -1,7 +1,8 @@
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
 import { BlurView } from 'expo-blur'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { AppButton } from '@/components/ui/AppButton'
+import { AppScrollView } from '@/components/ui/AppScrollView'
 import { getLegalDocument, type LegalDocType } from '@shared/legal-documents'
 
 interface Props {
@@ -57,12 +58,7 @@ export function LegalDocumentModal({ visible, type, onClose }: Props) {
           </View>
 
           {/* Scrollable content */}
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator
-            bounces
-          >
+          <AppScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
             {/* ⚠️ Draft banner — fixed amber colors, intentionally not theme-aware */}
             <View style={styles.draftBanner}>
               <Text style={styles.draftBannerText}>
@@ -84,7 +80,7 @@ export function LegalDocumentModal({ visible, type, onClose }: Props) {
                 </Text>
               </View>
             ))}
-          </ScrollView>
+          </AppScrollView>
 
           {/* Close button */}
           <View style={[styles.footer, { borderTopColor: t.border }]}>

@@ -1,7 +1,8 @@
-import { Platform, ScrollView, StyleSheet, View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { SlotMachine } from '@/components/slot-machine/SlotMachine'
 import { RecentSpinsRow } from '@/components/slot-machine/RecentSpinsRow'
+import { AppScrollView } from '@/components/ui/AppScrollView'
 import { useGame } from '@/lib/game-context'
 import { SCREEN_PAD_H } from '@/lib/screen-edge'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
@@ -13,15 +14,10 @@ export default function PlayScreen() {
   const { spinAudit } = useGame()
 
   return (
-    <ScrollView
+    <AppScrollView
       style={[styles.scroll, { backgroundColor: t.background }]}
       contentContainerStyle={[styles.content, { paddingBottom: bottomPad, paddingHorizontal: SCREEN_PAD_H }]}
       keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-      showsHorizontalScrollIndicator={false}
-      alwaysBounceVertical={false}
-      bounces={false}
-      {...(Platform.OS === 'android' ? { overScrollMode: 'never' as const } : {})}
     >
       <View
         collapsable={false}
@@ -31,7 +27,7 @@ export default function PlayScreen() {
       </View>
 
       <RecentSpinsRow spinAudit={spinAudit} />
-    </ScrollView>
+    </AppScrollView>
   )
 }
 

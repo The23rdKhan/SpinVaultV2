@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Image, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
@@ -19,6 +19,7 @@ import {
   TrophyCaseSection,
 } from '@/components/profile/parity-sections'
 import { AppButton } from '@/components/ui/AppButton'
+import { AppScrollView } from '@/components/ui/AppScrollView'
 import type { AppearanceMode } from '@/lib/appearance-context'
 import { useAppearance } from '@/lib/appearance-context'
 import type { AuthProviderKind } from '@/lib/auth-context'
@@ -146,7 +147,7 @@ export default function ProfileScreen() {
   const bottomPad = Math.max(insets.bottom, 12) + 64
 
   return (
-    <ScrollView
+    <AppScrollView
       style={[styles.scroll, { backgroundColor: t.background }]}
       contentContainerStyle={[
         styles.pad,
@@ -369,7 +370,7 @@ export default function ProfileScreen() {
         onSaveBio={setBio}
         onSaveAvatar={setAvatarUri}
       />
-    </ScrollView>
+    </AppScrollView>
   )
 }
 

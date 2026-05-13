@@ -3,7 +3,6 @@ import {
   Image,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -14,6 +13,7 @@ import { ALL_VANITY_ITEMS, TROPHY_DEFINITIONS } from '@/lib/vanity-data'
 import { rarityPresentation } from '@/lib/rarity-from-theme'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { hexWithAlpha } from '@/theme/tokens'
+import { AppScrollView } from '@/components/ui/AppScrollView'
 
 export interface PlayerProfileEntry {
   rank: number
@@ -183,7 +183,7 @@ export function PlayerProfileModal({
             </View>
           </LinearGradient>
 
-          <ScrollView style={styles.body} contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 28 }}>
+          <AppScrollView style={styles.body} contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 28 }}>
             <View>
               <View style={styles.sectionHead}>
                 <FontAwesome name="star" size={14} color={t.primary} />
@@ -318,7 +318,7 @@ export function PlayerProfileModal({
             <Text style={[styles.footer, { color: t.textMuted }]}>
               Playing since {publicStats.memberSince}
             </Text>
-          </ScrollView>
+          </AppScrollView>
         </View>
       </View>
     </Modal>

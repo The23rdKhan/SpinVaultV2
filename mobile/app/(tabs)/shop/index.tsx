@@ -4,7 +4,6 @@ import {
   Image,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -19,6 +18,7 @@ import { CosmeticChest } from '@/components/shop/CosmeticChest'
 import { ItemPreview } from '@/components/shop/ItemPreview'
 import { ThemeUnlockCards } from '@/components/shop/ThemeUnlockCards'
 import { AppButton } from '@/components/ui/AppButton'
+import { AppScrollView } from '@/components/ui/AppScrollView'
 import { useGame, type Theme } from '@/lib/game-context'
 import { SCREEN_PAD_H } from '@/lib/screen-edge'
 import { THEME_CONFIGS } from '@/lib/theme-config'
@@ -288,7 +288,7 @@ export default function ShopScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: t.background }]}>
-      <ScrollView
+      <AppScrollView
         style={styles.scroll}
         contentContainerStyle={[
           styles.pad,
@@ -554,7 +554,7 @@ export default function ShopScreen() {
             </View>
           )
         })}
-      </ScrollView>
+      </AppScrollView>
 
       <Modal
         visible={packPreview !== null}

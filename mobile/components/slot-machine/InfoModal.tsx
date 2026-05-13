@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
 import { BlurView } from 'expo-blur'
 import { SYMBOLS } from '@/lib/game-context'
 import { SCATTER_PAYOUT_MULTIPLIERS } from '@shared/slot/evaluate-spin'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { hexWithAlpha } from '@/theme/tokens'
 import { AppButton } from '@/components/ui/AppButton'
+import { AppScrollView } from '@/components/ui/AppScrollView'
 
 type Tab = 'symbols' | 'paylines' | 'bonus'
 
@@ -113,10 +114,9 @@ export function InfoModal({ open, onClose }: Props) {
           </View>
 
           {/* Scrollable content — flex: 1 fills the remaining sheet height */}
-          <ScrollView
+          <AppScrollView
             style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator
             nestedScrollEnabled
           >
             {/* ── SYMBOLS ── */}
@@ -460,7 +460,7 @@ export function InfoModal({ open, onClose }: Props) {
                 </Text>
               </>
             )}
-          </ScrollView>
+          </AppScrollView>
 
           <AppButton label="Close" onPress={onClose} style={styles.closeBtn} />
         </View>

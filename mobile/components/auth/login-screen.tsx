@@ -2,7 +2,6 @@ import { useState } from 'react'
 import {
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -16,6 +15,7 @@ import { APP_NAME } from '@shared/brand'
 import { AppleSignInButton } from '@/components/apple-sign-in-button'
 import { GoogleSignInButton } from '@/components/social-auth-buttons/google/google-sign-in-button'
 import { AppButton } from '@/components/ui/AppButton'
+import { AppScrollView } from '@/components/ui/AppScrollView'
 
 export function LoginScreen() {
   const t = useCasinoTheme()
@@ -60,7 +60,7 @@ export function LoginScreen() {
       style={[styles.flex, { backgroundColor: t.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <AppScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View
           style={[
             styles.card,
@@ -133,7 +133,7 @@ export function LoginScreen() {
             onPress={() => router.push(routes.register)}
           />
         </View>
-      </ScrollView>
+      </AppScrollView>
     </KeyboardAvoidingView>
   )
 }

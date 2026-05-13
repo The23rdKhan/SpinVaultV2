@@ -2,7 +2,6 @@ import { useState } from 'react'
 import {
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -10,6 +9,7 @@ import {
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { LinearGradient } from 'expo-linear-gradient'
 import { AppButton } from '@/components/ui/AppButton'
+import { AppScrollView } from '@/components/ui/AppScrollView'
 import { useGame, type Theme } from '@/lib/game-context'
 import { THEME_CONFIGS, type ThemeConfig } from '@/lib/theme-config'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
@@ -165,7 +165,7 @@ export function ThemeUnlockCards({
                 <FontAwesome name="times" size={22} color={t.textMuted} />
               </Pressable>
             </View>
-            <ScrollView style={styles.modalBody} contentContainerStyle={{ gap: 14, paddingBottom: 16 }}>
+            <AppScrollView style={styles.modalBody} contentContainerStyle={{ gap: 14, paddingBottom: 16 }}>
               {preview ? (
                 <>
                   <LinearGradient
@@ -216,7 +216,7 @@ export function ThemeUnlockCards({
                   </View>
                 </>
               ) : null}
-            </ScrollView>
+            </AppScrollView>
             <View style={[styles.modalFooter, { borderTopColor: t.border }]}>
               <AppButton label="Close" variant="outline" onPress={() => setPreview(null)} />
             </View>

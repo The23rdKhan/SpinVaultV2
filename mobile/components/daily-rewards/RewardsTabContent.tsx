@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import Toast from 'react-native-toast-message'
 import { router } from 'expo-router'
 import { WeeklyLeaderboard } from '@/components/social/WeeklyLeaderboard'
 import { WinnerFeedStrip } from '@/components/social/WinnerFeedStrip'
+import { AppScrollView } from '@/components/ui/AppScrollView'
 import { SCREEN_PAD_H } from '@/lib/screen-edge'
 import { useGame } from '@/lib/game-context'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
@@ -43,7 +44,7 @@ export function RewardsTabContent() {
   const bottomPad = Math.max(insets.bottom, 12) + 28
 
   return (
-    <ScrollView
+    <AppScrollView
       style={[styles.scroll, { backgroundColor: t.background }]}
       contentContainerStyle={[
         styles.pad,
@@ -118,7 +119,7 @@ export function RewardsTabContent() {
 
       <WinnerFeedStrip />
       <WeeklyLeaderboard />
-    </ScrollView>
+    </AppScrollView>
   )
 }
 
