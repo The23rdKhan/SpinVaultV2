@@ -14,7 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { useGame, BET_OPTIONS } from '@/lib/game-context'
-import { isBetUnlocked, coinGateForBet } from '@shared/slot/evaluate-spin'
+import { isBetUnlocked, coinGateForBet, clampBetSelect, MIN_LINE_BET, MAX_LINE_BET } from '@shared/slot/evaluate-spin'
 import { useAuth } from '@/lib/auth-context'
 import { routes } from '@/lib/app-routes'
 import { track } from '@/lib/analytics/track'
@@ -40,6 +40,8 @@ interface ControlDeckProps {
   onOpenInfo: () => void
   onOpenLines: () => void
 }
+
+type BetStepMode = null | 2 | 5 | 10 | 'max'
 
 export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
   const router = useRouter()
@@ -68,6 +70,7 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
   const [fastMode, setFastMode] = useState(false)
   const [recoveryOpen, setRecoveryOpen] = useState(false)
   const [watchVideoBusy, setWatchVideoBusy] = useState(false)
+  const [betStepMode, setBetStepMode] = useState<BetStepMode>(null)
   const countUpRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Auto spin — 50-spin session, toggled on/off with no picker
@@ -145,14 +148,16 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
     return idx >= 0 && idx < BET_OPTIONS.length - 1 ? BET_OPTIONS[idx + 1] : null
   }, [unlockedBets])
 
+  const maxSelectableBet = useMemo(() => clampBetSelect(MAX_LINE_BET, coins), [coins])
+
   const tryBetTarget = useMemo(() => {
     if (!showBroke) return null
-    let best: number | null = null
-    for (const opt of unlockedBets) {
-      if (opt <= coins) best = opt
+    const cap = Math.min(coins, maxSelectableBet)
+    for (let b = cap; b >= MIN_LINE_BET; b--) {
+      if (isBetUnlocked(b, coins) && b <= coins) return b
     }
-    return best
-  }, [showBroke, coins, unlockedBets])
+    return null
+  }, [showBroke, coins, maxSelectableBet])
 
   const startAutoSpin = useCallback((count: number) => {
     if (!canSpin) return
@@ -205,34 +210,38 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
   const decreaseBet = () => {
     betChange()
     betChangeSfx()
-    const i = unlockedBets.indexOf(currentBet)
-    if (i > 0) setBet(unlockedBets[i - 1])
+    const step = betStepMode === 'max' ? 1 : betStepMode ?? 1
+    setBet(clampBetSelect(currentBet - step, coins))
   }
 
   const increaseBet = () => {
     betChange()
     betChangeSfx()
-    const i = unlockedBets.indexOf(currentBet)
-    if (i >= 0 && i < unlockedBets.length - 1) setBet(unlockedBets[i + 1])
+    if (betStepMode === 'max') {
+      setBet(maxSelectableBet)
+      return
+    }
+    const step = betStepMode ?? 1
+    setBet(clampBetSelect(currentBet + step, coins))
   }
 
-  const setMaxBet = () => {
-    maxBetHaptic()
-    betChangeSfx()
-    setBet(unlockedBets[unlockedBets.length - 1])
-  }
+  const toggleBetStep = useCallback((mode: 2 | 5 | 10 | 'max') => {
+    setBetStepMode((m) => (m === mode ? null : mode))
+  }, [])
 
-  /** Jump to the nearest unlocked bet ≥ (currentBet × factor), clamped to max unlocked. */
-  const jumpBetByFactor = useCallback((factor: number) => {
-    betChange()
-    betChangeSfx()
-    const target = currentBet * factor
-    const next = unlockedBets.find((b) => b >= target) ?? unlockedBets[unlockedBets.length - 1]
-    setBet(next)
-  }, [currentBet, unlockedBets, betChange, betChangeSfx, setBet])
+  const canIncrease = useMemo(() => {
+    if (betStepMode === 'max') return currentBet < maxSelectableBet
+    const step = betStepMode ?? 1
+    return clampBetSelect(currentBet + step, coins) > currentBet
+  }, [betStepMode, currentBet, coins, maxSelectableBet])
 
-  const topUnlockedBet = unlockedBets[unlockedBets.length - 1] ?? BET_OPTIONS[0]
-  const atMaxUnlockedBet = currentBet === topUnlockedBet
+  const canDecrease = useMemo(() => {
+    const step = betStepMode === 'max' ? 1 : betStepMode ?? 1
+    return clampBetSelect(currentBet - step, coins) < currentBet
+  }, [betStepMode, currentBet, coins])
+
+  const atMaxUnlockedBet = currentBet >= maxSelectableBet
+  const maxChipDim = atMaxUnlockedBet && betStepMode !== 'max'
 
   return (
     <View style={styles.wrap}>
@@ -324,7 +333,7 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Decrease bet"
-                    disabled={isSpinning || autoSpinRemaining != null || currentBet === unlockedBets[0]}
+                    disabled={isSpinning || autoSpinRemaining != null || !canDecrease}
                     onPress={decreaseBet}
                     style={({ pressed }) => [
                       styles.betStepBtn,
@@ -334,7 +343,7 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
                           ? hexWithAlpha(t.primary, '14')
                           : hexWithAlpha(t.surface, '90'),
                       },
-                      (isSpinning || autoSpinRemaining != null || currentBet === unlockedBets[0]) &&
+                      (isSpinning || autoSpinRemaining != null || !canDecrease) &&
                         styles.betStepBtnDisabled,
                     ]}
                   >
@@ -351,16 +360,27 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
                     >
                       {formatBet(currentBet)}
                     </Text>
-                    {nextLockedBet != null && currentBet === unlockedBets[unlockedBets.length - 1] ? (
-                      <Text style={[styles.betUnlockHint, { color: t.gold }]} numberOfLines={1}>
-                        {`🔒 ${formatBet(nextLockedBet)} · Need ${formatBet(coinGateForBet(nextLockedBet))}`}
-                      </Text>
+                    {nextLockedBet != null && currentBet >= maxSelectableBet ? (
+                      <View
+                        style={styles.betUnlockWrap}
+                        accessibilityLabel={`Next bet ${formatBet(nextLockedBet)} locked. Need ${formatBet(coinGateForBet(nextLockedBet))} coins.`}
+                      >
+                        <Text style={[styles.betUnlockHint, { color: t.gold }]} numberOfLines={1}>
+                          🔒 {formatBet(nextLockedBet)}
+                        </Text>
+                        <Text
+                          style={[styles.betUnlockHintSub, { color: hexWithAlpha(t.gold, 'CC') }]}
+                          numberOfLines={1}
+                        >
+                          Need {formatBet(coinGateForBet(nextLockedBet))}
+                        </Text>
+                      </View>
                     ) : null}
                   </View>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Increase bet"
-                    disabled={isSpinning || autoSpinRemaining != null || currentBet === unlockedBets[unlockedBets.length - 1]}
+                    disabled={isSpinning || autoSpinRemaining != null || !canIncrease}
                     onPress={increaseBet}
                     style={({ pressed }) => [
                       styles.betStepBtn,
@@ -370,7 +390,7 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
                           ? hexWithAlpha(t.primary, '14')
                           : hexWithAlpha(t.surface, '90'),
                       },
-                      (isSpinning || autoSpinRemaining != null || currentBet === unlockedBets[unlockedBets.length - 1]) &&
+                      (isSpinning || autoSpinRemaining != null || !canIncrease) &&
                         styles.betStepBtnDisabled,
                     ]}
                   >
@@ -387,58 +407,94 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
                   Multipliers
                 </Text>
                 <View style={styles.multRowUnderBet}>
-                {([2, 5, 10] as const).map((factor) => {
-                  const target = unlockedBets.find((b) => b >= currentBet * factor)
-                    ?? unlockedBets[unlockedBets.length - 1]
-                  const alreadyAtMax = target === currentBet
-                  return (
-                    <Pressable
-                      key={factor}
-                      onPress={() => jumpBetByFactor(factor)}
-                      disabled={isSpinning || autoSpinRemaining != null || alreadyAtMax}
-                      style={({ pressed }) => [
-                        styles.multChip,
-                        {
-                          borderColor: alreadyAtMax ? t.border : hexWithAlpha(t.gold, '40'),
-                          backgroundColor: pressed && !alreadyAtMax
-                            ? hexWithAlpha(t.gold, '14')
-                            : hexWithAlpha(t.gold, '06'),
-                          opacity: alreadyAtMax ? 0.35 : 1,
-                        },
+                  {([2, 5, 10] as const).map((factor) => {
+                    const selected = betStepMode === factor
+                    return (
+                      <Pressable
+                        key={factor}
+                        onPress={() => toggleBetStep(factor)}
+                        disabled={isSpinning || autoSpinRemaining != null}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Bet step ×${factor}`}
+                        accessibilityHint={
+                          selected
+                            ? 'Tap again to clear. Plus and minus change the bet by this amount.'
+                            : 'Selects step size for plus and minus. Tap again to clear.'
+                        }
+                        accessibilityState={{ selected }}
+                        style={({ pressed }) => [
+                          styles.multChip,
+                          {
+                            borderColor: selected
+                              ? hexWithAlpha(t.gold, 'AA')
+                              : hexWithAlpha(t.gold, '40'),
+                            backgroundColor:
+                              pressed && !selected
+                                ? hexWithAlpha(t.gold, '14')
+                                : selected
+                                  ? hexWithAlpha(t.gold, '22')
+                                  : hexWithAlpha(t.gold, '06'),
+                            transform: [{ translateY: selected ? -4 : 0 }],
+                            shadowColor: selected ? t.gold : 'transparent',
+                            shadowOffset: { width: 0, height: selected ? 4 : 0 },
+                            shadowOpacity: selected ? 0.35 : 0,
+                            shadowRadius: selected ? 6 : 0,
+                            elevation: selected ? 6 : 0,
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.multChipTxt, { color: t.gold }]}>×{factor}</Text>
+                      </Pressable>
+                    )
+                  })}
+                  <Pressable
+                    onPress={() => toggleBetStep('max')}
+                    onLongPress={() => {
+                      maxBetHaptic()
+                      betChangeSfx()
+                      setBetStepMode(null)
+                      setBet(maxSelectableBet)
+                    }}
+                    disabled={isSpinning || autoSpinRemaining != null}
+                    accessibilityRole="button"
+                    accessibilityLabel="Max bet step"
+                    accessibilityHint={`Tap to select: plus then jumps to ${formatBet(maxSelectableBet)}. Long-press to jump immediately.`}
+                    style={({ pressed }) => [
+                      styles.multChip,
+                      styles.maxChip,
+                      {
+                        borderColor:
+                          betStepMode === 'max'
+                            ? hexWithAlpha(t.primary, 'AA')
+                            : maxChipDim
+                              ? t.border
+                              : hexWithAlpha(t.primary, '50'),
+                        backgroundColor:
+                          pressed && betStepMode !== 'max'
+                            ? hexWithAlpha(t.primary, '18')
+                            : betStepMode === 'max'
+                              ? hexWithAlpha(t.primary, '24')
+                              : hexWithAlpha(t.primary, '0C'),
+                        opacity: maxChipDim ? 0.4 : 1,
+                        transform: [{ translateY: betStepMode === 'max' ? -4 : 0 }],
+                        shadowColor: betStepMode === 'max' ? t.primary : 'transparent',
+                        shadowOffset: { width: 0, height: betStepMode === 'max' ? 4 : 0 },
+                        shadowOpacity: betStepMode === 'max' ? 0.35 : 0,
+                        shadowRadius: betStepMode === 'max' ? 6 : 0,
+                        elevation: betStepMode === 'max' ? 6 : 0,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.multChipTxt,
+                        { color: maxChipDim ? t.textMuted : t.primary, fontSize: 11 },
                       ]}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Multiply bet by ${factor}`}
-                      accessibilityHint={`Jumps bet to ${formatBet(target)}`}
                     >
-                      <Text style={[styles.multChipTxt, { color: alreadyAtMax ? t.textMuted : t.gold }]}>
-                        ×{factor}
-                      </Text>
-                    </Pressable>
-                  )
-                })}
-                <Pressable
-                  onPress={setMaxBet}
-                  disabled={isSpinning || autoSpinRemaining != null || atMaxUnlockedBet}
-                  style={({ pressed }) => [
-                    styles.multChip,
-                    styles.maxChip,
-                    {
-                      borderColor: atMaxUnlockedBet ? t.border : hexWithAlpha(t.primary, '50'),
-                      backgroundColor: pressed && !atMaxUnlockedBet
-                        ? hexWithAlpha(t.primary, '18')
-                        : hexWithAlpha(t.primary, '0C'),
-                      opacity: atMaxUnlockedBet ? 0.35 : 1,
-                    },
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Max bet"
-                  accessibilityHint={`Sets bet to ${formatBet(topUnlockedBet)}`}
-                >
-                  <Text style={[styles.multChipTxt, { color: atMaxUnlockedBet ? t.textMuted : t.primary, fontSize: 11 }]}>
-                    Max
-                  </Text>
-                </Pressable>
-              </View>
+                      Max
+                    </Text>
+                  </Pressable>
+                </View>
               </View>
             </View>
           </View>
@@ -782,10 +838,18 @@ function PressableSpin({
             ) : isSpinning ? (
               activeSpinIsFree ? (
                 <View style={styles.spinLabelStack}>
-                  <Text style={[styles.spinMain, { color: labelColor, fontSize: 15, letterSpacing: 0.5 }]}>
+                  <Text
+                    style={[styles.spinMain, { color: labelColor, fontSize: 15, letterSpacing: 0.5 }]}
+                    numberOfLines={2}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.72}
+                  >
                     FREE SPIN
                   </Text>
-                  <Text style={[styles.spinSub, { color: hexWithAlpha(labelColor, 'CC') }]}>
+                  <Text
+                    style={[styles.spinSub, { color: hexWithAlpha(labelColor, 'CC') }]}
+                    numberOfLines={2}
+                  >
                     No coin cost
                   </Text>
                 </View>
@@ -794,9 +858,14 @@ function PressableSpin({
               )
             ) : (
               <View style={styles.spinLabelStack}>
-                <Text style={[styles.spinMain, { color: labelColor }]}>SPIN</Text>
+                <Text style={[styles.spinMain, { color: labelColor }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.78}>
+                  SPIN
+                </Text>
                 {showFreeSpinHero ? (
-                  <Text style={[styles.spinSub, { color: hexWithAlpha(labelColor, 'CC') }]}>
+                  <Text
+                    style={[styles.spinSub, { color: hexWithAlpha(labelColor, 'CC') }]}
+                    numberOfLines={2}
+                  >
                     Free spin ready
                   </Text>
                 ) : null}
@@ -809,11 +878,11 @@ function PressableSpin({
   )
 }
 
-/** Compact bet amount display: $1K, $1M, $100M, etc. */
+/** Compact bet label in the control deck (narrow middle column). */
 function formatBet(amount: number): string {
-  if (amount >= 1_000_000_000) return `$${(amount / 1_000_000_000).toFixed(0)}B`
-  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(0)}M`
-  if (amount >= 1_000) return `$${(amount / 1_000).toFixed(0)}K`
+  if (amount >= 1_000_000_000) return `$${Math.round(amount / 1_000_000_000)}B`
+  if (amount >= 1_000_000) return `$${Math.round(amount / 1_000_000)}M`
+  if (amount >= 1_000) return `$${Math.round(amount / 1_000)}K`
   return `$${amount}`
 }
 
@@ -863,12 +932,12 @@ const styles = StyleSheet.create({
   leftBetColumn: {
     alignSelf: 'flex-start',
     width: '100%',
-    maxWidth: 248,
+    maxWidth: 220,
     gap: 8,
   },
   betCapsule: {
     alignSelf: 'stretch',
-    maxWidth: 248,
+    maxWidth: 220,
     borderRadius: 12,
     borderWidth: 1,
     paddingVertical: 6,
@@ -879,7 +948,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
-    gap: 8,
+    gap: 6,
   },
   betStepBtn: {
     width: 34,
@@ -892,14 +961,32 @@ const styles = StyleSheet.create({
   betStepBtnDisabled: {
     opacity: 0.38,
   },
-  betMid: { flex: 1, alignItems: 'center', justifyContent: 'center', minWidth: 62, paddingHorizontal: 2 },
+  betMid: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 0,
+    paddingHorizontal: 0,
+  },
   betLabel: { fontSize: 10, fontWeight: '600' },
-  betAmt: { fontSize: 19, fontWeight: '900', textAlign: 'center', width: '100%' },
-  betUnlockHint: { fontSize: 9, fontWeight: '700', marginTop: 2, letterSpacing: 0.2 },
+  betAmt: {
+    fontSize: 16,
+    fontWeight: '900',
+    textAlign: 'center',
+    width: '100%',
+    letterSpacing: -0.25,
+  },
+  betUnlockWrap: {
+    marginTop: 3,
+    alignItems: 'center',
+    width: '100%',
+  },
+  betUnlockHint: { fontSize: 9, fontWeight: '700', letterSpacing: 0.1, textAlign: 'center' },
+  betUnlockHintSub: { fontSize: 8, fontWeight: '600', letterSpacing: 0.05, textAlign: 'center', marginTop: 1 },
   multSection: {
     alignSelf: 'flex-start',
     width: '100%',
-    maxWidth: 248,
+    maxWidth: 220,
     gap: 5,
     marginTop: 2,
   },
@@ -915,7 +1002,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    maxWidth: 248,
+    maxWidth: 220,
     gap: 6,
   },
   multChip: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
@@ -926,7 +1013,8 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'flex-end',
-    paddingBottom: 2,
+    paddingBottom: 0,
+    marginTop: -6,
   },
   spinWrapper: {
     alignItems: 'center',
@@ -949,8 +1037,15 @@ const styles = StyleSheet.create({
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 6,
   },
-  spinLabelStack: { alignItems: 'center', justifyContent: 'center', gap: 1 },
+  spinLabelStack: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 1,
+    width: '100%',
+    maxWidth: SPIN_BUTTON_PX - 8,
+  },
   spinMain: {
     fontWeight: '900',
     textAlign: 'center',
@@ -960,14 +1055,17 @@ const styles = StyleSheet.create({
   spinSub: {
     fontWeight: '700',
     textAlign: 'center',
-    fontSize: 9,
-    letterSpacing: 0.2,
+    fontSize: 8,
+    letterSpacing: 0.15,
     textTransform: 'uppercase',
+    maxWidth: SPIN_BUTTON_PX - 10,
   },
   spinAutoInner: {
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
+    maxWidth: SPIN_BUTTON_PX - 8,
+    paddingHorizontal: 2,
   },
   spinTextAuto: {
     fontWeight: '900',

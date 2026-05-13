@@ -1,9 +1,9 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { corsHeaders, requireSessionUser } from '../_shared/require-session.ts'
 import {
-  BET_OPTIONS,
   buildRandomGridIds,
   computeBalancesAfterSpin,
+  isValidSpinRequestBet,
 } from '../_shared/slot-engine.ts'
 
 const UUID_RE =
@@ -29,13 +29,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    if (!BET_OPTIONS.includes(bet)) {
-      return new Response(JSON.stringify({ error: 'invalid_bet' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
     const { data: wallet, error: wErr } = await session.admin
       .from('wallets')
       .select('coin_balance, free_spin_balance, bonus_meter_progress')
@@ -44,6 +37,14 @@ Deno.serve(async (req) => {
 
     if (wErr || !wallet) {
       return new Response(JSON.stringify({ error: 'wallet_not_found' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const walletCoins = Number(wallet.coin_balance)
+    if (!isValidSpinRequestBet(bet, walletCoins)) {
+      return new Response(JSON.stringify({ error: 'invalid_bet' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })

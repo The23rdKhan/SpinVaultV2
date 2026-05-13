@@ -4,7 +4,10 @@
  * Each entry shows:
  *   - Relative timestamp ("just now", "2m ago")
  *   - Bet / Result / Win-type badge   ← different from Coin Activity (game context)
+ *   - Column labels (Time · Bet · Result · Tier) for scanability
+ *   - XP line: paid spins show +N XP; free spins show 0 XP
  *   - 5 middle-row emojis with payline-aware highlights  ← unique to Spin History
+ *   - Extra vertical spacing between rows for readability
  *
  * 5 rows per page · Prev / Next pagination · Hidden until first spin.
  */
@@ -13,6 +16,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { useHaptics } from '@/lib/use-haptics'
 import { hexWithAlpha } from '@/theme/tokens'
 import type { SpinAuditEntry } from '@/lib/game-context'
 
@@ -46,6 +50,13 @@ function relativeTime(iso: string): string {
   const h = Math.floor(m / 60)
   if (h < 24)  return `${h}h ago`
   return `${Math.floor(h / 24)}d ago`
+}
+
+/** VoiceOver line for XP on a spin row (paid vs free); avoids a stray `showXp` identifier. */
+function formatSpinHistoryXpA11y(showPaidXp: boolean, showFreeNoXp: boolean, xpGained: number): string {
+  if (showPaidXp) return `+${xpGained} XP`
+  if (showFreeNoXp) return '0 XP, free spin'
+  return ''
 }
 
 type RowVariant = 'loss' | 'win' | 'bigWin' | 'megaWin' | 'jackpot' | 'free'
@@ -96,6 +107,7 @@ function accentFor(
 
 export function RecentSpinsRow({ spinAudit }: Props) {
   const t = useCasinoTheme()
+  const { pagerTap } = useHaptics()
   const [page, setPage] = useState(0)
 
   // Reset to the newest page whenever a new spin is appended so the player
@@ -129,6 +141,17 @@ export function RecentSpinsRow({ spinAudit }: Props) {
 
       {/* Entries */}
       <View style={[styles.table, { borderColor: t.border, backgroundColor: t.card }]}>
+        <View style={[styles.columnHeaderRow, { borderBottomColor: t.border }]}>
+          <Text style={[styles.timeText, styles.columnHeaderText, { color: t.textMuted }]}>Time</Text>
+          <Text style={[styles.betText, styles.columnHeaderText, { color: t.textMuted }]}>Bet</Text>
+          <Text style={[styles.resultText, styles.columnHeaderText, { color: t.textMuted }]}>Result</Text>
+          <View style={styles.columnHeaderBadgeSlot}>
+            <Text style={[styles.columnHeaderText, styles.columnHeaderTier, { color: t.textMuted }]}>
+              Tier
+            </Text>
+          </View>
+        </View>
+
         {pageEntries.map((entry, i) => {
           const variant   = rowVariant(entry)
           const accent    = accentFor(variant, t)
@@ -142,6 +165,10 @@ export function RecentSpinsRow({ spinAudit }: Props) {
           // Compute once and reuse — avoids the double call that previously
           // appeared in both accessibilityLabel and JSX text.
           const timeAgo   = relativeTime(entry.ts)
+          const xpGained  = entry.xpGained ?? 0
+          const showPaidXp = xpGained > 0
+          const showFreeNoXp = entry.freeSpin && xpGained <= 0
+          const showXpRow = showPaidXp || showFreeNoXp
 
           return (
             <View
@@ -150,13 +177,18 @@ export function RecentSpinsRow({ spinAudit }: Props) {
               key={`${entry.ts}-${i}`}
               style={[
                 styles.entryBlock,
-                !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.border },
+                !isLast && {
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                  borderBottomColor: t.border,
+                  marginBottom: 12,
+                },
                 isWin && { backgroundColor: hexWithAlpha(accent, '07') },
               ]}
               accessibilityRole="text"
               accessibilityLabel={[
                 isWin ? `Won ${entry.win} coins` : `Lost ${entry.bet} coins`,
                 entry.freeSpin ? 'free spin' : `bet ${entry.bet}`,
+                formatSpinHistoryXpA11y(showPaidXp, showFreeNoXp, xpGained),
                 badge || '',
                 entry.reelMiddle?.join(' ') ?? '',
                 timeAgo,
@@ -204,6 +236,20 @@ export function RecentSpinsRow({ spinAudit }: Props) {
                   ) : null}
                 </View>
               </View>
+
+              {showXpRow ? (
+                <View style={styles.xpRow}>
+                  {showPaidXp ? (
+                    <Text style={[styles.xpText, { color: t.primary }]}>
+                      +{xpGained.toLocaleString()} XP
+                    </Text>
+                  ) : (
+                    <Text style={[styles.xpText, { color: t.textMuted }]}>
+                      0 XP
+                    </Text>
+                  )}
+                </View>
+              ) : null}
 
               {/* ── Symbol strip with payline highlights ── */}
               {entry.reelMiddle && entry.reelMiddle.length > 0 && (
@@ -253,7 +299,10 @@ export function RecentSpinsRow({ spinAudit }: Props) {
       {totalPages > 1 && (
         <View style={styles.pager}>
           <Pressable
-            onPress={() => setPage((p) => Math.max(0, p - 1))}
+            onPress={() => {
+              pagerTap()
+              setPage((p) => Math.max(0, p - 1))
+            }}
             disabled={safePage === 0}
             style={({ pressed }) => [
               styles.pageBtn,
@@ -277,7 +326,10 @@ export function RecentSpinsRow({ spinAudit }: Props) {
               return (
                 <Pressable
                   key={dotPage}
-                  onPress={() => setPage(dotPage)}
+                  onPress={() => {
+                    pagerTap()
+                    setPage(dotPage)
+                  }}
                   hitSlop={8}
                   accessibilityRole="button"
                   accessibilityLabel={`Page ${dotPage + 1}`}
@@ -294,7 +346,10 @@ export function RecentSpinsRow({ spinAudit }: Props) {
           </View>
 
           <Pressable
-            onPress={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            onPress={() => {
+              pagerTap()
+              setPage((p) => Math.min(totalPages - 1, p + 1))
+            }}
             disabled={safePage >= totalPages - 1}
             style={({ pressed }) => [
               styles.pageBtn,
@@ -339,15 +394,42 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // Table
+  columnHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingTop: 2,
+    paddingBottom: 8,
+    gap: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  columnHeaderText: {
+    fontSize: 9,
+    fontWeight: '600',
+    letterSpacing: 0.45,
+    textTransform: 'uppercase',
+  },
+  columnHeaderTier: {
+    textAlign: 'right',
+  },
+  columnHeaderBadgeSlot: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    minWidth: 44,
+    flexShrink: 0,
+  },
+
+  // Table — vertical padding so first/last rows aren’t flush to the card rim
   table: {
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
+    paddingVertical: 8,
   },
   entryBlock: {
-    paddingTop: 9,
-    paddingBottom: 10,
+    paddingTop: 12,
+    paddingBottom: 12,
   },
 
   // Top row
@@ -356,7 +438,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     gap: 8,
-    marginBottom: 7,
+    marginBottom: 8,
   },
   timeText: {
     fontSize: 11,
@@ -394,12 +476,23 @@ const styles = StyleSheet.create({
   badgePlaceholder: {
     width: 44,
   },
+  xpRow: {
+    paddingHorizontal: 12,
+    marginTop: 0,
+    marginBottom: 8,
+  },
+  xpText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.25,
+  },
 
   // Symbol strip
   symbolStrip: {
     flexDirection: 'row',
     gap: 5,
     paddingHorizontal: 12,
+    paddingBottom: 2,
   },
   symbolCell: {
     flex: 1,

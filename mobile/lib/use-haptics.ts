@@ -83,6 +83,12 @@ export function useHaptics() {
     selection()
   }, [hapticsEnabled])
 
+  /** Spin history pager (Newer / Older / page dots) — light tap, distinct from spin. */
+  const pagerTap = useCallback(() => {
+    if (!hapticsEnabled || !isNative()) return
+    impact(Haptics.ImpactFeedbackStyle.Light)
+  }, [hapticsEnabled])
+
   const maxBet = useCallback(() => {
     if (!hapticsEnabled || !isNative()) return
     impact(Haptics.ImpactFeedbackStyle.Medium)
@@ -194,6 +200,7 @@ export function useHaptics() {
     reelStopFinal,
     spinPress,
     betChange,
+    pagerTap,
     maxBet,
     insufficientCoins,
     bonusMeterFull,

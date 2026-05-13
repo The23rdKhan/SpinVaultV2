@@ -31,6 +31,7 @@ import {
   BET_OPTIONS,
   FREE_SPIN_LINE_BET,
   buildRandomGridIds,
+  clampBetSelect,
   evaluateGrid,
   jackpotPayoutForBet,
   type WinType,
@@ -160,7 +161,10 @@ const MAX_SPIN_AUDIT = 20
  */
 const BONUS_METER_XP = 150
 
-/** Spin-XP formula: scales with bet, capped so whales don't trivialise levels. */
+/**
+ * Spin-XP formula: scales with bet, capped so whales don't trivialise levels.
+ * Free spins (no coin wager) award 0 XP at resolve time — see server/local `stopSpin` paths.
+ */
 const spinXp = (bet: number, win: number) =>
   Math.max(10, Math.min(Math.floor(bet / 10), 500)) +
   (win > 0 ? Math.min(Math.floor(win / 1_000), 100) : 0)
@@ -282,6 +286,8 @@ export interface SpinAuditEntry {
    * Use this to display "×3 streak" in the spin audit rather than back-deriving it.
    */
   fsMultiplier?: number
+  /** XP for this spin (base + bonus meter); 0 when `freeSpin` (no coin wager); omitted on legacy rows. */
+  xpGained?: number
 }
 
 function newLedgerEntryId(): string {
@@ -1393,8 +1399,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const setBet = useCallback((bet: number) => {
+    let clampedForTrack = 0
     setState((prev) => {
-      const isMaxBet = bet === Math.max(...prev.betOptions)
+      const clamped = clampBetSelect(bet, prev.coins)
+      clampedForTrack = clamped
+      const isMaxBet = clamped === Math.max(...prev.betOptions)
       const updatedMissions = !isServerEconomyEnabled()
         ? prev.missions.map((m) => {
             if (m.id === 'maxbet1' && isMaxBet && !m.completed) {
@@ -1405,12 +1414,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
         : prev.missions
       return {
         ...prev,
-        currentBet: bet,
+        currentBet: clamped,
         maxBetUsed: isMaxBet || prev.maxBetUsed,
         missions: updatedMissions,
       }
     })
-    queueMicrotask(() => track(AnalyticsEvents.BET_CHANGED, { bet }))
+    queueMicrotask(() => track(AnalyticsEvents.BET_CHANGED, { bet: clampedForTrack }))
   }, [])
 
   const spin = useCallback(async (): Promise<SpinResult> => {
@@ -1622,8 +1631,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
           }
         })
 
-        const srvXpGain =
+        const paidSpinXp =
           spinXp(spinLineBetRef.current, totalWin) + (bonusMeterPayout > 0 ? BONUS_METER_XP : 0)
+        const srvXpGain = spinWasFreeRef.current ? 0 : paidSpinXp
         const srvLvl = computeXpGain(prev.xp, prev.level, srvXpGain)
 
         return {
@@ -1695,6 +1705,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
               freeSpin: spinWasFreeRef.current,
               reelMiddle: newGrid.map((col) => col[1]?.emoji ?? '?'),
               winningColsMiddle: [0,1,2,3,4].filter((c) => positions.has(`${c}-1`)),
+              xpGained: srvXpGain,
               // Server path resets multiplier to 1; omit field so the audit badge isn't shown.
             },
             ...prev.spinAudit.slice(0, MAX_SPIN_AUDIT - 1),
@@ -1834,8 +1845,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       })
 
       // ── XP + level-up (exponential curve) ────────────────────────────────
-      const xpGain = spinXp(spinLineBetRef.current, totalWin)
-        + (bonusMeterPayout > 0 ? BONUS_METER_XP : 0)
+      const paidSpinXp =
+        spinXp(spinLineBetRef.current, totalWin) + (bonusMeterPayout > 0 ? BONUS_METER_XP : 0)
+      const xpGain = spinWasFreeRef.current ? 0 : paidSpinXp
       const lvl = computeXpGain(prev.xp, prev.level, xpGain)
       // Apply level-up coin + free-spin bonuses on top of the already-computed balance
       let finalBal = runningBal + lvl.coinDelta
@@ -1905,6 +1917,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             freeSpin: spinWasFreeRef.current,
             reelMiddle: newGrid.map((col) => col[1]?.emoji ?? '?'),
             winningColsMiddle: [0,1,2,3,4].filter((c) => positions.has(`${c}-1`)),
+            xpGained: xpGain,
           },
           ...prev.spinAudit.slice(0, MAX_SPIN_AUDIT - 1),
         ],
@@ -2342,4 +2355,4 @@ export function useGame() {
   return context
 }
 
-export { SYMBOLS, BET_OPTIONS, WHEEL_REWARDS, FREE_SPIN_LINE_BET }
+export { SYMBOLS, BET_OPTIONS, WHEEL_REWARDS, FREE_SPIN_LINE_BET, clampBetSelect }

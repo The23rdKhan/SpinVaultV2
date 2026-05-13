@@ -47,6 +47,43 @@ export function isBetUnlocked(bet: number, coins: number): boolean {
   return coins >= coinGateForBet(bet)
 }
 
+/** Smallest / largest allowed line bet (integer coins). */
+export const MIN_LINE_BET = BET_OPTIONS[0]
+export const MAX_LINE_BET = BET_OPTIONS[BET_OPTIONS.length - 1]!
+
+/**
+ * Snap a target line bet to the nearest value the wallet is allowed to select:
+ * integer in [MIN_LINE_BET, MAX_LINE_BET] that passes `isBetUnlocked`, or the
+ * largest allowed value below `target` if `target` is too high for the gate.
+ */
+export function clampBetSelect(target: number, coins: number): number {
+  const t = Math.max(MIN_LINE_BET, Math.min(MAX_LINE_BET, Math.round(target)))
+  if (isBetUnlocked(t, coins)) return t
+  let lo = MIN_LINE_BET
+  let hi = t
+  let best = MIN_LINE_BET
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1
+    if (isBetUnlocked(mid, coins)) {
+      best = mid
+      lo = mid + 1
+    } else {
+      hi = mid - 1
+    }
+  }
+  return best
+}
+
+/** Edge / client guard: integer line bet within bounds and tier gate for wallet balance. */
+export function isValidSpinRequestBet(bet: number, walletCoins: number): boolean {
+  return (
+    Number.isInteger(bet) &&
+    bet >= MIN_LINE_BET &&
+    bet <= MAX_LINE_BET &&
+    isBetUnlocked(bet, walletCoins)
+  )
+}
+
 /**
  * Historical fallback bet used for free spins before the "use current bet" change.
  * Free spins now evaluate at the player's `currentBet` (cost is still 0).
