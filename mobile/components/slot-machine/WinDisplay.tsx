@@ -29,6 +29,8 @@ interface WinDisplayProps {
   amount: number
   winType: WinType
   freeSpins: number
+  /** XP from the completed spin (base + bonus meter bonus); 0 if none. */
+  xpGained: number
   onClose?: () => void
 }
 
@@ -187,7 +189,7 @@ function JackpotBreakdown({
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
-export function WinDisplay({ show, amount, winType, freeSpins, onClose }: WinDisplayProps) {
+export function WinDisplay({ show, amount, winType, freeSpins, xpGained, onClose }: WinDisplayProps) {
   const t = useCasinoTheme()
   const { resolvedMode } = useAppearance()
   const { winMultiplier, lastJackpotBonus, lastMysteryMultiplier, lastFreeSpinMultiplier } = useGame()
@@ -454,6 +456,24 @@ export function WinDisplay({ show, amount, winType, freeSpins, onClose }: WinDis
           </Text>
         ) : null}
 
+        {xpGained > 0 ? (
+          <Animated.View
+            entering={FadeInDown.delay(180).duration(380)}
+            style={[
+              styles.xpBadge,
+              {
+                borderColor: hexWithAlpha(t.primary, '55'),
+                backgroundColor: hexWithAlpha(t.primary, '12'),
+              },
+            ]}
+            accessibilityRole="text"
+            accessibilityLabel={`${xpGained} experience gained`}
+          >
+            <Text style={[styles.xpBadgeIcon]}>✦</Text>
+            <Text style={[styles.xpBadgeTxt, { color: t.primary }]}>+{xpGained.toLocaleString()} XP</Text>
+          </Animated.View>
+        ) : null}
+
         {/* Skip / continue hint */}
         {isJackpotTier ? (
           showSkip ? (
@@ -608,6 +628,26 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginTop: 8,
     textAlign: 'center',
+  },
+  xpBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  xpBadgeIcon: {
+    fontSize: 12,
+    opacity: 0.9,
+  },
+  xpBadgeTxt: {
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   hint: {
     marginTop: 16,

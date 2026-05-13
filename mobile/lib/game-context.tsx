@@ -360,6 +360,8 @@ export interface GameState {
    * Used by WinDisplay to show the streak badge without re-deriving it from session state.
    */
   lastFreeSpinMultiplier: number
+  /** Total XP awarded for the last completed spin (base spin + bonus meter bonus if any). Cleared when a new spin starts. */
+  lastSpinXpGained: number
   /**
    * ISO timestamp of the most recent Mega Jackpot win (any player this session).
    * Used by the Marquee to show a seed-recovery display instead of the full $250K.
@@ -651,6 +653,7 @@ function createInitialGameState(): GameState {
     lastMysteryMultiplier: null,
     freeSpinMultiplier: 1,
     lastFreeSpinMultiplier: 1,
+    lastSpinXpGained: 0,
     jackpotLastWonAt: null,
     jackpotWinners: [],
     coinLedger: [],
@@ -1449,6 +1452,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           lastWinType: 'none',
           winMultiplier: 0,
           lastSpinFreeSpinsWon: 0,
+          lastSpinXpGained: 0,
           lastBonusMeterPayout: 0,
           lastScatterPayout: 0,
           lastJackpotBonus: 0,
@@ -1517,6 +1521,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           lastWinType: 'none',
           winMultiplier: 0,
           lastSpinFreeSpinsWon: 0,
+          lastSpinXpGained: 0,
           lastBonusMeterPayout: 0,
           lastScatterPayout: 0,
           lastJackpotBonus: 0,
@@ -1617,6 +1622,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
           }
         })
 
+        const srvXpGain =
+          spinXp(spinLineBetRef.current, totalWin) + (bonusMeterPayout > 0 ? BONUS_METER_XP : 0)
+        const srvLvl = computeXpGain(prev.xp, prev.level, srvXpGain)
+
         return {
           ...prev,
           spinSyncDeferred: false,
@@ -1656,12 +1665,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
           totalWins: totalWin > 0 ? prev.totalWins + 1 : prev.totalWins,
           biggestWin: Math.max(prev.biggestWin, totalWin),
           // Server manages coin/freeSpin balance; we only track XP + level locally.
-          ...(() => {
-            const srvXpGain = spinXp(spinLineBetRef.current, totalWin)
-              + (bonusMeterPayout > 0 ? BONUS_METER_XP : 0)
-            const srvLvl = computeXpGain(prev.xp, prev.level, srvXpGain)
-            return { xp: srvLvl.xp, level: srvLvl.level }
-          })(),
+          xp: srvLvl.xp,
+          level: srvLvl.level,
+          lastSpinXpGained: srvXpGain,
           leaderboardStats: {
             ...prev.leaderboardStats,
             weeklyBiggestWin: Math.max(prev.leaderboardStats.weeklyBiggestWin, totalWin),
@@ -1696,9 +1702,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           spinSequence: prev.spinSequence + 1,
           trophies: checkTrophyUnlocks(prev.trophies, {
             winType,
-            level: computeXpGain(prev.xp, prev.level,
-              spinXp(spinLineBetRef.current, totalWin) + (bonusMeterPayout > 0 ? BONUS_METER_XP : 0)
-            ).level,
+            level: srvLvl.level,
             allTimeTotalWinnings: prev.leaderboardStats.allTimeTotalWinnings + totalWin,
             dailyStreak: prev.dailyStreak,
           }),
@@ -1856,6 +1860,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         coinLedger: finalLedger,
         freeSpins: finalFreeSpins,
         lastSpinFreeSpinsWon: freeSpinsWon,
+        lastSpinXpGained: xpGain,
         isJackpotMode: isJackpot,
         jackpotMultiplier: 1,
         bonusProgress,

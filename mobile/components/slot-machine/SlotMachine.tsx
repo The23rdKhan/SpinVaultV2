@@ -35,6 +35,7 @@ export function SlotMachine() {
     freeSpins,
     spinSequence,
     lastSpinFreeSpinsWon,
+    lastSpinXpGained,
     lastBonusMeterPayout,
     clearLastSpinFreeSpinsBonus,
   } = useGame()
@@ -281,6 +282,7 @@ export function SlotMachine() {
         amount={winAmount}
         winType={winType}
         freeSpins={lastSpinFreeSpinsWon}
+        xpGained={lastSpinXpGained}
         onClose={handleWinClose}
       />
 
