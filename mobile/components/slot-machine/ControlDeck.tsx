@@ -27,6 +27,11 @@ import { useAudio } from '@/lib/use-audio'
 import { useReducedMotion } from '@/lib/use-reduced-motion'
 import { BrokeRecoverySheet } from './BrokeRecoverySheet'
 
+/** Free-spin CTA: high-energy red that reads on dark cabinets across themes. */
+const FREE_SPIN_CTA_RED = '#FF2B2B' as const
+const FREE_SPIN_CTA_RED_DEEP = '#E01010' as const
+const FREE_SPIN_CTA_RED_HOT = '#FF5E5E' as const
+
 interface ControlDeckProps {
   onOpenInfo: () => void
   onOpenLines: () => void
@@ -662,11 +667,13 @@ function PressableSpin({
   }, [freeSpinMultiplier, freeSpins, reduceMotion, streakOpacity, streakScale, freeSpinStreakAdvance])
   // ────────────────────────────────────────────────────────────────────────
 
+  const freeSpinHeartbeat =
+    freeSpins > 0 && !isSpinning && !autoRemaining && canSpin
+
   useEffect(() => {
     if (reduceMotion) {
       cancelAnimation(spinPulse)
       spinPulse.value = 1
-      readyGlow.value = canSpin && !isSpinning ? 0.5 : 0.4
       return
     }
     if (isSpinning) {
@@ -678,15 +685,50 @@ function PressableSpin({
         -1,
         false,
       )
-    } else {
-      cancelAnimation(spinPulse)
-      spinPulse.value = withTiming(1, { duration: 200 })
+      return
     }
-  }, [isSpinning, reduceMotion, spinPulse])
+    if (freeSpinHeartbeat) {
+      // Lub–dub heartbeat + rest (reads as “alive” on the home CTA)
+      spinPulse.value = withRepeat(
+        withSequence(
+          withTiming(1.08, { duration: 140, easing: Easing.out(Easing.quad) }),
+          withTiming(1.0, { duration: 120, easing: Easing.in(Easing.quad) }),
+          withTiming(1.06, { duration: 130, easing: Easing.out(Easing.quad) }),
+          withTiming(1.0, { duration: 140, easing: Easing.in(Easing.quad) }),
+          withTiming(1.0, { duration: 520 }),
+        ),
+        -1,
+        false,
+      )
+      return
+    }
+    cancelAnimation(spinPulse)
+    spinPulse.value = withTiming(1, { duration: 200 })
+  }, [isSpinning, reduceMotion, spinPulse, freeSpinHeartbeat])
 
   useEffect(() => {
     if (reduceMotion) {
-      readyGlow.value = 0.45
+      readyGlow.value = freeSpinHeartbeat ? 0.62 : 0.45
+      return
+    }
+    if (autoRemaining != null) {
+      cancelAnimation(readyGlow)
+      readyGlow.value = withTiming(0.42, { duration: 200 })
+      return
+    }
+    if (freeSpinHeartbeat) {
+      // Bright red halo pulse (synced roughly with heartbeat)
+      readyGlow.value = withRepeat(
+        withSequence(
+          withTiming(0.92, { duration: 260, easing: Easing.out(Easing.quad) }),
+          withTiming(0.48, { duration: 280, easing: Easing.in(Easing.quad) }),
+          withTiming(0.88, { duration: 240, easing: Easing.out(Easing.quad) }),
+          withTiming(0.44, { duration: 260, easing: Easing.in(Easing.quad) }),
+          withTiming(0.44, { duration: 520 }),
+        ),
+        -1,
+        false,
+      )
       return
     }
     if (canSpin && !isSpinning) {
@@ -702,7 +744,7 @@ function PressableSpin({
       cancelAnimation(readyGlow)
       readyGlow.value = withTiming(0.4, { duration: 200 })
     }
-  }, [canSpin, isSpinning, reduceMotion, readyGlow])
+  }, [canSpin, isSpinning, reduceMotion, readyGlow, freeSpinHeartbeat, autoRemaining])
 
   const spinStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pressScale.value * spinPulse.value }],
@@ -736,15 +778,30 @@ function PressableSpin({
     onSpin()
   }
 
-  const spinShadowColor = isAutoRunning ? t.destructive : freeSpins > 0 ? t.freeSpin : t.primary
+  const spinShadowColor = isAutoRunning
+    ? t.destructive
+    : freeSpinHeartbeat || (freeSpins > 0 && isSpinning)
+      ? FREE_SPIN_CTA_RED
+      : t.primary
 
   const showFreeSpinHero = freeSpins > 0 && !isSpinning && !isAutoRunning
 
   const labelColor = isAutoRunning
     ? '#fff'
     : freeSpins > 0
-      ? t.primaryForeground
+      ? '#FFFFFF'
       : t.spinButtonLabel
+
+  const spinGradientColors: [string, string] | [string, string, string] = isAutoRunning
+    ? [t.destructive, hexWithAlpha(t.destructive, 'CC')]
+    : freeSpins > 0 && !isAutoRunning
+      ? [FREE_SPIN_CTA_RED_HOT, FREE_SPIN_CTA_RED, FREE_SPIN_CTA_RED_DEEP]
+      : freeSpins > 0 && isSpinning
+        ? [hexWithAlpha(FREE_SPIN_CTA_RED, 'DD'), FREE_SPIN_CTA_RED_DEEP]
+        : [t.spinButtonStart, t.spinButtonEnd]
+
+  const spinGradientLocations: [number, number, number] | undefined =
+    spinGradientColors.length === 3 ? [0, 0.45, 1] : undefined
 
   return (
     <View style={styles.spinWrapper}>
@@ -784,20 +841,17 @@ function PressableSpin({
               height: 96,
               borderRadius: 48,
               shadowColor: spinShadowColor,
-              shadowOffset: { width: 0, height: 8 },
-              shadowRadius: 22,
-              elevation: 14,
+              shadowOffset: { width: 0, height: freeSpinHeartbeat ? 10 : 8 },
+              shadowRadius: freeSpinHeartbeat ? 28 : 22,
+              elevation: freeSpinHeartbeat ? 18 : 14,
             },
           ]}
         >
           <LinearGradient
-            colors={
-              isAutoRunning
-                ? [t.destructive, hexWithAlpha(t.destructive, 'CC')]
-                : freeSpins > 0
-                  ? [t.freeSpin, hexWithAlpha(t.freeSpin, 'BB')]
-                  : [t.spinButtonStart, t.spinButtonEnd]
-            }
+            colors={spinGradientColors}
+            locations={spinGradientLocations}
+            start={{ x: 0.15, y: 0 }}
+            end={{ x: 0.85, y: 1 }}
             style={[styles.spinGradient, { borderRadius: 48 }]}
           >
             {isAutoRunning ? (
