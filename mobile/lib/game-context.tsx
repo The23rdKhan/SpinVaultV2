@@ -320,6 +320,12 @@ export interface GameState {
   currentBet: number
   betOptions: number[]
   isSpinning: boolean
+  /**
+   * True while a spin is in flight that consumed a free spin at tap time.
+   * Needed because the local path decrements `freeSpins` immediately, so the balance
+   * alone does not tell you whether the reels are resolving on a free spin.
+   */
+  activeSpinIsFree: boolean
   reelsLocked: boolean // true when result is committed to state; reels may still be visually spinning
   reelGrid: ReelGrid // 5 columns x 3 rows
   lastWin: number
@@ -626,6 +632,7 @@ function createInitialGameState(): GameState {
     currentBet: 50,
     betOptions: [...BET_OPTIONS],
     isSpinning: false,
+    activeSpinIsFree: false,
     reelsLocked: false,
     reelGrid: generateInitialGrid(),
     lastWin: 0,
@@ -1420,6 +1427,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         const payload = await requestServerSpin(lineBet)
         serverSpinPayloadRef.current = payload
         const usedFreeSpin = snapshot.freeSpins > 0
+        spinWasFreeRef.current = usedFreeSpin
         queueMicrotask(() =>
           track(AnalyticsEvents.SPIN_STARTED, {
             bet_coins: lineBet,
@@ -1433,6 +1441,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           freeSpins: payload.free_spin_balance,
           bonusProgress: payload.bonus_meter_progress,
           isSpinning: true,
+          activeSpinIsFree: usedFreeSpin,
           reelsLocked: false,
           winningLines: [],
           winningPositions: new Set(),
@@ -1499,6 +1508,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           coins: balanceAfterBet,
           coinLedger: ledger,
           isSpinning: true,
+          activeSpinIsFree: usedFreeSpin,
           reelsLocked: false,
           freeSpins: prev.freeSpins > 0 ? prev.freeSpins - 1 : prev.freeSpins,
           winningLines: [],
@@ -1611,6 +1621,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           ...prev,
           spinSyncDeferred: false,
           isSpinning: false,
+          activeSpinIsFree: false,
           reelsLocked: true,
           reelGrid: newGrid,
           lastWin: totalWin,
@@ -1833,6 +1844,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       return {
         ...prev,
         isSpinning: false,
+        activeSpinIsFree: false,
         reelsLocked: true,
         reelGrid: newGrid,
         lastWin: totalWin,

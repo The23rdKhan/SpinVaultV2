@@ -47,6 +47,7 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
     addCoins,
     spin,
     isSpinning,
+    activeSpinIsFree,
     freeSpins,
     freeSpinMultiplier,
     lastWin,
@@ -485,6 +486,7 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
             <PressableSpin
               canSpin={canSpin}
               isSpinning={isSpinning}
+              activeSpinIsFree={activeSpinIsFree}
               freeSpins={freeSpins}
               freeSpinMultiplier={freeSpinMultiplier}
               reduceMotion={reduceMotion}
@@ -639,6 +641,7 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
 function PressableSpin({
   canSpin,
   isSpinning,
+  activeSpinIsFree,
   freeSpins,
   freeSpinMultiplier,
   reduceMotion,
@@ -649,6 +652,8 @@ function PressableSpin({
 }: {
   canSpin: boolean
   isSpinning: boolean
+  /** True while reels resolve for a spin that used a free spin at tap time. */
+  activeSpinIsFree: boolean
   freeSpins: number
   /** Current free-spin streak multiplier (1–5). Badge is hidden when ≤ 1. */
   freeSpinMultiplier: number
@@ -806,7 +811,7 @@ function PressableSpin({
 
   const spinShadowColor = isAutoRunning
     ? t.destructive
-    : freeSpinHeartbeat || (freeSpins > 0 && isSpinning)
+    : freeSpinHeartbeat || (activeSpinIsFree && isSpinning)
       ? FREE_SPIN_CTA_RED
       : t.primary
 
@@ -822,7 +827,7 @@ function PressableSpin({
     ? [t.destructive, hexWithAlpha(t.destructive, 'CC')]
     : freeSpins > 0 && !isAutoRunning
       ? [FREE_SPIN_CTA_RED_HOT, FREE_SPIN_CTA_RED, FREE_SPIN_CTA_RED_DEEP]
-      : freeSpins > 0 && isSpinning
+      : activeSpinIsFree && isSpinning
         ? [hexWithAlpha(FREE_SPIN_CTA_RED, 'DD'), FREE_SPIN_CTA_RED_DEEP]
         : [t.spinButtonStart, t.spinButtonEnd]
 
@@ -855,8 +860,19 @@ function PressableSpin({
         </Text>
       </Animated.View>
 
-      <Pressable disabled={isSpinning && !isAutoRunning} onPress={handlePress} accessibilityRole="button"
-        accessibilityLabel={isAutoRunning ? `Stop auto spin, ${autoRemaining} remaining` : undefined}
+      <Pressable
+        disabled={isSpinning && !isAutoRunning}
+        onPress={handlePress}
+        accessibilityRole="button"
+        accessibilityLabel={
+          isAutoRunning
+            ? `Stop auto spin, ${autoRemaining} remaining`
+            : isSpinning && activeSpinIsFree
+              ? 'Reels spinning, free spin in progress'
+              : isSpinning
+                ? 'Reels spinning'
+                : undefined
+        }
       >
         <Animated.View
           style={[
@@ -888,7 +904,18 @@ function PressableSpin({
                 </Text>
               </View>
             ) : isSpinning ? (
-              <Text style={[styles.spinMain, { color: labelColor }]}>…</Text>
+              activeSpinIsFree ? (
+                <View style={styles.spinLabelStack}>
+                  <Text style={[styles.spinMain, { color: labelColor, fontSize: 17, letterSpacing: 0.8 }]}>
+                    FREE SPIN
+                  </Text>
+                  <Text style={[styles.spinSub, { color: hexWithAlpha(labelColor, 'CC') }]}>
+                    No coin cost
+                  </Text>
+                </View>
+              ) : (
+                <Text style={[styles.spinMain, { color: labelColor }]}>…</Text>
+              )
             ) : (
               <View style={styles.spinLabelStack}>
                 <Text style={[styles.spinMain, { color: labelColor }]}>SPIN</Text>

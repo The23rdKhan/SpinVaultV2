@@ -266,6 +266,7 @@ function lobbySafePatch(createFreshGrid: () => ReelGrid): Partial<GameState> {
   return {
     reelGrid: createFreshGrid(),
     isSpinning: false,
+    activeSpinIsFree: false,
     reelsLocked: false,
     lastWin: 0,
     winMultiplier: 0,
