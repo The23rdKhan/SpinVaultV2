@@ -231,6 +231,9 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
     setBet(next)
   }, [currentBet, unlockedBets, betChange, betChangeSfx, setBet])
 
+  const topUnlockedBet = unlockedBets[unlockedBets.length - 1] ?? BET_OPTIONS[0]
+  const atMaxUnlockedBet = currentBet === topUnlockedBet
+
   return (
     <View style={styles.wrap}>
       <View style={styles.quickRow}>
@@ -406,11 +409,33 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
                     </Pressable>
                   )
                 })}
+                <Pressable
+                  onPress={setMaxBet}
+                  disabled={isSpinning || autoSpinRemaining != null || atMaxUnlockedBet}
+                  style={({ pressed }) => [
+                    styles.multChip,
+                    styles.maxChip,
+                    {
+                      borderColor: atMaxUnlockedBet ? t.border : hexWithAlpha(t.primary, '50'),
+                      backgroundColor: pressed && !atMaxUnlockedBet
+                        ? hexWithAlpha(t.primary, '18')
+                        : hexWithAlpha(t.primary, '0C'),
+                      opacity: atMaxUnlockedBet ? 0.35 : 1,
+                    },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Max bet"
+                  accessibilityHint={`Sets bet to ${formatBet(topUnlockedBet)}`}
+                >
+                  <Text style={[styles.multChipTxt, { color: atMaxUnlockedBet ? t.textMuted : t.primary, fontSize: 11 }]}>
+                    Max
+                  </Text>
+                </Pressable>
               </View>
             </View>
           </View>
 
-          <View style={styles.spinColumn}>
+          <View style={styles.spinColumnRight}>
             <PressableSpin
               canSpin={canSpin}
               isSpinning={isSpinning}
@@ -423,38 +448,6 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
               onBrokeTap={showBroke ? () => setRecoveryOpen(true) : undefined}
               onStopAuto={stopAutoSpin}
             />
-          </View>
-
-          <View style={[styles.panelSide, styles.panelSideRight]}>
-            <View style={styles.rightCol}>
-              <Pressable
-                onPress={setMaxBet}
-                disabled={isSpinning || autoSpinRemaining != null}
-                style={({ pressed }) => [
-                  styles.maxBetPill,
-                  {
-                    borderColor: hexWithAlpha(t.gold, '55'),
-                    backgroundColor: pressed
-                      ? hexWithAlpha(t.gold, '22')
-                      : hexWithAlpha(t.gold, '12'),
-                    opacity: isSpinning || autoSpinRemaining != null ? 0.45 : 1,
-                  },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Max bet"
-                accessibilityHint="Uses your highest unlocked bet. Coin balance is shown in the header."
-              >
-                <Text
-                  style={[styles.maxBetPillTxt, { color: t.gold }]}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.78}
-                  maxFontSizeMultiplier={1.1}
-                >
-                  Max {formatBet(unlockedBets[unlockedBets.length - 1] ?? BET_OPTIONS[0])}
-                </Text>
-              </Pressable>
-            </View>
           </View>
         </View>
 
@@ -847,22 +840,20 @@ const styles = StyleSheet.create({
   },
   panelRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
     width: '100%',
-    gap: 6,
+    gap: 10,
   },
   panelSide: {
     flex: 1,
     minWidth: 0,
     alignItems: 'flex-start',
-    justifyContent: 'center',
-  },
-  panelSideRight: {
-    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
   },
   leftBetColumn: {
     width: '100%',
-    maxWidth: 178,
+    minWidth: 0,
     gap: 8,
   },
   betCapsule: {
@@ -893,15 +884,22 @@ const styles = StyleSheet.create({
   betLabel: { fontSize: 10, fontWeight: '600' },
   betAmt: { fontSize: 19, fontWeight: '900', textAlign: 'center', width: '100%' },
   betUnlockHint: { fontSize: 9, fontWeight: '700', marginTop: 2, letterSpacing: 0.2 },
-  multRowUnderBet: { flexDirection: 'row', justifyContent: 'center', gap: 6 },
+  multRowUnderBet: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    gap: 6,
+  },
   multChip: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
+  maxChip: { paddingHorizontal: 10 },
   multChipTxt: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
-  spinColumn: {
-    width: SPIN_BUTTON_PX + 18,
+  spinColumnRight: {
+    width: SPIN_BUTTON_PX + 20,
     flexShrink: 0,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
+    justifyContent: 'flex-end',
+    paddingBottom: 2,
   },
   spinWrapper: {
     alignItems: 'center',
@@ -950,22 +948,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 20,
   },
-  rightCol: {
-    alignItems: 'stretch',
-    width: '100%',
-    maxWidth: 100,
-    flexShrink: 0,
-  },
-  maxBetPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 7,
-    borderRadius: 10,
-    borderWidth: 1,
-    minHeight: 36,
-    justifyContent: 'center',
-    alignSelf: 'stretch',
-  },
-  maxBetPillTxt: { fontSize: 10, fontWeight: '800', textAlign: 'center' },
   warnBlock: { marginTop: 10, gap: 10, alignItems: 'stretch', width: '100%' },
   warn: {
     textAlign: 'center',
