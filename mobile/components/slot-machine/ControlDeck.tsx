@@ -32,6 +32,10 @@ const FREE_SPIN_CTA_RED = '#FF2B2B' as const
 const FREE_SPIN_CTA_RED_DEEP = '#E01010' as const
 const FREE_SPIN_CTA_RED_HOT = '#FF5E5E' as const
 
+/** Main spin disc — smaller than early builds so side columns (bet / max) stay readable on phones. */
+const SPIN_BUTTON_PX = 82 as const
+const SPIN_BUTTON_RADIUS = SPIN_BUTTON_PX / 2
+
 interface ControlDeckProps {
   onOpenInfo: () => void
   onOpenLines: () => void
@@ -419,7 +423,15 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
                   </Pressable>
                   <View style={styles.betMid}>
                     <Text style={[styles.betLabel, { color: t.textMuted }]}>Bet</Text>
-                    <Text style={[styles.betAmt, { color: t.textPrimary }]}>{formatBet(currentBet)}</Text>
+                    <Text
+                      style={[styles.betAmt, { color: t.textPrimary }]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.72}
+                      maxFontSizeMultiplier={1.2}
+                    >
+                      {formatBet(currentBet)}
+                    </Text>
                     {nextLockedBet != null && currentBet === unlockedBets[unlockedBets.length - 1] ? (
                       <Text style={[styles.betUnlockHint, { color: t.gold }]} numberOfLines={1}>
                         {`🔒 ${formatBet(nextLockedBet)} · Need ${formatBet(coinGateForBet(nextLockedBet))}`}
@@ -517,7 +529,13 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
                 accessibilityRole="button"
                 accessibilityLabel="Max bet"
               >
-                <Text style={[styles.maxBetPillTxt, { color: t.gold }]}>
+                <Text
+                  style={[styles.maxBetPillTxt, { color: t.gold }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.78}
+                  maxFontSizeMultiplier={1.1}
+                >
                   Max {formatBet(unlockedBets[unlockedBets.length - 1] ?? BET_OPTIONS[0])}
                 </Text>
               </Pressable>
@@ -879,13 +897,13 @@ function PressableSpin({
             spinStyle,
             glowStyle,
             {
-              width: 96,
-              height: 96,
-              borderRadius: 48,
+              width: SPIN_BUTTON_PX,
+              height: SPIN_BUTTON_PX,
+              borderRadius: SPIN_BUTTON_RADIUS,
               shadowColor: spinShadowColor,
-              shadowOffset: { width: 0, height: freeSpinHeartbeat ? 10 : 8 },
-              shadowRadius: freeSpinHeartbeat ? 28 : 22,
-              elevation: freeSpinHeartbeat ? 18 : 14,
+              shadowOffset: { width: 0, height: freeSpinHeartbeat ? 8 : 6 },
+              shadowRadius: freeSpinHeartbeat ? 18 : 14,
+              elevation: freeSpinHeartbeat ? 12 : 10,
             },
           ]}
         >
@@ -894,7 +912,7 @@ function PressableSpin({
             locations={spinGradientLocations}
             start={{ x: 0.15, y: 0 }}
             end={{ x: 0.85, y: 1 }}
-            style={[styles.spinGradient, { borderRadius: 48 }]}
+            style={[styles.spinGradient, { borderRadius: SPIN_BUTTON_RADIUS }]}
           >
             {isAutoRunning ? (
               <View style={styles.spinAutoInner}>
@@ -906,7 +924,7 @@ function PressableSpin({
             ) : isSpinning ? (
               activeSpinIsFree ? (
                 <View style={styles.spinLabelStack}>
-                  <Text style={[styles.spinMain, { color: labelColor, fontSize: 17, letterSpacing: 0.8 }]}>
+                  <Text style={[styles.spinMain, { color: labelColor, fontSize: 15, letterSpacing: 0.5 }]}>
                     FREE SPIN
                   </Text>
                   <Text style={[styles.spinSub, { color: hexWithAlpha(labelColor, 'CC') }]}>
@@ -974,6 +992,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
+    gap: 6,
   },
   panelSide: {
     flex: 1,
@@ -986,7 +1005,7 @@ const styles = StyleSheet.create({
   },
   leftBetColumn: {
     width: '100%',
-    maxWidth: 172,
+    maxWidth: 178,
     gap: 8,
   },
   betCapsule: {
@@ -1013,22 +1032,24 @@ const styles = StyleSheet.create({
   betStepBtnDisabled: {
     opacity: 0.38,
   },
-  betMid: { flex: 1, alignItems: 'center', justifyContent: 'center', minWidth: 56, paddingHorizontal: 4 },
+  betMid: { flex: 1, alignItems: 'center', justifyContent: 'center', minWidth: 62, paddingHorizontal: 2 },
   betLabel: { fontSize: 10, fontWeight: '600' },
-  betAmt: { fontSize: 20, fontWeight: '900' },
+  betAmt: { fontSize: 19, fontWeight: '900', textAlign: 'center', width: '100%' },
   betUnlockHint: { fontSize: 9, fontWeight: '700', marginTop: 2, letterSpacing: 0.2 },
   multRowUnderBet: { flexDirection: 'row', justifyContent: 'center', gap: 6 },
   multChip: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
   multChipTxt: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
   spinColumn: {
-    width: 100,
+    width: SPIN_BUTTON_PX + 18,
     flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 4,
   },
   spinWrapper: {
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
+    maxWidth: SPIN_BUTTON_PX + 12,
   },
   streakBadge: {
     flexDirection: 'row',
@@ -1044,7 +1065,6 @@ const styles = StyleSheet.create({
   spinGradient: {
     width: '100%',
     height: '100%',
-    borderRadius: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1052,8 +1072,8 @@ const styles = StyleSheet.create({
   spinMain: {
     fontWeight: '900',
     textAlign: 'center',
-    fontSize: 22,
-    letterSpacing: 1.2,
+    fontSize: 20,
+    letterSpacing: 1,
   },
   spinSub: {
     fontWeight: '700',
@@ -1070,14 +1090,14 @@ const styles = StyleSheet.create({
   spinTextAuto: {
     fontWeight: '900',
     textAlign: 'center',
-    fontSize: 20,
-    lineHeight: 22,
+    fontSize: 18,
+    lineHeight: 20,
   },
   rightCol: {
     alignItems: 'flex-end',
     gap: 4,
     width: '100%',
-    maxWidth: 108,
+    maxWidth: 118,
     flexShrink: 0,
     position: 'relative',
   },
