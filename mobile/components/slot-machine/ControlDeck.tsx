@@ -851,12 +851,16 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'flex-end',
   },
+  /** Capped width: keeps the bet capsule compact on wide phones (no giant − / + span). */
   leftBetColumn: {
+    alignSelf: 'flex-start',
     width: '100%',
-    minWidth: 0,
+    maxWidth: 248,
     gap: 8,
   },
   betCapsule: {
+    alignSelf: 'stretch',
+    maxWidth: 248,
     borderRadius: 12,
     borderWidth: 1,
     paddingVertical: 6,
@@ -889,6 +893,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'flex-start',
     alignItems: 'center',
+    alignSelf: 'flex-start',
+    maxWidth: 248,
     gap: 6,
   },
   multChip: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
