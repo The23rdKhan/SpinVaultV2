@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, View } from 'react-native'
+import { Platform, ScrollView, StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { SlotMachine } from '@/components/slot-machine/SlotMachine'
 import { RecentSpinsRow } from '@/components/slot-machine/RecentSpinsRow'
@@ -17,6 +17,11 @@ export default function PlayScreen() {
       style={[styles.scroll, { backgroundColor: t.background }]}
       contentContainerStyle={[styles.content, { paddingBottom: bottomPad, paddingHorizontal: SCREEN_PAD_H }]}
       keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+      showsHorizontalScrollIndicator={false}
+      alwaysBounceVertical={false}
+      bounces={false}
+      {...(Platform.OS === 'android' ? { overScrollMode: 'never' as const } : {})}
     >
       <View
         collapsable={false}
