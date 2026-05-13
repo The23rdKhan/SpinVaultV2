@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { useGame, type Theme } from '@/lib/game-context'
+import { VAULT_COIN_PNG } from '@/lib/brand-assets'
 import { THEME_CONFIGS } from '@/lib/theme-config'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { hexWithAlpha } from '@/theme/tokens'
@@ -26,9 +27,14 @@ export function HeaderActions() {
             },
           ]}
         >
-          <FontAwesome name="circle" size={13} color={t.gold} accessibilityLabel="" />
+          <Image
+            source={VAULT_COIN_PNG}
+            style={styles.vaultCoin}
+            accessibilityIgnoresInvertColors
+            accessibilityLabel="Vault Coins"
+          />
           <Text style={[styles.coins, { color: t.gold }]}>{coins.toLocaleString()}</Text>
-          <Text style={[styles.coinsSuffix, { color: hexWithAlpha(t.gold, '99') }]}>coins</Text>
+          <Text style={[styles.coinsSuffix, { color: hexWithAlpha(t.gold, '99') }]}>Vault Coins</Text>
         </View>
         <Pressable
           accessibilityLabel="Choose slot machine look"
@@ -109,8 +115,9 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     minHeight: 44,
   },
+  vaultCoin: { width: 22, height: 22 },
   coins: { fontWeight: '800', fontSize: 16, letterSpacing: 0.2 },
-  coinsSuffix: { fontWeight: '500', fontSize: 11 },
+  coinsSuffix: { fontWeight: '600', fontSize: 10, letterSpacing: 0.12, flexShrink: 1 },
   iconBtn: {
     width: 44,
     height: 44,
