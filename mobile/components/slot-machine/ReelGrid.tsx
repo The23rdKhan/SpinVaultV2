@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { StyleSheet, View } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated'
 import { useGame, SYMBOLS, type ReelGrid as ReelGridType } from '@/lib/game-context'
 import type { WinType } from '@shared/slot/evaluate-spin'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { hexWithAlpha } from '@/theme/tokens'
 import { useReducedMotion } from '@/lib/use-reduced-motion'
 import { SlotSymbolView } from './SlotSymbol'
 import { PaylineOverlay } from './PaylineOverlay'
@@ -91,6 +93,18 @@ function ReelColumn({
               },
             ]}
           >
+            <LinearGradient
+              pointerEvents="none"
+              colors={[
+                hexWithAlpha(t.textPrimary, '0E'),
+                hexWithAlpha(t.reelBg, 'F2'),
+                hexWithAlpha(t.reelBg, 'FF'),
+              ]}
+              locations={[0, 0.45, 1]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={StyleSheet.absoluteFillObject}
+            />
             <SlotSymbolView
               symbol={symbol}
               isWinning={isWin}
@@ -232,7 +246,20 @@ export function ReelGrid({ onSpinComplete, linesModalOpen = false }: ReelGridPro
 
   return (
     <View style={styles.wrap}>
-      <View style={[styles.inner, { backgroundColor: t.reelBg, borderColor: t.reelBorder }]}>
+      <View
+        style={[
+          styles.inner,
+          {
+            backgroundColor: t.reelBg,
+            borderColor: hexWithAlpha(t.gold, '55'),
+            shadowColor: t.gold,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.22,
+            shadowRadius: 14,
+            elevation: 6,
+          },
+        ]}
+      >
         {showCenterPaylineGuide ? (
           <View style={[styles.payline, { backgroundColor: t.machineAccent }]} />
         ) : null}

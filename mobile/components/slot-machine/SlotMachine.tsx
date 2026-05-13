@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Animated, StyleSheet, Text, View } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import Animated2, {
   useSharedValue,
   useAnimatedStyle,
@@ -149,7 +150,32 @@ export function SlotMachine() {
 
   return (
     <View style={styles.root}>
-      <View style={[styles.cabinet, { borderColor: t.cabinetBorder, backgroundColor: t.cabinetBg }]}>
+      <View
+        style={[
+          styles.cabinet,
+          {
+            borderColor: hexWithAlpha(t.gold, '66'),
+            backgroundColor: t.cabinetBg,
+            shadowColor: t.gold,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.28,
+            shadowRadius: 18,
+            elevation: 10,
+          },
+        ]}
+      >
+        <LinearGradient
+          pointerEvents="none"
+          colors={[
+            hexWithAlpha(t.gold, '12'),
+            'transparent',
+            hexWithAlpha(t.primary, '08'),
+          ]}
+          locations={[0, 0.42, 1]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={[StyleSheet.absoluteFillObject, { borderRadius: 14 }]}
+        />
         <Animated.View
           style={[
             styles.cornerLight,
@@ -198,32 +224,32 @@ export function SlotMachine() {
             </View>
           </Animated2.View>
         ) : null}
-        <View style={styles.legend}>
-          <Text style={[styles.legendMeta, { color: t.textMuted }]}>9 Paylines</Text>
+        <View style={[styles.legend, { borderTopColor: hexWithAlpha(t.gold, '22') }]}>
+          <Text style={[styles.legendMeta, { color: hexWithAlpha(t.gold, 'CC') }]}>9 paylines</Text>
           <View style={styles.legendBadges}>
             <View
               style={[
                 styles.symBadge,
                 {
-                  borderColor: t.gold,
-                  backgroundColor: hexWithAlpha(t.gold, '32'),
+                  borderColor: hexWithAlpha(t.gold, '35'),
+                  backgroundColor: hexWithAlpha(t.gold, '12'),
                 },
               ]}
             >
-              <FontAwesome name="star" size={13} color={t.textPrimary} />
-              <Text style={[styles.symLbl, { color: t.textSecondary }]}>Wild</Text>
+              <FontAwesome name="star" size={11} color={hexWithAlpha(t.gold, 'EE')} />
+              <Text style={[styles.symLbl, { color: t.textMuted }]}>Wild</Text>
             </View>
             <View
               style={[
                 styles.symBadge,
                 {
-                  borderColor: t.freeSpin,
-                  backgroundColor: hexWithAlpha(t.freeSpin, '26'),
+                  borderColor: hexWithAlpha(t.freeSpin, '30'),
+                  backgroundColor: hexWithAlpha(t.freeSpin, '10'),
                 },
               ]}
             >
-              <FontAwesome name="bullseye" size={13} color={t.textPrimary} />
-              <Text style={[styles.symLbl, { color: t.textSecondary }]}>Scatter</Text>
+              <FontAwesome name="bullseye" size={11} color={hexWithAlpha(t.freeSpin, 'AA')} />
+              <Text style={[styles.symLbl, { color: t.textMuted }]}>Scatter</Text>
             </View>
           </View>
         </View>
@@ -292,8 +318,9 @@ const styles = StyleSheet.create({
   cornerBL: { bottom: 6, left: 6 },
   cornerBR: { bottom: 6, right: 6 },
   reelSection: {
-    paddingHorizontal: 10,
-    paddingVertical: 12,
+    paddingHorizontal: 6,
+    paddingTop: 8,
+    paddingBottom: 6,
   },
   fsBurst: {
     position: 'absolute',
@@ -314,22 +341,27 @@ const styles = StyleSheet.create({
   fsBurstTitle: { fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
   fsBurstSub: { fontWeight: '800', fontSize: 17 },
   legend: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingTop: 8,
     paddingBottom: 10,
-    gap: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 10,
   },
-  legendMeta: { fontSize: 11, fontWeight: '600' },
-  legendBadges: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  legendMeta: { fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase' },
+  legendBadges: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   symBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 999,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  symLbl: { fontWeight: '600', fontSize: 11 },
+  symLbl: { fontWeight: '600', fontSize: 10 },
   jackpotBadge: {
     position: 'absolute',
     top: 8,

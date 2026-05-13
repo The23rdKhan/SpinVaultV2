@@ -308,13 +308,13 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
   return (
     <View style={styles.wrap}>
       <View style={styles.quickRow}>
-        <AppButton variant="ghost" size="sm" onPress={onOpenInfo} style={styles.quickBtn}>
-          <FontAwesome name="info-circle" size={14} color={t.textSecondary} />
-          <Text style={{ color: t.textSecondary, fontWeight: '600', fontSize: 12 }}>Info</Text>
+        <AppButton variant="ghost" size="sm" onPress={onOpenInfo} style={[styles.quickBtn, styles.quickBtnMuted]}>
+          <FontAwesome name="info-circle" size={13} color={t.textMuted} />
+          <Text style={{ color: t.textMuted, fontWeight: '600', fontSize: 11 }}>Info</Text>
         </AppButton>
-        <AppButton variant="ghost" size="sm" onPress={onOpenLines} style={styles.quickBtn}>
-          <FontAwesome name="th" size={14} color={t.textSecondary} />
-          <Text style={{ color: t.textSecondary, fontWeight: '600', fontSize: 12 }}>Lines</Text>
+        <AppButton variant="ghost" size="sm" onPress={onOpenLines} style={[styles.quickBtn, styles.quickBtnMuted]}>
+          <FontAwesome name="th" size={13} color={t.textMuted} />
+          <Text style={{ color: t.textMuted, fontWeight: '600', fontSize: 11 }}>Lines</Text>
         </AppButton>
         <AppButton
           variant="ghost"
@@ -322,10 +322,10 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
           accessibilityLabel="Fast"
           accessibilityHint="Speeds up the Last Win count-up only. Does not change reel speed."
           onPress={() => setFastMode((f) => !f)}
-          style={styles.quickBtn}
+          style={[styles.quickBtn, styles.quickBtnMuted]}
         >
-          <FontAwesome name="forward" size={14} color={fastMode ? t.primary : t.textMuted} />
-          <Text style={{ color: fastMode ? t.primary : t.textMuted, fontWeight: '600', fontSize: 12 }}>
+          <FontAwesome name="forward" size={13} color={fastMode ? t.primary : t.textMuted} />
+          <Text style={{ color: fastMode ? t.primary : t.textMuted, fontWeight: '600', fontSize: 11 }}>
             Fast
           </Text>
         </AppButton>
@@ -350,11 +350,11 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
             accessibilityLabel={`Auto spin ${AUTO_SPIN_DEFAULT} times with current bet`}
             accessibilityHint="Spins automatically until stopped or balance runs out."
             onPress={() => startAutoSpin(AUTO_SPIN_DEFAULT)}
-            style={styles.quickBtn}
+            style={[styles.quickBtn, styles.quickBtnSecondary]}
             disabled={!canSpin}
           >
-            <FontAwesome name="repeat" size={14} color={t.textMuted} />
-            <Text style={{ color: t.textMuted, fontWeight: '600', fontSize: 12 }}>
+            <FontAwesome name="repeat" size={13} color={t.primary} />
+            <Text style={{ color: t.primary, fontWeight: '700', fontSize: 11 }}>
               Auto
             </Text>
           </AppButton>
@@ -362,75 +362,133 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
       </View>
 
 
-      <View style={[styles.stats, { backgroundColor: t.card, borderColor: t.border }]}>
-        <View style={styles.statCol}>
-          <Text style={[styles.statLabel, { color: t.textMuted }]}>Last Win</Text>
-          <Text style={[styles.statVal, { color: lastWin > 0 ? t.win : t.textPrimary }]}>
-            {`$${displayedWin.toLocaleString()}`}
-          </Text>
-        </View>
-        <View style={styles.statCol}>
-          <Text style={[styles.statLabel, { color: t.textMuted }]}>Total Spins</Text>
-          <Text style={[styles.statVal, { color: t.textPrimary }]}>{totalSpins}</Text>
-        </View>
-        <View style={styles.statCol}>
-          <Text style={[styles.statLabel, { color: t.textMuted }]}>Best Win</Text>
-          <Text style={[styles.statVal, { color: t.gold }]}>{`$${biggestWin.toLocaleString()}`}</Text>
-        </View>
+      <View style={[styles.stats, { backgroundColor: hexWithAlpha(t.card, 'AA'), borderColor: hexWithAlpha(t.gold, '18') }]}>
+        <FontAwesome name="history" size={10} color={t.textMuted} style={styles.statIcon} />
+        <Text style={[styles.statCompact, { color: t.textMuted }]}>Last</Text>
+        <Text style={[styles.statCompactVal, { color: lastWin > 0 ? t.win : t.textSecondary }]}>
+          {`$${displayedWin.toLocaleString()}`}
+        </Text>
+        <Text style={[styles.statSep, { color: t.border }]}>|</Text>
+        <FontAwesome name="refresh" size={11} color={t.textMuted} style={styles.statIcon} />
+        <Text style={[styles.statCompact, { color: t.textMuted }]}>Spins</Text>
+        <Text style={[styles.statCompactVal, { color: t.textPrimary }]}>{totalSpins}</Text>
+        <Text style={[styles.statSep, { color: t.border }]}>|</Text>
+        <FontAwesome name="trophy" size={11} color={hexWithAlpha(t.gold, 'AA')} style={styles.statIcon} />
+        <Text style={[styles.statCompact, { color: t.textMuted }]}>Best</Text>
+        <Text style={[styles.statCompactVal, { color: t.gold }]}>{`$${biggestWin.toLocaleString()}`}</Text>
       </View>
 
-      <View style={[styles.panel, { borderColor: t.cabinetBorder, backgroundColor: t.cabinetBg }]}>
+      <View style={[styles.panel, { borderColor: hexWithAlpha(t.gold, '40'), backgroundColor: t.cabinetBg }]}>
         <View style={styles.panelRow}>
-          <View style={styles.betCluster}>
-            <AppButton
-              variant="outline"
-              size="icon"
-              disabled={isSpinning || autoSpinRemaining != null || currentBet === unlockedBets[0]}
-              onPress={decreaseBet}
+          <View style={styles.leftBetColumn}>
+            <View
+              style={[
+                styles.betCapsule,
+                {
+                  borderColor: hexWithAlpha(t.gold, '44'),
+                  backgroundColor: hexWithAlpha(t.surface, 'CC'),
+                },
+              ]}
             >
-              <FontAwesome name="minus" size={18} color={t.textPrimary} />
-            </AppButton>
-            <View style={styles.betMid}>
-              <Text style={[styles.betLabel, { color: t.textMuted }]}>Bet</Text>
-              <Text style={[styles.betAmt, { color: t.textPrimary }]}>{formatBet(currentBet)}</Text>
-              {nextLockedBet != null && currentBet === unlockedBets[unlockedBets.length - 1] ? (
-                <Text style={[styles.betUnlockHint, { color: t.gold }]} numberOfLines={1}>
-                  {`🔒 ${formatBet(nextLockedBet)} · Need ${formatBet(coinGateForBet(nextLockedBet))}`}
-                </Text>
-              ) : null}
+              <View style={styles.betCluster}>
+                <AppButton
+                  variant="outline"
+                  size="icon"
+                  disabled={isSpinning || autoSpinRemaining != null || currentBet === unlockedBets[0]}
+                  onPress={decreaseBet}
+                >
+                  <FontAwesome name="minus" size={16} color={t.textPrimary} />
+                </AppButton>
+                <View style={styles.betMid}>
+                  <Text style={[styles.betLabel, { color: t.textMuted }]}>Bet</Text>
+                  <Text style={[styles.betAmt, { color: t.textPrimary }]}>{formatBet(currentBet)}</Text>
+                  {nextLockedBet != null && currentBet === unlockedBets[unlockedBets.length - 1] ? (
+                    <Text style={[styles.betUnlockHint, { color: t.gold }]} numberOfLines={1}>
+                      {`🔒 ${formatBet(nextLockedBet)} · Need ${formatBet(coinGateForBet(nextLockedBet))}`}
+                    </Text>
+                  ) : null}
+                </View>
+                <AppButton
+                  variant="outline"
+                  size="icon"
+                  disabled={isSpinning || autoSpinRemaining != null || currentBet === unlockedBets[unlockedBets.length - 1]}
+                  onPress={increaseBet}
+                >
+                  <FontAwesome name="plus" size={16} color={t.textPrimary} />
+                </AppButton>
+              </View>
             </View>
-            <AppButton
-              variant="outline"
-              size="icon"
-              disabled={isSpinning || autoSpinRemaining != null || currentBet === unlockedBets[unlockedBets.length - 1]}
-              onPress={increaseBet}
-            >
-              <FontAwesome name="plus" size={18} color={t.textPrimary} />
-            </AppButton>
+
+            <View style={styles.multRowUnderBet}>
+              {([2, 5, 10] as const).map((factor) => {
+                const target = unlockedBets.find((b) => b >= currentBet * factor)
+                  ?? unlockedBets[unlockedBets.length - 1]
+                const alreadyAtMax = target === currentBet
+                return (
+                  <Pressable
+                    key={factor}
+                    onPress={() => jumpBetByFactor(factor)}
+                    disabled={isSpinning || autoSpinRemaining != null || alreadyAtMax}
+                    style={({ pressed }) => [
+                      styles.multChip,
+                      {
+                        borderColor: alreadyAtMax ? t.border : hexWithAlpha(t.gold, '40'),
+                        backgroundColor: pressed && !alreadyAtMax
+                          ? hexWithAlpha(t.gold, '14')
+                          : hexWithAlpha(t.gold, '06'),
+                        opacity: alreadyAtMax ? 0.35 : 1,
+                      },
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Multiply bet by ${factor}`}
+                    accessibilityHint={`Jumps bet to ${formatBet(target)}`}
+                  >
+                    <Text style={[styles.multChipTxt, { color: alreadyAtMax ? t.textMuted : t.gold }]}>
+                      ×{factor}
+                    </Text>
+                  </Pressable>
+                )
+              })}
+            </View>
           </View>
 
-          <PressableSpin
-            canSpin={canSpin}
-            isSpinning={isSpinning}
-            freeSpins={freeSpins}
-            freeSpinMultiplier={freeSpinMultiplier}
-            reduceMotion={reduceMotion}
-            autoRemaining={autoSpinRemaining}
-            onSpin={() => spin()}
-            onBrokeTap={showBroke ? () => setRecoveryOpen(true) : undefined}
-            onStopAuto={stopAutoSpin}
-          />
+          <View style={styles.spinColumn}>
+            <PressableSpin
+              canSpin={canSpin}
+              isSpinning={isSpinning}
+              freeSpins={freeSpins}
+              freeSpinMultiplier={freeSpinMultiplier}
+              reduceMotion={reduceMotion}
+              autoRemaining={autoSpinRemaining}
+              onSpin={() => spin()}
+              onBrokeTap={showBroke ? () => setRecoveryOpen(true) : undefined}
+              onStopAuto={stopAutoSpin}
+            />
+          </View>
 
           <View style={styles.rightCol}>
             {/* Max bet button + unlock-hint icon */}
             <View style={styles.maxRow}>
-              <AppButton
-                variant="outline"
-                size="sm"
-                disabled={isSpinning || autoSpinRemaining != null}
+              <Pressable
                 onPress={setMaxBet}
-                label={`Max ${formatBet(unlockedBets[unlockedBets.length - 1] ?? BET_OPTIONS[0])}`}
-              />
+                disabled={isSpinning || autoSpinRemaining != null}
+                style={({ pressed }) => [
+                  styles.maxBetPill,
+                  {
+                    borderColor: hexWithAlpha(t.gold, '55'),
+                    backgroundColor: pressed
+                      ? hexWithAlpha(t.gold, '22')
+                      : hexWithAlpha(t.gold, '12'),
+                    opacity: isSpinning || autoSpinRemaining != null ? 0.45 : 1,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Max bet"
+              >
+                <Text style={[styles.maxBetPillTxt, { color: t.gold }]}>
+                  Max {formatBet(unlockedBets[unlockedBets.length - 1] ?? BET_OPTIONS[0])}
+                </Text>
+              </Pressable>
               {lockedTiers.length > 0 ? (
                 <Pressable
                   onPress={tooltipOpen ? closeTooltip : openTooltip}
@@ -486,43 +544,10 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
             ) : null}
 
             <Text style={[styles.balLabel, { color: t.textMuted }]}>Balance</Text>
-            <Animated.Text style={[styles.balVal, { color: t.textPrimary }, balAnimStyle]}>
+            <Animated.Text style={[styles.balVal, { color: hexWithAlpha(t.gold, 'EE') }, balAnimStyle]}>
               {`$${coins.toLocaleString()}`}
             </Animated.Text>
           </View>
-        </View>
-
-        {/* Quick-bet multiplier chips */}
-        <View style={styles.multRow}>
-          {([2, 5, 10] as const).map((factor) => {
-            const target = unlockedBets.find((b) => b >= currentBet * factor)
-              ?? unlockedBets[unlockedBets.length - 1]
-            const alreadyAtMax = target === currentBet
-            return (
-              <Pressable
-                key={factor}
-                onPress={() => jumpBetByFactor(factor)}
-                disabled={isSpinning || autoSpinRemaining != null || alreadyAtMax}
-                style={({ pressed }) => [
-                  styles.multChip,
-                  {
-                    borderColor: alreadyAtMax ? t.border : hexWithAlpha(t.primary, '55'),
-                    backgroundColor: pressed && !alreadyAtMax
-                      ? hexWithAlpha(t.primary, '18')
-                      : hexWithAlpha(t.primary, '08'),
-                    opacity: alreadyAtMax ? 0.35 : 1,
-                  },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={`Multiply bet by ${factor}`}
-                accessibilityHint={`Jumps bet to ${formatBet(target)}`}
-              >
-                <Text style={[styles.multChipTxt, { color: alreadyAtMax ? t.textMuted : t.primary }]}>
-                  ×{factor}
-                </Text>
-              </Pressable>
-            )
-          })}
         </View>
 
         {showBroke ? (
@@ -713,13 +738,7 @@ function PressableSpin({
 
   const spinShadowColor = isAutoRunning ? t.destructive : freeSpins > 0 ? t.freeSpin : t.primary
 
-  const spinLabel = isSpinning
-    ? '…'
-    : isAutoRunning
-      ? `Stop\n${autoRemaining}`
-      : freeSpins > 0
-        ? 'Free\nspin'
-        : 'Spin'
+  const showFreeSpinHero = freeSpins > 0 && !isSpinning && !isAutoRunning
 
   const labelColor = isAutoRunning
     ? '#fff'
@@ -761,13 +780,13 @@ function PressableSpin({
             spinStyle,
             glowStyle,
             {
-              width: 86,
-              height: 86,
-              borderRadius: 43,
+              width: 96,
+              height: 96,
+              borderRadius: 48,
               shadowColor: spinShadowColor,
-              shadowOffset: { width: 0, height: 6 },
-              shadowRadius: 14,
-              elevation: 10,
+              shadowOffset: { width: 0, height: 8 },
+              shadowRadius: 22,
+              elevation: 14,
             },
           ]}
         >
@@ -779,7 +798,7 @@ function PressableSpin({
                   ? [t.freeSpin, hexWithAlpha(t.freeSpin, 'BB')]
                   : [t.spinButtonStart, t.spinButtonEnd]
             }
-            style={styles.spinGradient}
+            style={[styles.spinGradient, { borderRadius: 48 }]}
           >
             {isAutoRunning ? (
               <View style={styles.spinAutoInner}>
@@ -788,10 +807,17 @@ function PressableSpin({
                   {autoRemaining}
                 </Text>
               </View>
+            ) : isSpinning ? (
+              <Text style={[styles.spinMain, { color: labelColor }]}>…</Text>
             ) : (
-              <Text style={[styles.spinText, { color: labelColor }]}>
-                {spinLabel}
-              </Text>
+              <View style={styles.spinLabelStack}>
+                <Text style={[styles.spinMain, { color: labelColor }]}>SPIN</Text>
+                {showFreeSpinHero ? (
+                  <Text style={[styles.spinSub, { color: hexWithAlpha(labelColor, 'CC') }]}>
+                    Free spin ready
+                  </Text>
+                ) : null}
+              </View>
             )}
           </LinearGradient>
         </Animated.View>
@@ -812,19 +838,25 @@ const styles = StyleSheet.create({
   wrap: { width: '100%', gap: 10 },
   quickRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, flexWrap: 'wrap' },
   quickBtn: { flexDirection: 'row', gap: 6 },
+  quickBtnMuted: { opacity: 0.92 },
+  quickBtnSecondary: { opacity: 1 },
   stats: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
     borderWidth: 1,
     borderBottomWidth: 0,
   },
-  statCol: { alignItems: 'center', flex: 1 },
-  statLabel: { fontSize: 11, fontWeight: '600' },
-  statVal: { fontSize: 15, fontWeight: '800' },
+  statIcon: { marginRight: 2 },
+  statCompact: { fontSize: 10, fontWeight: '600', marginRight: 2 },
+  statCompactVal: { fontSize: 12, fontWeight: '800', marginRight: 4 },
+  statSep: { fontSize: 10, fontWeight: '400', marginHorizontal: 2 },
   panel: {
     borderWidth: 2,
     borderBottomLeftRadius: 16,
@@ -833,18 +865,30 @@ const styles = StyleSheet.create({
   },
   panelRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
+    gap: 12,
+  },
+  leftBetColumn: {
+    flex: 1,
+    minWidth: 0,
     gap: 8,
   },
-  betCluster: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
+  betCapsule: {
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  betCluster: { flexDirection: 'row', alignItems: 'center', gap: 4, justifyContent: 'center' },
   betMid: { alignItems: 'center', minWidth: 72 },
   betLabel: { fontSize: 10, fontWeight: '600' },
   betAmt: { fontSize: 22, fontWeight: '900' },
   betUnlockHint: { fontSize: 9, fontWeight: '700', marginTop: 2, letterSpacing: 0.2 },
-  multRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, paddingTop: 6 },
-  multChip: { paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20, borderWidth: 1 },
-  multChipTxt: { fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
+  multRowUnderBet: { flexDirection: 'row', justifyContent: 'center', gap: 6 },
+  multChip: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
+  multChipTxt: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
+  spinColumn: { paddingHorizontal: 4, alignItems: 'center' },
   spinWrapper: {
     alignItems: 'center',
     gap: 5,
@@ -863,15 +907,23 @@ const styles = StyleSheet.create({
   spinGradient: {
     width: '100%',
     height: '100%',
-    borderRadius: 43,
+    borderRadius: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  spinText: {
+  spinLabelStack: { alignItems: 'center', justifyContent: 'center', gap: 1 },
+  spinMain: {
     fontWeight: '900',
     textAlign: 'center',
-    fontSize: 15,
-    lineHeight: 18,
+    fontSize: 22,
+    letterSpacing: 1.2,
+  },
+  spinSub: {
+    fontWeight: '700',
+    textAlign: 'center',
+    fontSize: 9,
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
   },
   spinAutoInner: {
     alignItems: 'center',
@@ -884,8 +936,17 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 22,
   },
-  rightCol: { alignItems: 'center', gap: 4, minWidth: 72, position: 'relative' },
+  rightCol: { alignItems: 'center', gap: 4, minWidth: 80, maxWidth: 112, position: 'relative' },
   maxRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  maxBetPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+  maxBetPillTxt: { fontSize: 11, fontWeight: '800' },
   tooltipIcon: { padding: 2 },
   tooltipIconTxt: { fontSize: 15, fontWeight: '700' },
   tooltipPanel: {

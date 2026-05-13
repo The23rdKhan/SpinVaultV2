@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { HeaderActions } from '@/components/navigation/HeaderActions'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { hexWithAlpha } from '@/theme/tokens'
 import { APP_NAME } from '@shared/brand'
 
 function HeaderBrandMark({ title }: { title: string }) {
@@ -14,7 +15,7 @@ function HeaderBrandMark({ title }: { title: string }) {
       </View>
       <View style={styles.brandText}>
         <Text style={[styles.brandName, { color: t.textPrimary }]}>{APP_NAME}</Text>
-        <Text style={[styles.brandSubtitle, { color: t.textSecondary }]} numberOfLines={1}>
+        <Text style={[styles.brandSubtitle, { color: hexWithAlpha(t.textSecondary, '88') }]} numberOfLines={1}>
           {title}
         </Text>
       </View>
@@ -58,6 +59,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   brandText: { justifyContent: 'center', maxWidth: 200 },
-  brandName: { fontSize: 17, fontWeight: '700', letterSpacing: -0.3 },
-  brandSubtitle: { fontSize: 12, fontWeight: '600', marginTop: 1 },
+  brandName: { fontSize: 19, fontWeight: '900', letterSpacing: 0.2 },
+  brandSubtitle: { fontSize: 11, fontWeight: '600', marginTop: 1, letterSpacing: 0.15 },
 })

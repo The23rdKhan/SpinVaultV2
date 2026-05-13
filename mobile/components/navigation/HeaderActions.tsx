@@ -4,6 +4,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { useGame, type Theme } from '@/lib/game-context'
 import { THEME_CONFIGS } from '@/lib/theme-config'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { hexWithAlpha } from '@/theme/tokens'
 import { AppButton } from '@/components/ui/AppButton'
 
 const THEMES: Theme[] = ['vegas', 'cyber', 'treasure']
@@ -20,14 +21,14 @@ export function HeaderActions() {
           style={[
             styles.pill,
             {
-              borderColor: t.border,
-              backgroundColor: t.surfaceElevated,
+              borderColor: hexWithAlpha(t.gold, '55'),
+              backgroundColor: hexWithAlpha(t.gold, '12'),
             },
           ]}
         >
-          <FontAwesome name="circle" size={14} color={t.gold} accessibilityLabel="" />
-          <Text style={[styles.coins, { color: t.textPrimary }]}>{coins.toLocaleString()}</Text>
-          <Text style={[styles.coinsSuffix, { color: t.textMuted }]}>coins</Text>
+          <FontAwesome name="circle" size={13} color={t.gold} accessibilityLabel="" />
+          <Text style={[styles.coins, { color: t.gold }]}>{coins.toLocaleString()}</Text>
+          <Text style={[styles.coinsSuffix, { color: hexWithAlpha(t.gold, '99') }]}>coins</Text>
         </View>
         <Pressable
           accessibilityLabel="Choose slot machine look"
@@ -36,12 +37,12 @@ export function HeaderActions() {
           style={[
             styles.iconBtn,
             {
-              borderColor: t.border,
+              borderColor: hexWithAlpha(t.gold, '35'),
               backgroundColor: t.surfaceElevated,
             },
           ]}
         >
-          <FontAwesome name="paint-brush" size={18} color={t.primary} />
+          <FontAwesome name="sliders" size={17} color={t.primary} />
         </Pressable>
       </View>
 
@@ -108,7 +109,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     minHeight: 44,
   },
-  coins: { fontWeight: '600', fontSize: 15 },
+  coins: { fontWeight: '800', fontSize: 16, letterSpacing: 0.2 },
   coinsSuffix: { fontWeight: '500', fontSize: 11 },
   iconBtn: {
     width: 44,
