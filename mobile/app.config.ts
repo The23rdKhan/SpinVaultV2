@@ -79,15 +79,26 @@ const config = {
   icon: './assets/images/icon.png',
   scheme: 'spinvault',
   userInterfaceStyle: 'automatic',
+  /**
+   * Default splash = light appearance (`light-splash.png`). Dark appearance uses
+   * `ios.splash.dark` / `android.splash.dark` (Expo prebuild) — see below.
+   */
   splash: {
-    image: './assets/images/splash-icon.png',
+    image: './assets/images/light-splash.png',
     resizeMode: 'contain',
-    backgroundColor: '#140707',
+    backgroundColor: '#FBF8F4',
   },
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.spinvault.mobile',
     usesAppleSignIn: true,
+    splash: {
+      dark: {
+        image: './assets/images/splash-icon.png',
+        resizeMode: 'contain',
+        backgroundColor: '#140707',
+      },
+    },
     /**
      * App Store export compliance: standard HTTPS only (avoids manual encryption questions).
      * IAP setup: enable the "In-App Purchase" capability in Apple Developer Portal ->
@@ -100,6 +111,13 @@ const config = {
   },
   android: {
     package: 'com.spinvault.mobile',
+    splash: {
+      dark: {
+        image: './assets/images/splash-icon.png',
+        resizeMode: 'contain',
+        backgroundColor: '#140707',
+      },
+    },
     adaptiveIcon: {
       foregroundImage: './assets/images/adaptive-icon.png',
       backgroundColor: '#140707',
