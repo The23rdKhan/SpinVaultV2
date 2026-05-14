@@ -4,5 +4,5 @@
  */
 export const VAULT_COIN_PNG = require('@/assets/images/vault-coin.png') as number
 
-/** Horizontal wordmark (file keeps design-export spelling `logo-horizotional.png`). */
-export const SPINVAULT_LOGO_HORIZONTAL_PNG = require('@/assets/images/logo-horizotional.png') as number
+/** Horizontal SpinVault wordmark for headers and marketing surfaces. */
+export const SPINVAULT_LOGO_HORIZONTAL_PNG = require('@/assets/images/logo-horizontal.png') as number
