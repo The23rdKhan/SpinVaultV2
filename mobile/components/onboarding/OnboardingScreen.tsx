@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -18,7 +19,15 @@ import { track } from '@/lib/analytics/track'
 import { AnalyticsEvents } from '@shared/analytics/event-names'
 import { LegalDocumentModal } from '@/components/modals/LegalDocumentModal'
 import type { LegalDocType } from '@shared/legal-documents'
-import { APP_NAME, APP_SUBTITLE, APP_TAGLINE, APP_COMPLIANCE_FULL } from '@shared/brand'
+import {
+  APP_COMPLIANCE_LINE,
+  APP_FULL_NAME,
+  APP_NAME,
+  APP_SUBTITLE,
+  APP_TAGLINE,
+  APP_COMPLIANCE_FULL,
+} from '@shared/brand'
+import { SPINVAULT_LOGO_HORIZONTAL_PNG } from '@/lib/brand-assets'
 
 type Step = 'welcome' | 'age' | 'signup'
 
@@ -45,7 +54,7 @@ export function OnboardingScreen() {
     try {
       const ok = await signInAsGuest()
       if (!ok) {
-        setFormError('Could not start a guest session. Please try again.')
+        setFormError('Could not open a guest vault on this device. Please try again.')
         return
       }
       completeOnboarding()
@@ -98,26 +107,33 @@ export function OnboardingScreen() {
         >
           {step === 'welcome' ? (
             <View style={styles.block}>
+              <Image
+                source={SPINVAULT_LOGO_HORIZONTAL_PNG}
+                style={styles.stepLogo}
+                resizeMode="contain"
+                accessibilityLabel={`${APP_FULL_NAME} logo`}
+                accessibilityRole="image"
+              />
               <Text style={[styles.kicker, { color: t.accent }]}>{APP_TAGLINE}</Text>
               <Text style={[styles.hero, { color: t.textPrimary }]} accessibilityRole="header">
                 {APP_NAME}
               </Text>
               <Text style={[styles.subtitleBrand, { color: t.gold }]}>{APP_SUBTITLE}</Text>
               <Text style={[styles.sub, { color: t.textSecondary }]}>
-                Virtual coins, daily rewards, and collectible themes — entertainment only.
+                Your private vault for the reels: spin with Vault Coins, chase daily rewards and missions, and
+                unlock machine themes that make the floor feel like yours — all for fun, not for cash.
               </Text>
-              <Text style={[styles.disclosure, { color: t.textMuted }]}>
-                Virtual coins only. No cash value.
-              </Text>
-              <AppButton label="Start Spinning" onPress={() => setStep('age')} style={styles.btn} />
+              <Text style={[styles.disclosure, { color: t.textMuted }]}>{APP_COMPLIANCE_LINE}</Text>
+              <AppButton label="Start spinning" onPress={() => setStep('age')} style={styles.btn} />
             </View>
           ) : null}
 
           {step === 'age' ? (
             <View style={styles.block}>
-              <Text style={[styles.title, { color: t.textPrimary }]}>Before you continue</Text>
+              <Text style={[styles.title, { color: t.textPrimary }]}>Inside the vault</Text>
               <Text style={[styles.sub, { color: t.textSecondary }]}>
-                {APP_NAME} is for adults (18+). {APP_COMPLIANCE_FULL}
+                Before we unlock the reels, we need to know you're old enough to play.{'\n\n'}
+                <Text style={{ fontWeight: '600' }}>{APP_NAME}</Text> is for adults (18+). {APP_COMPLIANCE_FULL}
               </Text>
               <AppButton
                 variant={ageOk ? 'primary' : 'outline'}
@@ -126,7 +142,7 @@ export function OnboardingScreen() {
                 style={styles.btn}
               />
               <AppButton
-                label="Continue"
+                label="Save & continue"
                 disabled={!ageOk}
                 onPress={() => setStep('signup')}
                 style={styles.btn}
@@ -158,17 +174,26 @@ export function OnboardingScreen() {
 
           {step === 'signup' ? (
             <View style={styles.block}>
-              <Text style={[styles.title, { color: t.textPrimary }]}>Create your profile</Text>
+              <Image
+                source={SPINVAULT_LOGO_HORIZONTAL_PNG}
+                style={styles.stepLogo}
+                resizeMode="contain"
+                accessibilityLabel={`${APP_FULL_NAME} logo`}
+                accessibilityRole="image"
+              />
+              <Text style={[styles.title, { color: t.textPrimary }]}>Lock in your vault</Text>
               <Text style={[styles.sub, { color: t.textSecondary }]}>
-                Save progress across devices. Or continue as a guest anytime.
+                Create an account so your Vault Coins, streaks, missions, and themes can follow you across
+                devices. Prefer to look around first? Continue as a guest — you can sign up anytime from your
+                profile.
               </Text>
               <TextInput
-                placeholder="Username"
+                placeholder="Display name (shown in the vault)"
                 placeholderTextColor={t.textMuted}
                 value={username}
                 onChangeText={setUsername}
                 style={inputStyle}
-                accessibilityLabel="Username"
+                accessibilityLabel="Display name"
               />
               <TextInput
                 placeholder="Email"
@@ -198,7 +223,7 @@ export function OnboardingScreen() {
                 </Text>
               ) : null}
               <AppButton
-                label="Create account"
+                label="Create vault account"
                 loading={loading}
                 onPress={onEmailSignup}
                 style={styles.btn}
@@ -219,7 +244,7 @@ export function OnboardingScreen() {
               />
               <AppButton
                 variant="outline"
-                label="Continue as Guest"
+                label="Continue as guest"
                 loading={guestBusy}
                 disabled={loading || guestBusy}
                 onPress={() => void onGuest()}
@@ -288,6 +313,13 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   block: { gap: 14 },
+  stepLogo: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 300,
+    height: 44,
+    marginBottom: 4,
+  },
   kicker: {
     fontSize: 11,
     fontWeight: '700',
