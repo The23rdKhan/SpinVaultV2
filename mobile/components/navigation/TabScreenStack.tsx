@@ -1,10 +1,22 @@
 import { Stack } from 'expo-router'
-import { StyleSheet, Text, View } from 'react-native'
+import { Image, type ImageSourcePropType, StyleSheet, Text, View } from 'react-native'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { HeaderActions } from '@/components/navigation/HeaderActions'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { hexWithAlpha } from '@/theme/tokens'
 import { APP_NAME } from '@shared/brand'
+
+function HeaderLogoMark({ source, accessibilityLabel }: { source: ImageSourcePropType; accessibilityLabel: string }) {
+  return (
+    <Image
+      source={source}
+      style={styles.headerLogo}
+      resizeMode="contain"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="image"
+    />
+  )
+}
 
 function HeaderBrandMark({ title }: { title: string }) {
   const t = useCasinoTheme()
@@ -24,7 +36,14 @@ function HeaderBrandMark({ title }: { title: string }) {
 }
 
 /** Nested stack inside each native tab so headers and `headerRight` work (native tabs have no JS tab header). */
-export function TabScreenStack({ title }: { title: string }) {
+export function TabScreenStack({
+  title,
+  headerLogo,
+}: {
+  title: string
+  /** When set, replaces the default archive + wordmark with this raster (e.g. Play tab). */
+  headerLogo?: ImageSourcePropType
+}) {
   const t = useCasinoTheme()
   return (
     <Stack
@@ -42,7 +61,16 @@ export function TabScreenStack({ title }: { title: string }) {
       <Stack.Screen
         name="index"
         options={{
-          headerTitle: () => <HeaderBrandMark title={title} />,
+          headerTitleAlign: headerLogo ? 'center' : undefined,
+          headerTitle: () =>
+            headerLogo ? (
+              <HeaderLogoMark
+                source={headerLogo}
+                accessibilityLabel={`${APP_NAME}. ${title}.`}
+              />
+            ) : (
+              <HeaderBrandMark title={title} />
+            ),
         }}
       />
     </Stack>
@@ -50,6 +78,7 @@ export function TabScreenStack({ title }: { title: string }) {
 }
 
 const styles = StyleSheet.create({
+  headerLogo: { height: 36, width: 220, marginVertical: 2 },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   brandIcon: {
     width: 36,
