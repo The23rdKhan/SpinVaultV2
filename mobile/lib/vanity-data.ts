@@ -155,7 +155,7 @@ export const BADGES: VanityItem[] = [
   { id: "badge-100spin", name: "Century Spinner", category: "badge", rarity: "rare", priceCoins: 0, previewImage: "spin", description: "100 spins completed", unlockLevel: 5 },
   { id: "badge-1000spin", name: "Spin Master", category: "badge", rarity: "epic", priceCoins: 0, previewImage: "crown", description: "1000 spins completed", unlockLevel: 15 },
   { id: "badge-bigwin", name: "Big Winner", category: "badge", rarity: "rare", priceCoins: 0, previewImage: "trophy", description: "Hit a Big Win" },
-  { id: "badge-megawin", name: "Mega Winner", category: "badge", rarity: "epic", priceCoins: 0, previewImage: "fire", description: "Hit a Mega Win" },
+  { id: "badge-megawin", name: "10× Victor", category: "badge", rarity: "epic", priceCoins: 0, previewImage: "fire", description: "Hit a Jackpot (10×+ return)" },
   { id: "badge-jackpot", name: "Jackpot Hunter", category: "badge", rarity: "legendary", priceCoins: 0, previewImage: "diamond", description: "Hit the Jackpot" },
   { id: "badge-collector", name: "Theme Collector", category: "badge", rarity: "epic", priceCoins: 0, previewImage: "palette", description: "Own all themes" },
   { id: "badge-streak7", name: "Weekly Warrior", category: "badge", rarity: "rare", priceCoins: 0, previewImage: "flame", description: "7-day login streak" },

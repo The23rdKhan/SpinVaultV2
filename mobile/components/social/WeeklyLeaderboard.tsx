@@ -141,7 +141,7 @@ function Row({
           {isJackpotWinner ? (
             <Text
               style={[styles.jackpotBadge, { color: t.gold, backgroundColor: hexWithAlpha(t.gold, '22') }]}
-              accessibilityLabel="Mega Jackpot winner"
+              accessibilityLabel="Jackpot Mode or top win-tier highlight"
             >
               🎰
             </Text>

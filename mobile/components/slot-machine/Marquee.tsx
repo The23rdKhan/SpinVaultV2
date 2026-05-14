@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import Animated, {
   cancelAnimation,
@@ -19,6 +19,17 @@ import { useAudio } from '@/lib/use-audio'
 import { useHaptics } from '@/lib/use-haptics'
 import { useReducedMotion } from '@/lib/use-reduced-motion'
 import { hexWithAlpha } from '@/theme/tokens'
+import {
+  JACKPOT_MODE_MARQUEE_TITLE,
+  MARQUEE_DEFAULT_STATIC,
+  MARQUEE_JACKPOT_HIT_SEGMENT_FRESH,
+  MARQUEE_JACKPOT_HIT_STATIC,
+  MARQUEE_JACKPOT_MODE_ACTIVE,
+  MARQUEE_MATCH_SEVENS_LINE,
+  MARQUEE_SCATTER_SO_CLOSE,
+  MARQUEE_SPIN_PHASE_FREE,
+  MARQUEE_SPIN_PHASE_PAID,
+} from '@/lib/vault-copy'
 
 // ─── Decorative dot ───────────────────────────────────────────────────────────
 
@@ -76,7 +87,7 @@ const SPACER_W = 48 // px gap between end of copy and start of next loop pass
 type SegType = 'msg' | 'sep'
 
 const BASE_TICKER_SEGMENTS: { text: string; type: SegType }[] = [
-  { text: 'Match 5 SEVENS for MEGA JACKPOT', type: 'msg' },
+  { text: MARQUEE_MATCH_SEVENS_LINE, type: 'msg' },
   { text: '  *  ', type: 'sep' },
   { text: '3 SCATTERS = 10 FREE SPINS', type: 'msg' },
   { text: '  *  ', type: 'sep' },
@@ -134,10 +145,14 @@ export function Marquee() {
     bonusProgress,
     freeSpins,
     isJackpotMode,
-    spinSequence,
+    isSpinning,
+    activeSpinIsFree,
     lastBonusMeterPayout,
+    lastScatterCount,
+    lastSpinFreeSpinsWon,
     currentBet,
     jackpotLastWonAt,
+    spinSequence,
   } = useGame()
   const { bonusDing } = useAudio()
   const { bonusMeterFull } = useHaptics()
@@ -149,17 +164,41 @@ export function Marquee() {
   const jackpotWonRecently = isRecovering && jackpotLastWonAt
     ? (Date.now() - new Date(jackpotLastWonAt).getTime()) < 5 * 60 * 1000
     : false
-  const STATIC_TICKER = jackpotWonRecently
-    ? '🏆 MEGA JACKPOT WON! Fresh jackpot growing…  ·  Match 5 SEVENS for MEGA JACKPOT  ·  3 SCATTERS = 10 FREE SPINS'
-    : 'Match 5 SEVENS for MEGA JACKPOT  ·  3 SCATTERS = 10 FREE SPINS  ·  WILD substitutes any symbol'
+  const STATIC_TICKER = jackpotWonRecently ? MARQUEE_JACKPOT_HIT_STATIC : MARQUEE_DEFAULT_STATIC
 
   const TICKER_SEGMENTS: { text: string; type: SegType }[] = jackpotWonRecently
     ? [
-        { text: '🏆 MEGA JACKPOT WON! Fresh jackpot starting…', type: 'msg' },
+        { text: MARQUEE_JACKPOT_HIT_SEGMENT_FRESH, type: 'msg' },
         { text: '  *  ', type: 'sep' },
         ...BASE_TICKER_SEGMENTS,
       ]
     : BASE_TICKER_SEGMENTS
+
+  const freeTickerPrefix = useMemo((): { text: string; type: SegType }[] => {
+    if (freeSpins <= 0) return []
+    const tag = freeSpins === 1 ? 'LAST FREE SPIN · ' : `${freeSpins} FREE · `
+    return [{ text: tag, type: 'sep' }]
+  }, [freeSpins])
+
+  const scrollTickerSegments = useMemo(
+    () => [...freeTickerPrefix, ...TICKER_SEGMENTS],
+    [freeTickerPrefix, TICKER_SEGMENTS],
+  )
+
+  const [nearMissActive, setNearMissActive] = useState(false)
+  useEffect(() => {
+    if (isSpinning) {
+      setNearMissActive(false)
+      return
+    }
+    if (lastScatterCount !== 2 || lastSpinFreeSpinsWon > 0) {
+      setNearMissActive(false)
+      return
+    }
+    setNearMissActive(true)
+    const id = setTimeout(() => setNearMissActive(false), 2800)
+    return () => clearTimeout(id)
+  }, [spinSequence, isSpinning, lastScatterCount, lastSpinFreeSpinsWon])
 
   // ─── Bonus meter ─────────────────────────────────────────────────────────
 
@@ -310,7 +349,7 @@ export function Marquee() {
   //
   // Reduced motion → static centred text; no Reanimated animation runs.
   // Animation only starts when BOTH widths are known (> 0).
-  // Restarts whenever freeSpins, reduceMotion, either width, or theme changes.
+  // Restarts whenever freeSpins, isJackpotMode, reduceMotion, either width, or theme changes.
 
   const tickerX = useSharedValue(0)            // 0 = hidden until widths known
   const [tickerNaturalW, setTickerNaturalW] = useState(0)   // natural text width
@@ -321,7 +360,7 @@ export function Marquee() {
     cancelAnimation(tickerX)
 
     // Static or no animation conditions
-    if (reduceMotion || freeSpins > 0) {
+    if (reduceMotion || isJackpotMode || isSpinning || nearMissActive) {
       tickerX.value = 0  // rest at origin — static text is shown instead
       return
     }
@@ -349,7 +388,17 @@ export function Marquee() {
     )
 
     return () => cancelAnimation(tickerX)
-  }, [freeSpins, reduceMotion, tickerNaturalW, tickerContainerW, tickerX])
+  }, [
+    freeSpins,
+    isJackpotMode,
+    isSpinning,
+    nearMissActive,
+    reduceMotion,
+    scrollTickerSegments,
+    tickerNaturalW,
+    tickerContainerW,
+    tickerX,
+  ])
 
   const tickerStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: tickerX.value }],
@@ -357,7 +406,7 @@ export function Marquee() {
 
   // ─── Theme helpers ───────────────────────────────────────────────────────
 
-  const meterAccent = freeSpins > 0 ? t.freeSpin : t.primary
+  const meterAccent = freeSpins > 0 ? t.freeSpin : isJackpotMode ? t.jackpot : t.primary
   const jackpotCardGradient = [
     hexWithAlpha(t.gold,        '58'),
     hexWithAlpha(t.jackpot,     '46'),
@@ -431,7 +480,7 @@ export function Marquee() {
                   },
                 ]}
               >
-                MEGA JACKPOT
+                {JACKPOT_MODE_MARQUEE_TITLE}
               </Text>
               <Text
                 style={[
@@ -480,7 +529,7 @@ export function Marquee() {
               style={styles.tickerRow}
               onLayout={(e) => setTickerNaturalW(e.nativeEvent.layout.width)}
             >
-              {TICKER_SEGMENTS.map((seg, i) => (
+              {scrollTickerSegments.map((seg, i) => (
                 <Text
                   key={i}
                   numberOfLines={1}
@@ -497,39 +546,77 @@ export function Marquee() {
 
         {/* ── STEP 2 — Visible ticker strip ── */}
         {/*
-          overflow:hidden clips content to the 34 px tall strip.
-          onLayout captures the container width (used as animation start-X).
-          Three display states:
-            • reduceMotion → static centred text, no animation
-            • freeSpins > 0 → free-spin count, no animation
-            • otherwise → animated absolute row
+          Priority: isSpinning → near-miss flash → jackpot mode → scrolling promo
+          (free spins add a prefix segment on the crawl when idle).
         */}
         <View
           style={[styles.ticker, { backgroundColor: t.cardSoft, borderTopColor: t.border }]}
           onLayout={(e) => setTickerContainerW(e.nativeEvent.layout.width)}
         >
           {reduceMotion ? (
-            // Reduced motion: static, readable, centred
+            isSpinning ? (
+              <Text style={[styles.tickerSpinPhase, { color: t.primary }]} numberOfLines={2}>
+                {activeSpinIsFree ? MARQUEE_SPIN_PHASE_FREE : MARQUEE_SPIN_PHASE_PAID}
+              </Text>
+            ) : nearMissActive ? (
+              <Text style={[styles.tickerNearMiss, { color: t.freeSpin }]} numberOfLines={2}>
+                {MARQUEE_SCATTER_SO_CLOSE}
+              </Text>
+            ) : isJackpotMode ? (
+              <Text
+                style={[styles.tickerJackpotMode, { color: t.jackpot }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.72}
+              >
+                {MARQUEE_JACKPOT_MODE_ACTIVE}
+              </Text>
+            ) : freeSpins > 0 ? (
+              <Text
+                style={[styles.tickerFreeSpin, { color: t.freeSpin }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.78}
+              >
+                {freeSpins === 1
+                  ? 'LAST FREE SPIN — 1 game left!'
+                  : `${freeSpins} FREE SPINS IN QUEUE`}
+              </Text>
+            ) : (
+              <Text style={[styles.tickerStatic, { color: t.textSecondary }]} numberOfLines={1}>
+                {STATIC_TICKER}
+              </Text>
+            )
+          ) : isSpinning ? (
             <Text
-              style={[styles.tickerStatic, { color: t.textSecondary }]}
+              style={[styles.tickerSpinPhase, { color: t.primary }]}
               numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
             >
-              {STATIC_TICKER}
+              {activeSpinIsFree ? MARQUEE_SPIN_PHASE_FREE : MARQUEE_SPIN_PHASE_PAID}
             </Text>
-          ) : freeSpins > 0 ? (
-            // Free-spin counter overrides the promo ticker
+          ) : nearMissActive ? (
             <Text
-              style={[styles.tickerFreeSpin, { color: t.freeSpin }]}
+              style={[styles.tickerNearMiss, { color: t.freeSpin }]}
               numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.78}
             >
-              {`${freeSpins} FREE SPINS REMAINING!`}
+              {MARQUEE_SCATTER_SO_CLOSE}
+            </Text>
+          ) : isJackpotMode ? (
+            <Text
+              style={[styles.tickerJackpotMode, { color: t.jackpot }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.72}
+            >
+              {MARQUEE_JACKPOT_MODE_ACTIVE}
             </Text>
           ) : (
-            // Animated scrolling row.
-            // position:'absolute' removes the flex-width constraint so text
-            // stays on a single line at its natural width.
             <Animated.View style={[styles.tickerAbs, tickerStyle]}>
-              {TICKER_SEGMENTS.map((seg, i) => (
+              {scrollTickerSegments.map((seg, i) => (
                 <Text
                   key={i}
                   numberOfLines={1}
@@ -542,7 +629,6 @@ export function Marquee() {
                   {seg.text}
                 </Text>
               ))}
-              {/* Same spacer as measurement row, included in tickerNaturalW */}
               <View style={styles.tickerSpacer} />
             </Animated.View>
           )}
@@ -656,6 +742,27 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   tickerFreeSpin: { textAlign: 'center', fontSize: 12, fontWeight: '800' },
+  tickerJackpotMode: {
+    textAlign: 'center',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.15,
+    paddingHorizontal: 6,
+  },
+  tickerSpinPhase: {
+    textAlign: 'center',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.2,
+    paddingHorizontal: 8,
+  },
+  tickerNearMiss: {
+    textAlign: 'center',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.12,
+    paddingHorizontal: 6,
+  },
 
   // ── Bonus meter
   meterRow: {

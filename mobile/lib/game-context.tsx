@@ -24,19 +24,23 @@ import {
   applyCloudPlayerSave,
   buildPlayerSavePayload,
 } from '@/lib/player-save'
+import { formatBetAdjustedToastBody } from '@/lib/bet-ui-copy'
 import { track } from '@/lib/analytics/track'
 import { AnalyticsEvents } from '@shared/analytics/event-names'
 import { DAILY_LOGIN_REWARD_COINS } from '@shared/economy/daily-login-rewards'
 import {
   BET_OPTIONS,
   FREE_SPIN_LINE_BET,
+  MAX_LINE_BET,
   buildRandomGridIds,
   clampBetSelect,
+  clampBetForWallet,
   evaluateGrid,
   jackpotPayoutForBet,
   type WinType,
   type WinningLineSerialized,
 } from '@shared/slot/evaluate-spin'
+import { paylineIndicesForMatchedPrefix } from '@shared/slot/paylines'
 import {
   type VanityCategory,
   type Trophy,
@@ -45,6 +49,9 @@ import {
   getDefaultUserVanity,
   ALL_VANITY_ITEMS,
 } from './vanity-data'
+
+/** Free spins added when the player claims the next day in the daily streak (local claim path). */
+export const DAILY_STREAK_FREE_SPINS_PER_CLAIM = 3
 
 export type { WinType }
 export type Theme = "vegas" | "cyber" | "treasure"
@@ -159,7 +166,7 @@ const MAX_SPIN_AUDIT = 20
  * XP awarded when the bonus meter fills and pays out.
  * Equivalent to ~15 average spins — meaningful but won't dominate progression.
  */
-const BONUS_METER_XP = 150
+export const BONUS_METER_XP = 150
 
 /**
  * Spin-XP formula: scales with bet, capped so whales don't trivialise levels.
@@ -288,6 +295,10 @@ export interface SpinAuditEntry {
   fsMultiplier?: number
   /** XP for this spin (base + bonus meter); 0 when `freeSpin` (no coin wager); omitted on legacy rows. */
   xpGained?: number
+  /** Which paylines / features contributed (e.g. "L1 · L4 · Scatter"); omitted on legacy rows. */
+  paylinesHint?: string
+  /** Total win ÷ line bet (engine `win_multiplier`). Omitted on legacy rows — derived as win/bet when missing. */
+  winMultiplier?: number
 }
 
 function newLedgerEntryId(): string {
@@ -351,7 +362,9 @@ export interface GameState {
   lastBonusMeterPayout: number
   /** Coins awarded for scatter count on the last resolved spin (0 when no scatter payout). */
   lastScatterPayout: number
-  /** 250,000 when Mega Jackpot triggered last spin, else 0. */
+  /** Scatter symbols counted on the last resolved spin (0–15); cleared when a new spin starts. */
+  lastScatterCount: number
+  /** Flat center-row prize when Jackpot Mode triggered last spin, else 0. */
   lastJackpotBonus: number
   /** Mystery Multiplier value applied last spin (2 | 3 | 5 | 8 | 10), or null if it didn't trigger. */
   lastMysteryMultiplier: number | null
@@ -369,7 +382,7 @@ export interface GameState {
   /** Total XP awarded for the last completed spin (base spin + bonus meter bonus if any). Cleared when a new spin starts. */
   lastSpinXpGained: number
   /**
-   * ISO timestamp of the most recent Mega Jackpot win (any player this session).
+   * ISO timestamp of the most recent Jackpot Mode (center-row) hit this session.
    * Used by the Marquee to show a seed-recovery display instead of the full $250K.
    */
   jackpotLastWonAt: string | null
@@ -566,7 +579,7 @@ const checkTrophyUnlocks = (
     if (trophy.id === "trophy-first-big" && conditions.winType === "bigWin") {
       return { ...trophy, unlocked: true, unlockedAt: now }
     }
-    // Mega Win trophy - unlocks after first Mega Win
+    // Jackpot (10×–24.9×) trophy — unlocks after first `megaWin` tier
     if (trophy.id === "trophy-first-mega" && conditions.winType === "megaWin") {
       return { ...trophy, unlocked: true, unlockedAt: now }
     }
@@ -632,6 +645,24 @@ function winningLinesAndPositionsFromSerialized(
   return { winningLines, positions }
 }
 
+/** Compact path summary for spin history (line numbers, scatter, jackpot row). */
+function spinPaylinesHint(
+  winningLines: readonly WinningLineSerialized[],
+  scatterPayout: number,
+  isJackpot: boolean,
+): string | undefined {
+  const idx = new Set<number>()
+  for (const wl of winningLines) {
+    for (const i of paylineIndicesForMatchedPrefix(wl.positions)) idx.add(i)
+  }
+  const parts: string[] = []
+  for (const i of [...idx].sort((a, b) => a - b)) parts.push(`L${i + 1}`)
+  if (scatterPayout > 0) parts.push('Scatter')
+  if (isJackpot) parts.push('Jackpot row')
+  if (parts.length === 0) return undefined
+  return parts.join(' · ')
+}
+
 function createInitialGameState(): GameState {
   return {
     coins: 5000,
@@ -655,6 +686,7 @@ function createInitialGameState(): GameState {
     bonusProgress: 0,
     lastBonusMeterPayout: 0,
     lastScatterPayout: 0,
+    lastScatterCount: 0,
     lastJackpotBonus: 0,
     lastMysteryMultiplier: null,
     freeSpinMultiplier: 1,
@@ -727,6 +759,9 @@ const GameContext = createContext<(GameState & GameActions) | null>(null)
 
 const FALLBACK_TOAST_THROTTLE_MS = 3 * 60 * 1000
 
+/** Min interval between “Bet adjusted” toasts after wallet-driven line-bet clamps (Strict / batching). */
+const BET_ADJUST_TOAST_THROTTLE_MS = 900
+
 /** Set when a cloud upsert failed (e.g. offline); cleared on success or sign-out. Survives cold start. */
 const PLAYER_SAVE_PENDING_RETRY_KEY = '@spinvault/player_save_pending_retry'
 
@@ -734,6 +769,38 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<GameState>(() => createInitialGameState())
   const stateRef = useRef(state)
   stateRef.current = state
+
+  /** Last time we showed the wallet-driven “Bet adjusted” toast (see `BET_ADJUST_TOAST_THROTTLE_MS`). */
+  const betAdjustToastAtRef = useRef(0)
+
+  /**
+   * When `coins` / `freeSpins` / spin lifecycle changes, re-apply `clampBetForWallet` so `currentBet`
+   * stays tier-legal and affordable on paid spins. Skips while `isSpinning` so the active spin keeps
+   * the stake chosen at tap time. Toast uses `formatBetAdjustedToastBody` from `bet-ui-copy`.
+   */
+  useEffect(() => {
+    const snap = stateRef.current
+    if (snap.isSpinning) return
+    const nextBet = clampBetForWallet(snap.currentBet, snap.coins, snap.freeSpins)
+    if (nextBet === snap.currentBet) return
+    const previousBet = snap.currentBet
+    setState((prev) => {
+      if (prev.isSpinning) return prev
+      const clamped = clampBetForWallet(prev.currentBet, prev.coins, prev.freeSpins)
+      if (clamped === prev.currentBet) return prev
+      return { ...prev, currentBet: clamped }
+    })
+    queueMicrotask(() => {
+      const now = Date.now()
+      if (now - betAdjustToastAtRef.current < BET_ADJUST_TOAST_THROTTLE_MS) return
+      betAdjustToastAtRef.current = now
+      Toast.show({
+        type: 'info',
+        text1: 'Bet adjusted',
+        text2: formatBetAdjustedToastBody(previousBet, nextBet),
+      })
+    })
+  }, [state.coins, state.freeSpins, state.isSpinning])
   /** Resolves the pending `spin()` promise after reels finish — ref avoids stale closures and setState-in-setState. */
   const spinResolveRef = useRef<((result: SpinResult) => void) | null>(null)
   const serverSpinPayloadRef = useRef<ServerSpinPayload | null>(null)
@@ -1401,9 +1468,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const setBet = useCallback((bet: number) => {
     let clampedForTrack = 0
     setState((prev) => {
-      const clamped = clampBetSelect(bet, prev.coins)
+      // Unlock gate + paid-spin affordability (free spins ignore coin cost but still respect gate).
+      const clamped = clampBetForWallet(bet, prev.coins, prev.freeSpins)
       clampedForTrack = clamped
-      const isMaxBet = clamped === Math.max(...prev.betOptions)
+      const maxUnlocked = clampBetSelect(MAX_LINE_BET, prev.coins)
+      const isMaxBet = clamped === maxUnlocked
       const updatedMissions = !isServerEconomyEnabled()
         ? prev.missions.map((m) => {
             if (m.id === 'maxbet1' && isMaxBet && !m.completed) {
@@ -1464,6 +1533,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           lastSpinXpGained: 0,
           lastBonusMeterPayout: 0,
           lastScatterPayout: 0,
+          lastScatterCount: 0,
           lastJackpotBonus: 0,
           lastMysteryMultiplier: null,
         }))
@@ -1533,6 +1603,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           lastSpinXpGained: 0,
           lastBonusMeterPayout: 0,
           lastScatterPayout: 0,
+          lastScatterCount: 0,
           lastJackpotBonus: 0,
           lastMysteryMultiplier: null,
         }
@@ -1584,6 +1655,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         const missionsForState = isServerEconomyEnabled() ? prev.missions : updatedMissions
 
         const scatterPayoutAmt = summary.scatter_payout ?? 0
+        const payHint = spinPaylinesHint(summary.winning_lines, scatterPayoutAmt, isJackpot)
         const result: SpinResult = {
           win: totalWin,
           grid: newGrid,
@@ -1656,6 +1728,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           bonusProgress,
           lastBonusMeterPayout: bonusMeterPayout,
           lastScatterPayout: summary.scatter_payout ?? 0,
+          lastScatterCount: summary.scatter_count ?? 0,
           lastJackpotBonus: summary.jackpot_bonus ?? 0,
         lastMysteryMultiplier: summary.mystery_multiplier ?? null,
         // Server spin path does not yet track free spin streak state —
@@ -1706,7 +1779,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
               reelMiddle: newGrid.map((col) => col[1]?.emoji ?? '?'),
               winningColsMiddle: [0,1,2,3,4].filter((c) => positions.has(`${c}-1`)),
               xpGained: srvXpGain,
-              // Server path resets multiplier to 1; omit field so the audit badge isn't shown.
+              paylinesHint: payHint,
+              winMultiplier,
             },
             ...prev.spinAudit.slice(0, MAX_SPIN_AUDIT - 1),
           ],
@@ -1778,7 +1852,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           jackpotBonus,
           runningBal,
           'jackpot_win',
-          `Mega Jackpot $${jackpotBonus.toLocaleString()} virtual coins`
+          `Jackpot Mode +$${jackpotBonus.toLocaleString()} virtual coins`
         )
       }
 
@@ -1799,6 +1873,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // Jackpot bonus and bonus meter payout are excluded — those are independent prizes.
       const rawScatterPayout = summary.scatter_payout ?? 0
       const scatterPayoutAmt = rawScatterPayout * appliedFsMultiplier
+      const payHint = spinPaylinesHint(summary.winning_lines, rawScatterPayout, isJackpot)
       const result: SpinResult = {
         win: totalWin,
         grid: newGrid,
@@ -1878,6 +1953,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         bonusProgress,
         lastBonusMeterPayout: bonusMeterPayout,
         lastScatterPayout: scatterPayoutAmt,
+        lastScatterCount: summary.scatter_count ?? 0,
         lastJackpotBonus: isJackpot ? jackpotPayoutForBet(spinLineBetRef.current) : 0,
         lastMysteryMultiplier: summary.mystery_multiplier ?? null,
         freeSpinMultiplier: nextFreeSpinMultiplier,
@@ -1918,6 +1994,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
             reelMiddle: newGrid.map((col) => col[1]?.emoji ?? '?'),
             winningColsMiddle: [0,1,2,3,4].filter((c) => positions.has(`${c}-1`)),
             xpGained: xpGain,
+            paylinesHint: payHint,
+            winMultiplier,
           },
           ...prev.spinAudit.slice(0, MAX_SPIN_AUDIT - 1),
         ],
@@ -1948,9 +2026,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
         const newStreak = day
         const weekDone = newStreak >= DAILY_LOGIN_REWARD_COINS.length
         const bal = prev.coins + reward.coins
-        // Every daily claim gives 3 free spins — plentiful at low levels, nearly
+        // Every daily claim gives free spins — plentiful at low levels, nearly
         // worthless to whales (who bet >> $250 / spin), creating natural scarcity.
-        const DAILY_FREE_SPINS = 3
         return {
           ...prev,
           coins: bal,
@@ -1961,7 +2038,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             'daily_reward',
             `Daily reward day ${day}`,
           ),
-          freeSpins: prev.freeSpins + DAILY_FREE_SPINS,
+          freeSpins: prev.freeSpins + DAILY_STREAK_FREE_SPINS_PER_CLAIM,
           dailyStreak: newStreak,
           weeklyStreakCompleted: weekDone,
           dailyRewards: prev.dailyRewards.map((r) =>
@@ -2355,4 +2432,4 @@ export function useGame() {
   return context
 }
 
-export { SYMBOLS, BET_OPTIONS, WHEEL_REWARDS, FREE_SPIN_LINE_BET, clampBetSelect }
+export { SYMBOLS, BET_OPTIONS, WHEEL_REWARDS, FREE_SPIN_LINE_BET, clampBetSelect, clampBetForWallet }

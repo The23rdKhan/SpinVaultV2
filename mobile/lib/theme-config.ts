@@ -44,7 +44,7 @@ export const THEME_CONFIGS: Record<Theme, ThemeConfig> = {
       "✓ Gold cabinet frame",
       "✓ Classic symbols (7, cherry, bell, diamond, bar)",
       "✓ Coin burst win effects",
-      "✓ Mega Jackpot bonus",
+      "✓ Jackpot Mode bonus display",
       "✓ Vegas sound effects",
     ],
     

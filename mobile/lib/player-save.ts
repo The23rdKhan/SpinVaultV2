@@ -11,6 +11,7 @@ import type {
   WinType,
 } from './game-context'
 import type { Trophy, UserVanity } from './vanity-data'
+import { clampBetForWallet } from '@shared/slot/evaluate-spin'
 
 /** Matches `player_saves.schema_version` / Phase 7 default. */
 export const PLAYER_SAVE_SCHEMA_VERSION = 2
@@ -277,6 +278,8 @@ function lobbySafePatch(createFreshGrid: () => ReelGrid): Partial<GameState> {
     isJackpotMode: false,
     jackpotMultiplier: 1,
     lastBonusMeterPayout: 0,
+    lastScatterPayout: 0,
+    lastScatterCount: 0,
     spinSyncDeferred: false,
   }
 }
@@ -330,7 +333,16 @@ export function applyCloudPlayerSave(
   const data: Partial<GameState> = {
     ...(theme != null ? { currentTheme: theme } : {}),
     ...(owned != null ? { ownedThemes: owned } : {}),
-    ...(Number.isFinite(currentBet) && currentBet > 0 ? { currentBet } : {}),
+    ...(Number.isFinite(currentBet) && currentBet > 0
+      ? {
+          // Same rules as runtime `setBet` / wallet sync (`clampBetForWallet` in evaluate-spin).
+          currentBet: clampBetForWallet(
+            Math.round(currentBet),
+            Number.isFinite(coins) ? coins : 0,
+            Number.isFinite(freeSpins) && freeSpins >= 0 ? Math.trunc(freeSpins) : 0,
+          ),
+        }
+      : {}),
     ...(Number.isFinite(coins) ? { coins } : {}),
     ...(Number.isFinite(freeSpins) && freeSpins >= 0 ? { freeSpins } : {}),
     ...(Number.isFinite(bonusProgress) ? { bonusProgress } : {}),

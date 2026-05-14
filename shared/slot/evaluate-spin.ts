@@ -3,6 +3,8 @@
  * Imported by mobile (`game-context`) and Edge (`slot-engine` re-export).
  */
 
+import { SLOT_PAYLINES } from './paylines'
+
 export interface SymbolDef {
   id: string
   name: string
@@ -20,19 +22,20 @@ export interface SymbolDef {
   isScatter?: boolean
 }
 
+/** Preset line bets (quick-picks in ControlDeck). Any integer in [MIN_LINE_BET, MAX_LINE_BET] is allowed if `isBetUnlocked`. */
 export const BET_OPTIONS: readonly number[] = [
   10, 25, 50, 100, 250, 500,        // starter tiers — always available
-  1_000,                             // requires 50K coins
-  5_000,                             // requires 250K coins
-  10_000,                            // requires 500K coins
+  1_000,                             // coinGate = 50K
+  5_000,                             // coinGate = 250K
+  10_000,                            // coinGate = 500K
   1_000_000,                         // requires 50M coins
   10_000_000,                        // requires 500M coins
   100_000_000,                       // requires 5B coins
 ]
 
 /**
- * Coins required in the player's wallet to unlock a bet tier.
- * Always 50× the bet amount; tiers ≤ $500 are always available (gate = 0).
+ * Minimum wallet balance to *select* this line bet (tier gate only).
+ * Bets ≤ $500: `0`. Above: `bet × 50` (e.g. $5K → 250K coins). Paid spins still need `coins >= bet` unless free spins — see `clampBetForWallet`.
  */
 export function coinGateForBet(bet: number): number {
   if (bet <= 500) return 0
@@ -41,20 +44,21 @@ export function coinGateForBet(bet: number): number {
 
 /**
  * Returns true when the player's current coin balance qualifies them to
- * see and use `bet` in the bet selector.
+ * use `bet` as a line wager.
  */
 export function isBetUnlocked(bet: number, coins: number): boolean {
   return coins >= coinGateForBet(bet)
 }
 
-/** Smallest / largest allowed line bet (integer coins). */
-export const MIN_LINE_BET = BET_OPTIONS[0]
+/** Minimum line bet (integer coins). */
+export const MIN_LINE_BET = 1
+/** Maximum line bet — same ceiling as the top preset in `BET_OPTIONS`. */
 export const MAX_LINE_BET = BET_OPTIONS[BET_OPTIONS.length - 1]!
 
 /**
- * Snap a target line bet to the nearest value the wallet is allowed to select:
+ * Snap a target line bet to a value the wallet is allowed to use:
  * integer in [MIN_LINE_BET, MAX_LINE_BET] that passes `isBetUnlocked`, or the
- * largest allowed value below `target` if `target` is too high for the gate.
+ * largest allowed value ≤ `target` if `target` is too high for the gate.
  */
 export function clampBetSelect(target: number, coins: number): number {
   const t = Math.max(MIN_LINE_BET, Math.min(MAX_LINE_BET, Math.round(target)))
@@ -74,7 +78,19 @@ export function clampBetSelect(target: number, coins: number): number {
   return best
 }
 
-/** Edge / client guard: integer line bet within bounds and tier gate for wallet balance. */
+/**
+ * Line bet that is tier-unlocked for `coins`, and (when out of free spins) no higher than `coins`
+ * so a paid spin is affordable. Use after wallet drops or when applying player intent.
+ */
+export function clampBetForWallet(preferred: number, coins: number, freeSpins: number): number {
+  const rounded = Math.round(preferred)
+  const inRange = Math.max(MIN_LINE_BET, Math.min(MAX_LINE_BET, rounded))
+  const capped =
+    freeSpins > 0 ? inRange : Math.min(inRange, Math.max(MIN_LINE_BET, coins))
+  return clampBetSelect(capped, coins)
+}
+
+/** Edge / client guard: integer line bet within bounds and coin gate for wallet balance. */
 export function isValidSpinRequestBet(bet: number, walletCoins: number): boolean {
   return (
     Number.isInteger(bet) &&
@@ -121,19 +137,6 @@ export const SYMBOLS: SymbolDef[] = [
 ]
 
 const symbolById = new Map(SYMBOLS.map((s) => [s.id, s]))
-
-/** Row-per-column definitions for each of the 9 paylines. */
-const PAYLINES: readonly number[][] = [
-  [1, 1, 1, 1, 1], // middle row
-  [0, 0, 0, 0, 0], // top row
-  [2, 2, 2, 2, 2], // bottom row
-  [0, 1, 2, 1, 0], // V shape
-  [2, 1, 0, 1, 2], // inverted V
-  [0, 0, 1, 2, 2], // diagonal down
-  [2, 2, 1, 0, 0], // diagonal up
-  [1, 0, 0, 0, 1], // top bump
-  [1, 2, 2, 2, 1], // bottom bump
-]
 
 export type WinType = 'none' | 'normal' | 'bigWin' | 'megaWin' | 'jackpot'
 
@@ -283,7 +286,7 @@ function checkPaylines(
     }),
   )
 
-  PAYLINES.forEach((payline) => {
+  SLOT_PAYLINES.forEach((payline) => {
     const lineSymbols = payline.map((row, col) => gridSyms[col][row])
     let matchCount = 1
     const firstSymbol = lineSymbols[0].isWild ? null : lineSymbols[0]
@@ -371,7 +374,7 @@ export function evaluateGrid(
   const scatterPayout = scatterPayoutForBet(scatterCount, currentBet)
 
   const middleRow = gridIds.map((col) => col[1])
-  // Wild substitutes for Seven in the jackpot check, raising probability to ~1 in 81,500
+  // Wild substitutes for Seven in the jackpot check; P ≈ ((2+1)/64)^5 — see SYMBOLS header comment.
   const isJackpot = middleRow.every((id) => id === 'seven' || id === 'wild')
   // Jackpot scales with bet for whale tiers; standard bets always pay the $250K floor.
   const jackpotBonus = isJackpot ? jackpotPayoutForBet(currentBet) : 0

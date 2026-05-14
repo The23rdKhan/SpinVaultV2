@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Circle, Polyline, Rect } from 'react-native-svg'
 import { BlurView } from 'expo-blur'
+import { PAYLINE_SHORT_LABELS, SLOT_PAYLINES } from '@shared/slot/paylines'
 import { hexWithAlpha } from '@/theme/tokens'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { AppButton } from '@/components/ui/AppButton'
@@ -12,31 +14,6 @@ interface Props {
   open: boolean
   onClose: () => void
 }
-
-/** Row index per column for each of the 9 paylines — matches shared/slot/evaluate-spin.ts */
-const PAYLINES: number[][] = [
-  [1, 1, 1, 1, 1], // 1 — middle row
-  [0, 0, 0, 0, 0], // 2 — top row
-  [2, 2, 2, 2, 2], // 3 — bottom row
-  [0, 1, 2, 1, 0], // 4 — V shape
-  [2, 1, 0, 1, 2], // 5 — inverted V
-  [0, 0, 1, 2, 2], // 6 — diagonal down
-  [2, 2, 1, 0, 0], // 7 — diagonal up
-  [1, 0, 0, 0, 1], // 8 — top bump
-  [1, 2, 2, 2, 1], // 9 — bottom bump
-]
-
-const LINE_LABELS = [
-  'Middle row',
-  'Top row',
-  'Bottom row',
-  'V shape',
-  'Inverted V',
-  'Diagonal down',
-  'Diagonal up',
-  'Top bump',
-  'Bottom bump',
-]
 
 // Large grid constants for the paginated hero view
 const CELL = 28
@@ -110,6 +87,7 @@ function LargeGrid({ payline, color, inactiveFill, inactiveStroke }: LargeGridPr
 
 export function LinesModal({ open, onClose }: Props) {
   const t = useCasinoTheme()
+  const insets = useSafeAreaInsets()
   const [current, setCurrent] = useState(0)
   const lineColors = paylineAccentColors(t)
 
@@ -117,125 +95,136 @@ export function LinesModal({ open, onClose }: Props) {
   const inactiveStroke = hexWithAlpha(t.border, 'BB')
 
   const color = lineColors[current] ?? t.primary
-  const label = LINE_LABELS[current] ?? ''
+  const label = PAYLINE_SHORT_LABELS[current] ?? ''
 
-  const goPrev = () => setCurrent((c) => (c === 0 ? PAYLINES.length - 1 : c - 1))
-  const goNext = () => setCurrent((c) => (c === PAYLINES.length - 1 ? 0 : c + 1))
+  const goPrev = () => setCurrent((c) => (c === 0 ? SLOT_PAYLINES.length - 1 : c - 1))
+  const goNext = () => setCurrent((c) => (c === SLOT_PAYLINES.length - 1 ? 0 : c + 1))
 
   return (
     <Modal visible={open} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: t.overlay }]}>
-        <BlurView
-          intensity={45}
-          tint="dark"
-          blurMethod="dimezisBlurView"
-          style={StyleSheet.absoluteFill}
-        />
-      </View>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable
-          style={[styles.sheet, { backgroundColor: t.surfaceElevated, borderColor: t.border }]}
-          onPress={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <Text style={[styles.title, { color: t.textPrimary }]}>Paylines</Text>
-          <Text style={[styles.sub, { color: t.textSecondary }]}>
-            Match 3 or more symbols left-to-right on an active payline to win.{'\n'}Wild substitutes for any regular symbol.
-          </Text>
+      <View style={styles.modalFill}>
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: t.overlay }]}>
+          <BlurView
+            intensity={45}
+            tint="dark"
+            blurMethod="dimezisBlurView"
+            style={StyleSheet.absoluteFill}
+          />
+        </View>
 
-          {/* Paginated viewer */}
-          <View style={styles.viewer}>
-            {/* Prev button */}
-            <Pressable
-              onPress={goPrev}
-              style={({ pressed }) => [
-                styles.navBtn,
-                { borderColor: t.border, backgroundColor: pressed ? hexWithAlpha(t.primary, '18') : t.card },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Previous payline"
-            >
-              <FontAwesome name="chevron-left" size={14} color={t.textSecondary} />
-            </Pressable>
+        <View style={styles.modalStack} pointerEvents="box-none">
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Close paylines"
+          />
+          <View
+            style={[
+              styles.sheet,
+              { backgroundColor: t.surfaceElevated, borderColor: t.border },
+            ]}
+          >
+            <Text style={[styles.title, { color: t.textPrimary }]}>Paylines</Text>
+            <Text style={[styles.sub, { color: t.textSecondary }]}>
+              Match 3 or more symbols left-to-right on an active payline to win. Wild substitutes for paying symbols on
+              a line (not scatter). Scatter pays from anywhere on the grid — see Game Info · Bonus.
+            </Text>
 
-            {/* Center: line name + grid */}
-            <View style={styles.gridArea}>
-              <View style={styles.lineNameRow}>
-                <View style={[styles.lineBadge, { backgroundColor: hexWithAlpha(color, '22'), borderColor: color }]}>
-                  <Text style={[styles.lineBadgeNum, { color }]}>{current + 1}</Text>
-                </View>
-                <View>
-                  <Text style={[styles.lineName, { color }]}>Line {current + 1}</Text>
-                  <Text style={[styles.lineDesc, { color: t.textMuted }]}>{label}</Text>
-                </View>
-              </View>
-
-              <View style={[styles.gridCard, { backgroundColor: hexWithAlpha(t.card, 'EE'), borderColor: t.border }]}>
-                <LargeGrid
-                  payline={PAYLINES[current] ?? [1, 1, 1, 1, 1]}
-                  color={color}
-                  inactiveFill={inactiveFill}
-                  inactiveStroke={inactiveStroke}
-                />
-              </View>
-            </View>
-
-            {/* Next button */}
-            <Pressable
-              onPress={goNext}
-              style={({ pressed }) => [
-                styles.navBtn,
-                { borderColor: t.border, backgroundColor: pressed ? hexWithAlpha(t.primary, '18') : t.card },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Next payline"
-            >
-              <FontAwesome name="chevron-right" size={14} color={t.textSecondary} />
-            </Pressable>
-          </View>
-
-          {/* Dot pagination */}
-          <View style={styles.dots}>
-            {PAYLINES.map((_, i) => (
+            <View style={styles.viewer}>
               <Pressable
-                key={i}
-                onPress={() => setCurrent(i)}
-                style={[
-                  styles.dot,
-                  {
-                    backgroundColor: i === current ? lineColors[i] ?? t.primary : hexWithAlpha(t.textMuted, '40'),
-                    transform: [{ scale: i === current ? 1.3 : 1 }],
-                  },
+                onPress={goPrev}
+                style={({ pressed }) => [
+                  styles.navBtn,
+                  { borderColor: t.border, backgroundColor: pressed ? hexWithAlpha(t.primary, '18') : t.card },
                 ]}
                 accessibilityRole="button"
-                accessibilityLabel={`Go to payline ${i + 1}`}
-              />
-            ))}
-          </View>
+                accessibilityLabel="Previous payline"
+              >
+                <FontAwesome name="chevron-left" size={14} color={t.textSecondary} />
+              </Pressable>
 
-          <AppButton label="Close" onPress={onClose} style={{ marginTop: 16 }} />
-        </Pressable>
-      </Pressable>
+              <View style={styles.gridArea}>
+                <View style={styles.lineNameRow}>
+                  <View style={[styles.lineBadge, { backgroundColor: hexWithAlpha(color, '22'), borderColor: color }]}>
+                    <Text style={[styles.lineBadgeNum, { color }]}>{current + 1}</Text>
+                  </View>
+                  <View>
+                    <Text style={[styles.lineName, { color }]}>Line {current + 1}</Text>
+                    <Text style={[styles.lineDesc, { color: t.textMuted }]}>{label}</Text>
+                  </View>
+                </View>
+
+                <View style={[styles.gridCard, { backgroundColor: hexWithAlpha(t.card, 'EE'), borderColor: t.border }]}>
+                  <LargeGrid
+                    payline={[...(SLOT_PAYLINES[current] ?? [1, 1, 1, 1, 1])]}
+                    color={color}
+                    inactiveFill={inactiveFill}
+                    inactiveStroke={inactiveStroke}
+                  />
+                </View>
+              </View>
+
+              <Pressable
+                onPress={goNext}
+                style={({ pressed }) => [
+                  styles.navBtn,
+                  { borderColor: t.border, backgroundColor: pressed ? hexWithAlpha(t.primary, '18') : t.card },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Next payline"
+              >
+                <FontAwesome name="chevron-right" size={14} color={t.textSecondary} />
+              </Pressable>
+            </View>
+
+            <View style={styles.dots}>
+              {SLOT_PAYLINES.map((_, i) => (
+                <Pressable
+                  key={i}
+                  onPress={() => setCurrent(i)}
+                  style={[
+                    styles.dot,
+                    {
+                      backgroundColor: i === current ? lineColors[i] ?? t.primary : hexWithAlpha(t.textMuted, '40'),
+                      transform: [{ scale: i === current ? 1.3 : 1 }],
+                    },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Go to payline ${i + 1}`}
+                />
+              ))}
+            </View>
+
+            <View style={[styles.sheetFooter, { paddingBottom: Math.max(12, insets.bottom + 8), borderTopColor: t.border }]}>
+              <AppButton label="Close" onPress={onClose} style={styles.closeBtn} />
+            </View>
+          </View>
+        </View>
+      </View>
     </Modal>
   )
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
+  modalFill: {
     flex: 1,
-    backgroundColor: 'transparent',
+  },
+  modalStack: {
+    flex: 1,
     justifyContent: 'flex-end',
   },
   sheet: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    padding: 22,
+    paddingHorizontal: 22,
+    paddingTop: 22,
     borderWidth: 1,
+    maxHeight: '88%',
   },
   title: { fontSize: 22, fontWeight: '900' },
   sub: { marginTop: 6, marginBottom: 20, lineHeight: 20, fontSize: 13 },
 
-  // Paginated viewer
   viewer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -280,16 +269,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // Dot nav
   dots: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 7,
+    marginBottom: 4,
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
   },
+
+  sheetFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: 10,
+    marginHorizontal: -22,
+    paddingHorizontal: 22,
+  },
+  closeBtn: { marginVertical: 8 },
 })

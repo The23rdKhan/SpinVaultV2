@@ -4,12 +4,14 @@
  * Each entry shows:
  *   - Relative timestamp ("just now", "2m ago")
  *   - Bet / Result / Win-type badge   ← different from Coin Activity (game context)
- *   - Column labels (Time · Bet · Result · Tier) for scanability
- *   - XP line: paid spins show +N XP; free spins show 0 XP
+ *   - Column labels (Time · Bet · Result · XP · Tier)
+ *   - XP value on the same row as bet/result (legacy rows without XP show —)
+ *   - Optional **Paths** line: paylines + scatter + jackpot row (from engine snapshot)
  *   - 5 middle-row emojis with payline-aware highlights  ← unique to Spin History
  *   - Extra vertical spacing between rows for readability
  *
  * 5 rows per page · Prev / Next pagination · Hidden until first spin.
+ * Low-balance hint (same CTA as bet-adjust toast) when paid spins are blocked — see `SPIN_HISTORY_LOW_BALANCE_HINT`.
  */
 
 import React, { useEffect, useRef, useState } from 'react'
@@ -18,7 +20,9 @@ import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { useHaptics } from '@/lib/use-haptics'
 import { hexWithAlpha } from '@/theme/tokens'
-import type { SpinAuditEntry } from '@/lib/game-context'
+import { SPIN_HISTORY_LOW_BALANCE_HINT } from '@/lib/bet-ui-copy'
+import { useGame, type SpinAuditEntry } from '@/lib/game-context'
+import { getWinTypeBadgeUpper } from '@/lib/vault-copy'
 
 interface Props {
   spinAudit: SpinAuditEntry[]
@@ -59,7 +63,14 @@ function formatSpinHistoryXpA11y(showPaidXp: boolean, showFreeNoXp: boolean, xpG
   return ''
 }
 
-type RowVariant = 'loss' | 'win' | 'bigWin' | 'megaWin' | 'jackpot' | 'free'
+type RowVariant = 'loss' | 'subtle' | 'win' | 'bigWin' | 'megaWin' | 'jackpot' | 'free'
+
+/** Return win÷bet when `winMultiplier` was not stored (legacy spin audit rows). */
+function effectiveReturnVsBet(e: SpinAuditEntry): number | undefined {
+  if (e.winMultiplier != null && Number.isFinite(e.winMultiplier)) return e.winMultiplier
+  if (e.bet > 0 && e.win > 0) return e.win / e.bet
+  return undefined
+}
 
 function rowVariant(e: SpinAuditEntry): RowVariant {
   if (e.freeSpin && e.win === 0) return 'free'
@@ -67,7 +78,12 @@ function rowVariant(e: SpinAuditEntry): RowVariant {
     case 'jackpot': return 'jackpot'
     case 'megaWin': return 'megaWin'
     case 'bigWin':  return 'bigWin'
-    case 'normal':  return e.win > 0 ? 'win' : 'loss'
+    case 'normal': {
+      if (e.win <= 0) return 'loss'
+      const m = effectiveReturnVsBet(e)
+      if (m != null && m < 1) return 'subtle'
+      return 'win'
+    }
     case 'none':
     default:        return e.freeSpin ? 'free' : 'loss'
   }
@@ -75,12 +91,20 @@ function rowVariant(e: SpinAuditEntry): RowVariant {
 
 function winTypeBadge(variant: RowVariant): string {
   switch (variant) {
-    case 'jackpot': return 'JACKPOT'
-    case 'megaWin': return 'MEGA WIN'
-    case 'bigWin':  return 'BIG WIN'
-    case 'win':     return 'WIN'
-    case 'free':    return 'FREE SPIN'
-    default:        return ''
+    case 'jackpot':
+      return getWinTypeBadgeUpper('jackpot')
+    case 'megaWin':
+      return getWinTypeBadgeUpper('megaWin')
+    case 'bigWin':
+      return getWinTypeBadgeUpper('bigWin')
+    case 'subtle':
+      return '<1×'
+    case 'win':
+      return getWinTypeBadgeUpper('normal')
+    case 'free':
+      return 'FREE SPIN'
+    default:
+      return ''
   }
 }
 
@@ -97,6 +121,7 @@ function accentFor(
     case 'jackpot': return t.gold
     case 'megaWin': return t.jackpot
     case 'bigWin':  return t.primary
+    case 'subtle':  return t.textMuted
     case 'win':     return t.win
     case 'free':    return t.freeSpin
     default:        return t.textMuted
@@ -108,6 +133,7 @@ function accentFor(
 export function RecentSpinsRow({ spinAudit }: Props) {
   const t = useCasinoTheme()
   const { pagerTap } = useHaptics()
+  const { coins, currentBet, freeSpins } = useGame()
   const [page, setPage] = useState(0)
 
   // Reset to the newest page whenever a new spin is appended so the player
@@ -121,6 +147,9 @@ export function RecentSpinsRow({ spinAudit }: Props) {
   }, [spinAudit.length])
 
   const totalEntries = spinAudit.length
+  /** Mirrors ControlDeck “broke” gate: paid spin needs coins ≥ line bet, unless free spins cover cost. */
+  const showLowBalanceHint = totalEntries > 0 && coins < currentBet && freeSpins === 0
+
   if (totalEntries === 0) return null
 
   const totalPages  = Math.ceil(totalEntries / PAGE_SIZE)
@@ -139,12 +168,26 @@ export function RecentSpinsRow({ spinAudit }: Props) {
         )}
       </View>
 
+      {showLowBalanceHint ? (
+        <Text
+          style={[styles.spinHistoryHint, { color: t.textSecondary }]}
+          accessibilityRole="text"
+          accessibilityLabel={SPIN_HISTORY_LOW_BALANCE_HINT}
+        >
+          {SPIN_HISTORY_LOW_BALANCE_HINT}
+        </Text>
+      ) : null}
+
       {/* Entries */}
       <View style={[styles.table, { borderColor: t.border, backgroundColor: t.card }]}>
         <View style={[styles.columnHeaderRow, { borderBottomColor: t.border }]}>
           <Text style={[styles.timeText, styles.columnHeaderText, { color: t.textMuted }]}>Time</Text>
           <Text style={[styles.betText, styles.columnHeaderText, { color: t.textMuted }]}>Bet</Text>
-          <Text style={[styles.resultText, styles.columnHeaderText, { color: t.textMuted }]}>Result</Text>
+          <View style={styles.resultXpCluster}>
+            <Text style={[styles.resultCell, styles.columnHeaderText, { color: t.textMuted }]}>Result</Text>
+            <Text style={[styles.xpColumn, styles.columnHeaderText, { color: t.textMuted }]}>XP</Text>
+          </View>
+          <View style={styles.rowSpacer} />
           <View style={styles.columnHeaderBadgeSlot}>
             <Text style={[styles.columnHeaderText, styles.columnHeaderTier, { color: t.textMuted }]}>
               Tier
@@ -165,10 +208,13 @@ export function RecentSpinsRow({ spinAudit }: Props) {
           // Compute once and reuse — avoids the double call that previously
           // appeared in both accessibilityLabel and JSX text.
           const timeAgo   = relativeTime(entry.ts)
-          const xpGained  = entry.xpGained ?? 0
-          const showPaidXp = xpGained > 0
-          const showFreeNoXp = entry.freeSpin && xpGained <= 0
-          const showXpRow = showPaidXp || showFreeNoXp
+          const xpRaw     = entry.xpGained
+          const xpGained  = xpRaw ?? 0
+          const showPaidXp = xpRaw !== undefined && xpRaw > 0
+          const showFreeNoXp = entry.freeSpin && xpRaw !== undefined && xpRaw <= 0
+
+          const xpCellText =
+            xpRaw === undefined ? '—' : xpRaw > 0 ? `+${xpRaw.toLocaleString()}` : '0'
 
           return (
             <View
@@ -190,11 +236,12 @@ export function RecentSpinsRow({ spinAudit }: Props) {
                 entry.freeSpin ? 'free spin' : `bet ${entry.bet}`,
                 formatSpinHistoryXpA11y(showPaidXp, showFreeNoXp, xpGained),
                 badge || '',
+                entry.paylinesHint ?? '',
                 entry.reelMiddle?.join(' ') ?? '',
                 timeAgo,
               ].filter(Boolean).join(', ')}
             >
-              {/* ── Top row: time · bet · result · badge ── */}
+              {/* ── Top row: time · bet · result · tier badges ── */}
               <View style={styles.topRow}>
                 <Text style={[styles.timeText, { color: t.textMuted }]}>
                   {timeAgo}
@@ -204,12 +251,28 @@ export function RecentSpinsRow({ spinAudit }: Props) {
                   {entry.freeSpin ? 'Free Spin' : fmtCoins(entry.bet)}
                 </Text>
 
-                <Text style={[
-                  styles.resultText,
-                  { color: isWin ? accent : t.textMuted, fontWeight: isWin ? '700' : '400' },
-                ]}>
-                  {resultTxt}
-                </Text>
+                <View style={styles.resultXpCluster}>
+                  <Text
+                    style={[
+                      styles.resultCell,
+                      { color: isWin ? accent : t.textMuted, fontWeight: isWin ? '700' : '400' },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {resultTxt}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.xpColumn,
+                      showPaidXp ? { color: t.primary } : { color: t.textMuted },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {xpCellText}
+                  </Text>
+                </View>
+
+                <View style={styles.rowSpacer} />
 
                 <View style={styles.badgeGroup}>
                   {badge ? (
@@ -230,25 +293,17 @@ export function RecentSpinsRow({ spinAudit }: Props) {
                       </Text>
                     </View>
                   ) : null}
-                  {/* Placeholder keeps the row height stable when no badges are shown. */}
                   {!badge && (entry.fsMultiplier == null || entry.fsMultiplier <= 1) ? (
                     <View style={styles.badgePlaceholder} />
                   ) : null}
                 </View>
               </View>
 
-              {showXpRow ? (
-                <View style={styles.xpRow}>
-                  {showPaidXp ? (
-                    <Text style={[styles.xpText, { color: t.primary }]}>
-                      +{xpGained.toLocaleString()} XP
-                    </Text>
-                  ) : (
-                    <Text style={[styles.xpText, { color: t.textMuted }]}>
-                      0 XP
-                    </Text>
-                  )}
-                </View>
+              {entry.paylinesHint ? (
+                <Text style={[styles.paylineHint, { color: t.textMuted }]} numberOfLines={2}>
+                  <Text style={[styles.paylineHintLabel, { color: t.textSecondary }]}>Paths </Text>
+                  {entry.paylinesHint}
+                </Text>
               ) : null}
 
               {/* ── Symbol strip with payline highlights ── */}
@@ -393,6 +448,15 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
   },
+  spinHistoryHint: {
+    fontSize: 10,
+    fontWeight: '500',
+    lineHeight: 14,
+    textAlign: 'center',
+    paddingHorizontal: 8,
+    marginTop: -2,
+    marginBottom: 2,
+  },
 
   columnHeaderRow: {
     flexDirection: 'row',
@@ -418,6 +482,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minWidth: 44,
     flexShrink: 0,
+    flexGrow: 0,
   },
 
   // Table — vertical padding so first/last rows aren’t flush to the card rim
@@ -452,14 +517,37 @@ const styles = StyleSheet.create({
     width: 68,
     flexShrink: 0,
   },
-  resultText: {
+  /** Result + XP stay adjacent; flexible gap before Tier is absorbed here. */
+  resultXpCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  resultCell: {
     fontSize: 13,
-    flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  rowSpacer: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  xpColumn: {
+    fontSize: 13,
+    fontWeight: '700',
+    width: 48,
+    flexShrink: 0,
+    textAlign: 'right',
   },
   badgeGroup: {
     flexDirection: 'row',
     gap: 4,
     alignItems: 'center',
+    flexShrink: 0,
+    flexGrow: 0,
   },
   badge: {
     borderRadius: 5,
@@ -476,15 +564,20 @@ const styles = StyleSheet.create({
   badgePlaceholder: {
     width: 44,
   },
-  xpRow: {
-    paddingHorizontal: 12,
+
+  paylineHint: {
+    fontSize: 10,
+    fontWeight: '500',
+    lineHeight: 14,
     marginTop: 0,
-    marginBottom: 8,
+    marginBottom: 4,
+    paddingHorizontal: 12,
   },
-  xpText: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.25,
+  paylineHintLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.35,
+    textTransform: 'uppercase',
   },
 
   // Symbol strip
