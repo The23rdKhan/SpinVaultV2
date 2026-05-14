@@ -1,18 +1,26 @@
+/**
+ * “Continue with Google” using pre-approved raster assets from Google’s Sign in with Google
+ * branding pack (rectangular, Continue text). Source ZIP (do not hotlink in production):
+ * https://developers.google.com/static/identity/images/signin-assets.zip
+ *
+ * Expo SDK 55 does not supply these — they are bundled static images via Metro `require()`.
+ * Supabase auth is unchanged: same `signInWithGoogle()` → `signInWithIdToken`.
+ */
 import { useCallback, useState } from 'react'
 import {
   ActivityIndicator,
+  Image,
+  Platform,
   Pressable,
   StyleSheet,
-  Text,
   View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native'
-import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { router } from 'expo-router'
 import { routes } from '@/lib/app-routes'
+import { useAppearance } from '@/lib/appearance-context'
 import { useAuth } from '@/lib/auth-context'
-import { useCasinoTheme } from '@/lib/use-casino-theme'
 
 export type GoogleSignInButtonProps = {
   onSuccess?: () => void | Promise<void>
@@ -20,16 +28,15 @@ export type GoogleSignInButtonProps = {
   style?: StyleProp<ViewStyle>
 }
 
-/**
- * Custom “Continue with Google” control. `@react-native-google-signin`’s native
- * `GoogleSigninButton` does not allow custom label text.
- */
+const GOOGLE_CONTINUE_LIGHT = require('@/assets/images/google-signin-branded/google-continue-light-rd-3x.png') as number
+const GOOGLE_CONTINUE_DARK = require('@/assets/images/google-signin-branded/google-continue-dark-rd-3x.png') as number
+
 export function GoogleSignInButton({
   onSuccess,
   navigateToTabs = true,
   style,
 }: GoogleSignInButtonProps) {
-  const t = useCasinoTheme()
+  const { resolvedMode } = useAppearance()
   const { signInWithGoogle } = useAuth()
   const [busy, setBusy] = useState(false)
 
@@ -54,6 +61,8 @@ export function GoogleSignInButton({
     return null
   }
 
+  const source = resolvedMode === 'dark' ? GOOGLE_CONTINUE_DARK : GOOGLE_CONTINUE_LIGHT
+
   return (
     <View style={[styles.wrap, style]}>
       <Pressable
@@ -62,22 +71,18 @@ export function GoogleSignInButton({
         accessibilityState={{ disabled: busy }}
         disabled={busy}
         onPress={() => void onPress()}
-        style={({ pressed }) => [
-          styles.button,
-          {
-            borderColor: t.border,
-            backgroundColor: t.surfaceElevated,
-            opacity: busy ? 0.75 : pressed ? 0.92 : 1,
-          },
-        ]}
+        style={({ pressed }) => [styles.hit, { opacity: busy ? 0.75 : pressed ? 0.92 : 1 }]}
       >
         {busy ? (
-          <ActivityIndicator color={t.textPrimary} />
+          <ActivityIndicator color={resolvedMode === 'dark' ? '#E3E3E3' : '#1F1F1F'} />
         ) : (
-          <>
-            <FontAwesome name="google" size={20} color="#4285F4" accessibilityElementsHidden />
-            <Text style={[styles.label, { color: t.textPrimary }]}>Continue with Google</Text>
-          </>
+          <Image
+            source={source}
+            style={styles.brandImage}
+            resizeMode="contain"
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          />
         )}
       </Pressable>
     </View>
@@ -89,21 +94,21 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     alignItems: 'center',
   },
-  button: {
+  /** Tap target ≥48pt; image scales inside (Google: preserve aspect ratio). */
+  hit: {
     width: '100%',
     maxWidth: 400,
     minHeight: 48,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    alignItems: 'center',
+    ...Platform.select({
+      ios: { paddingVertical: 4 },
+      default: { paddingVertical: 2 },
+    }),
   },
-  label: {
-    fontSize: 17,
-    fontWeight: '600',
+  brandImage: {
+    width: '100%',
+    height: 48,
   },
 })
 
