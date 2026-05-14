@@ -65,7 +65,7 @@ export function AppleSignInButton({
     <View style={[styles.wrap, style]}>
       <AppleButton
         buttonStyle={AppleButton.Style.BLACK}
-        buttonType={AppleButton.Type.SIGN_IN}
+        buttonType={AppleButton.Type.CONTINUE}
         cornerRadius={12}
         style={styles.button}
         onPress={() => void onAppleButtonPress()}

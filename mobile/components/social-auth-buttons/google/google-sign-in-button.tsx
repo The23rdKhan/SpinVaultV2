@@ -1,9 +1,18 @@
 import { useCallback, useState } from 'react'
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
-import { GoogleSigninButton } from '@react-native-google-signin/google-signin'
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native'
+import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { router } from 'expo-router'
 import { routes } from '@/lib/app-routes'
 import { useAuth } from '@/lib/auth-context'
+import { useCasinoTheme } from '@/lib/use-casino-theme'
 
 export type GoogleSignInButtonProps = {
   onSuccess?: () => void | Promise<void>
@@ -11,11 +20,16 @@ export type GoogleSignInButtonProps = {
   style?: StyleProp<ViewStyle>
 }
 
+/**
+ * Custom “Continue with Google” control. `@react-native-google-signin`’s native
+ * `GoogleSigninButton` does not allow custom label text.
+ */
 export function GoogleSignInButton({
   onSuccess,
   navigateToTabs = true,
   style,
 }: GoogleSignInButtonProps) {
+  const t = useCasinoTheme()
   const { signInWithGoogle } = useAuth()
   const [busy, setBusy] = useState(false)
 
@@ -42,13 +56,30 @@ export function GoogleSignInButton({
 
   return (
     <View style={[styles.wrap, style]}>
-      <GoogleSigninButton
-        size={GoogleSigninButton.Size.Wide}
-        color={GoogleSigninButton.Color.Dark}
-        style={styles.button}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Continue with Google"
+        accessibilityState={{ disabled: busy }}
         disabled={busy}
         onPress={() => void onPress()}
-      />
+        style={({ pressed }) => [
+          styles.button,
+          {
+            borderColor: t.border,
+            backgroundColor: t.surfaceElevated,
+            opacity: busy ? 0.75 : pressed ? 0.92 : 1,
+          },
+        ]}
+      >
+        {busy ? (
+          <ActivityIndicator color={t.textPrimary} />
+        ) : (
+          <>
+            <FontAwesome name="google" size={20} color="#4285F4" accessibilityElementsHidden />
+            <Text style={[styles.label, { color: t.textPrimary }]}>Continue with Google</Text>
+          </>
+        )}
+      </Pressable>
     </View>
   )
 }
@@ -61,7 +92,18 @@ const styles = StyleSheet.create({
   button: {
     width: '100%',
     maxWidth: 400,
-    height: 48,
+    minHeight: 48,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  label: {
+    fontSize: 17,
+    fontWeight: '600',
   },
 })
 
