@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
   Text,
   TextInput,
-  View,
 } from 'react-native'
 import { router } from 'expo-router'
 import { routes } from '@/lib/app-routes'
@@ -14,8 +14,10 @@ import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { APP_NAME } from '@shared/brand'
 import { AppleSignInButton } from '@/components/apple-sign-in-button'
 import { GoogleSignInButton } from '@/components/social-auth-buttons/google/google-sign-in-button'
+import { AuthBackgroundLayout, OnboardingHeroImage } from '@/components/brand/asset-components'
 import { AppButton } from '@/components/ui/AppButton'
 import { AppScrollView } from '@/components/ui/AppScrollView'
+import { SPINVAULT_LOGO_HORIZONTAL_PNG } from '@/lib/brand-assets'
 
 export function LoginScreen() {
   const t = useCasinoTheme()
@@ -57,28 +59,32 @@ export function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.flex, { backgroundColor: t.background }]}
+      style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <AppScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: t.card, borderColor: t.border },
-          ]}
-        >
-          <Text style={[styles.brandKicker, { color: t.textMuted }]} accessibilityRole="text">
-            {APP_NAME}
-          </Text>
+      <AuthBackgroundLayout>
+        <AppScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <Image
+            source={SPINVAULT_LOGO_HORIZONTAL_PNG}
+            resizeMode="contain"
+            style={styles.logo}
+            accessibilityLabel={`${APP_NAME} logo`}
+            accessibilityRole="image"
+          />
+          <OnboardingHeroImage
+            source={require('@/assets/icons/cloud-sync.png')}
+            compact
+            accessibilityLabel="Cloud sync vault icon"
+          />
           <Text style={[styles.hero, { color: t.textPrimary }]} accessibilityRole="header">
-            Welcome back
+            Welcome Back
           </Text>
           <Text style={[styles.sub, { color: t.textSecondary }]}>
-            Sign in to sync your collection and rewards.
+            Log in to access your vault on this device.
           </Text>
 
           <TextInput
-            placeholder="Email"
+            placeholder="Email or Username"
             placeholderTextColor={t.textMuted}
             autoCapitalize="none"
             keyboardType="email-address"
@@ -87,7 +93,7 @@ export function LoginScreen() {
             value={email}
             onChangeText={setEmail}
             style={inputStyle}
-            accessibilityLabel="Email"
+            accessibilityLabel="Email or Username"
           />
           <TextInput
             placeholder="Password"
@@ -107,7 +113,7 @@ export function LoginScreen() {
             </Text>
           ) : null}
 
-          <AppButton label="Sign in" loading={loading} onPress={() => void onSubmit()} style={styles.btn} />
+          <AppButton label="Log In" loading={loading} onPress={() => void onSubmit()} style={styles.btn} />
 
           <AppButton
             variant="ghost"
@@ -128,12 +134,12 @@ export function LoginScreen() {
 
           <AppButton
             variant="ghost"
-            label="Create an account"
+            label="Don’t have an account? Sign up"
             style={styles.btn}
             onPress={() => router.push(routes.register)}
           />
-        </View>
-      </AppScrollView>
+        </AppScrollView>
+      </AuthBackgroundLayout>
     </KeyboardAvoidingView>
   )
 }
@@ -142,24 +148,13 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   scroll: {
     flexGrow: 1,
-    padding: 24,
     justifyContent: 'center',
-  },
-  card: {
-    borderRadius: 18,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: 22,
     gap: 14,
-    maxWidth: 440,
-    width: '100%',
-    alignSelf: 'center',
   },
-  brandKicker: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    textAlign: 'center',
+  logo: {
+    width: '100%',
+    height: 52,
+    alignSelf: 'center',
   },
   hero: { fontSize: 26, fontWeight: '700', textAlign: 'center' },
   sub: { fontSize: 16, lineHeight: 24, textAlign: 'center', marginBottom: 4 },

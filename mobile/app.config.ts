@@ -76,17 +76,16 @@ const config = {
   owner: 'hushdogg',
   version: '1.0.0',
   orientation: 'portrait',
-  icon: './assets/images/icon.png',
+  icon: './assets/icon.png',
   scheme: 'spinvault',
   userInterfaceStyle: 'automatic',
   /**
-   * Default splash = light appearance (`light-splash.png`). Dark appearance uses
-   * `ios.splash.dark` / `android.splash.dark` (Expo prebuild) — see below.
+   * Default native splash uses the dark Spin Vault launch art.
    */
   splash: {
-    image: './assets/images/light-splash.png',
+    image: './assets/splash-dark.png',
     resizeMode: 'contain',
-    backgroundColor: '#FBF8F4',
+    backgroundColor: '#070B12',
   },
   ios: {
     supportsTablet: true,
@@ -94,9 +93,9 @@ const config = {
     usesAppleSignIn: true,
     splash: {
       dark: {
-        image: './assets/images/splash-icon.png',
+        image: './assets/splash-dark.png',
         resizeMode: 'contain',
-        backgroundColor: '#140707',
+        backgroundColor: '#070B12',
       },
     },
     /**
@@ -113,21 +112,21 @@ const config = {
     package: 'com.spinvault.mobile',
     splash: {
       dark: {
-        image: './assets/images/splash-icon.png',
+        image: './assets/splash-dark.png',
         resizeMode: 'contain',
-        backgroundColor: '#140707',
+        backgroundColor: '#070B12',
       },
     },
     adaptiveIcon: {
-      foregroundImage: './assets/images/adaptive-icon.png',
-      backgroundColor: '#140707',
+      foregroundImage: './assets/adaptive-icon.png',
+      backgroundColor: '#130A1F',
     },
     predictiveBackGestureEnabled: false,
   },
   web: {
     bundler: 'metro',
     output: 'static',
-    favicon: './assets/images/favicon.png',
+    favicon: './assets/favicon.png',
   },
   plugins,
   experiments: {

@@ -21,9 +21,11 @@ export type ShopCoinPackRow = {
   subtitle: string
   /** Short copy shown below the subtitle explaining what bet tiers this pack unlocks. */
   unlockHint?: string
+  /** Runtime-rendered benefits. Keep prices out of artwork. */
+  displayDetails: string[]
   /**
    * Base USD price used to record IAP spend for LTV tracking and tournament eligibility.
-   * Keep in sync with App Store Connect pricing. Store cut is NOT deducted here.
+   * Keep in sync with App Store Connect pricing metadata.
    */
   priceUsd: number
   artwork: ImageSourcePropType
@@ -40,7 +42,8 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     priceUsd: 0.99,
     popular: false,
     subtitle: 'Quick Refill',
-    artwork: require('@/assets/images/store-offers/quick_refill.png'),
+    displayDetails: ['2,500 Vault Coins'],
+    artwork: require('@/assets/store/quick-refill-card.png'),
   },
   {
     id: 'com.spinvault.deal.daily',
@@ -52,7 +55,8 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     priceUsd: 4.99,
     popular: false,
     subtitle: 'Today only',
-    artwork: require('@/assets/images/store-offers/daily_deal.png'),
+    displayDetails: ['20,000 Vault Coins', '+10 Free Spins'],
+    artwork: require('@/assets/store/daily-deal-card.png'),
   },
   {
     id: 'com.spinvault.coins.basic',
@@ -64,7 +68,8 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     priceUsd: 4.99,
     popular: false,
     subtitle: 'Good Deal',
-    artwork: require('@/assets/images/store-offers/basic.png'),
+    displayDetails: ['15,000 Vault Coins', '+5 Free Spins'],
+    artwork: require('@/assets/store/basic-pack-card.png'),
   },
   {
     id: 'com.spinvault.spins.lucky_bundle',
@@ -76,7 +81,8 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     priceUsd: 4.99,
     popular: false,
     subtitle: 'Spin boost',
-    artwork: require('@/assets/images/store-offers/lucky_spin_bundle.png'),
+    displayDetails: ['50 Free Spins'],
+    artwork: require('@/assets/store/lucky-spin-bundle-card.png'),
   },
   {
     id: 'com.spinvault.coins.popular',
@@ -88,7 +94,8 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     priceUsd: 9.99,
     popular: true,
     subtitle: 'Most Popular',
-    artwork: require('@/assets/images/store-offers/popular.png'),
+    displayDetails: ['40,000 Vault Coins', '+15 Free Spins'],
+    artwork: require('@/assets/store/popular-pack-card.png'),
   },
   {
     id: 'com.spinvault.coins.premium',
@@ -100,7 +107,8 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     priceUsd: 24.99,
     popular: false,
     subtitle: 'Best Value',
-    artwork: require('@/assets/images/store-offers/premium.png'),
+    displayDetails: ['125,000 Vault Coins', '+40 Free Spins'],
+    artwork: require('@/assets/store/premium-pack-card.png'),
   },
   {
     id: 'com.spinvault.coins.ultimate',
@@ -112,8 +120,9 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     priceUsd: 49.99,
     popular: false,
     subtitle: 'High Roller',
-    unlockHint: 'Unlocks $5K line bets',
-    artwork: require('@/assets/images/store-offers/ultimate.png'),
+    unlockHint: 'Unlocks higher line bets',
+    displayDetails: ['350,000 Vault Coins', '+100 Free Spins'],
+    artwork: require('@/assets/store/ultimate-pack-card.png'),
   },
   {
     id: 'com.spinvault.coins.mega_vault',
@@ -125,9 +134,10 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     priceUsd: 99.99,
     popular: false,
     featured: true,
-    subtitle: 'The whale pack',
-    unlockHint: 'Unlocks $10K line bets',
-    artwork: require('@/assets/images/store-offers/mega_vault.png'),
+    subtitle: 'VIP Bonus',
+    unlockHint: 'Unlocks top line bets',
+    displayDetails: ['1,000,000 Vault Coins', '+250 Free Spins', 'VIP Bonus'],
+    artwork: require('@/assets/store/mega-vault-card.png'),
   },
 ]
 
@@ -140,7 +150,13 @@ export const STARTER_BUNDLE_SKU = 'com.spinvault.bundle.starter' as const
  */
 export const STARTER_BUNDLE_PRICE_FALLBACK = '$1.99' as const
 
-export const STARTER_BUNDLE_ARTWORK = require('@/assets/images/store-offers/starter_bundle.png')
+export const STARTER_BUNDLE_ARTWORK = require('@/assets/store/starter-bundle-card.png')
+
+export const STARTER_BUNDLE_DETAILS = [
+  '25,000 Vault Coins',
+  '+25 Free Spins',
+  '+Starter Frame',
+] as const
 
 /** Matches `com.spinvault.bundle.starter` row in DB — keep in sync for simulated IAP + analytics. */
 export const STARTER_BUNDLE_GRANT = {
