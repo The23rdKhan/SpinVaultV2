@@ -40,3 +40,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# archived generated assets excluded from app bundles
+assets/archive/

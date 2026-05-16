@@ -6,7 +6,6 @@ export const SpinVaultImages = {
   },
   icons: {
     logoHorizontal: require('../../assets/icons/logo-horizontal.png'),
-    logoMark: require('../../assets/icons/logo-mark.png'),
     vaultCoin: require('../../assets/icons/vault-coin.png'),
     slotReel: require('../../assets/icons/slot-reel.png'),
     rewardChest: require('../../assets/icons/reward-chest.png'),

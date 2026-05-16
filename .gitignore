@@ -23,3 +23,6 @@ mobile/.expo/
 
 # Copied from repo `shared/` during EAS pre-install (see mobile/scripts/eas-copy-shared.cjs)
 mobile/shared/
+
+# archived generated mobile assets excluded from app bundles
+mobile/assets/archive/
