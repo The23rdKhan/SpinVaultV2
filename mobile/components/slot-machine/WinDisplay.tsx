@@ -247,14 +247,14 @@ function JackpotBreakdown({
       <View style={styles.breakdownRow}>
         <Text style={[styles.breakdownLabel, { color: t.textSecondary }]}>🎰  Jackpot Bonus</Text>
         <Text style={[styles.breakdownVal, { color: accentColor }]}>
-          ${jackpotBonus.toLocaleString()}
+          {jackpotBonus.toLocaleString()} VC
         </Text>
       </View>
       {lineWins > 0 ? (
         <View style={styles.breakdownRow}>
-          <Text style={[styles.breakdownLabel, { color: t.textSecondary }]}>🎲  Line Wins</Text>
-          <Text style={[styles.breakdownVal, { color: t.win }]}>
-            ${lineWins.toLocaleString()}
+        <Text style={[styles.breakdownLabel, { color: t.textSecondary }]}>🎲  Line Wins</Text>
+        <Text style={[styles.breakdownVal, { color: t.win }]}>
+            {lineWins.toLocaleString()} VC
           </Text>
         </View>
       ) : null}
@@ -262,7 +262,7 @@ function JackpotBreakdown({
       <View style={styles.breakdownRow}>
         <Text style={[styles.breakdownTotal, { color: t.textPrimary }]}>Total Win</Text>
         <Text style={[styles.breakdownTotalVal, { color: accentColor }]}>
-          ${total.toLocaleString()}
+          {total.toLocaleString()} VC
         </Text>
       </View>
     </Animated.View>
@@ -681,7 +681,7 @@ export function WinDisplay({
               <View style={styles.subtleRow}>
                 <Text style={[styles.subtleMark, { color: t.textMuted }]}>{VAULT_COIN_MARK}</Text>
                 <Text style={[styles.subtleAmt, { color: t.textPrimary }]}>
-                  ${displayAmount.toLocaleString()}
+                  {displayAmount.toLocaleString()} VC
                 </Text>
               </View>
               <Text style={[styles.subtleMeta, { color: t.textMuted }]}>
@@ -711,7 +711,7 @@ export function WinDisplay({
               ) : null}
 
               {showVaultRow ? (
-                <Text style={[styles.fxRow, { color: t.gold }]}>🏛️  Vault opening — coins incoming</Text>
+                <Text style={[styles.fxRow, { color: t.gold }]}>🏛️  Vault opening — Vault Coins incoming</Text>
               ) : null}
               {showPortalRow ? (
                 <Text style={[styles.fxRow, { color: t.primary }]}>🌀  Bonus portal charged</Text>
@@ -735,15 +735,15 @@ export function WinDisplay({
                     shimmerColor="rgba(255,255,255,0.38)"
                   >
                     <Text style={[styles.amt, { color: accentColor }, isJackpotTier && styles.amtJackpot]}>
-                      ${displayAmount.toLocaleString()}
+                      {displayAmount.toLocaleString()}
                     </Text>
                     <Text style={[styles.amtSub, { color: hexWithAlpha(accentColor, '99') }]}>
-                      virtual coins
+                      Vault Coins
                     </Text>
                   </ShimmerSweep>
                 ) : (
                   <Text style={[styles.amt, { color: accentColor }]}>
-                    ${displayAmount.toLocaleString()} virtual coins
+                    {displayAmount.toLocaleString()} Vault Coins
                   </Text>
                 )
               ) : null}

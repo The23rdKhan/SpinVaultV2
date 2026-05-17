@@ -270,7 +270,7 @@ export function SlotMachine() {
     Toast.show({
       type: 'success',
       text1: 'Bonus meter full!',
-      text2: `+${lastBonusMeterPayout.toLocaleString()} virtual coins`,
+      text2: `+${lastBonusMeterPayout.toLocaleString()} Vault Coins`,
     })
   }, [spinSequence, isSpinning, lastBonusMeterPayout])
 
@@ -471,7 +471,7 @@ export function SlotMachine() {
             accessible
             accessibilityRole="text"
             accessibilityLabel={JACKPOT_MODE_LABEL}
-            accessibilityHint="Sevens on the center row. Details in Paytable."
+            accessibilityHint="Sevens on the center row. Details in the Reward Table."
             style={[
               styles.jackpotBadge,
               {

@@ -73,7 +73,7 @@ export function BrokeRecoverySheet({
           accessibilityViewIsModal
         >
           <View style={[styles.handle, { backgroundColor: t.muted }]} />
-          <Text style={[styles.title, { color: t.textPrimary }]}>Get coins</Text>
+          <Text style={[styles.title, { color: t.textPrimary }]}>Get Vault Coins</Text>
           <Text style={[styles.sub, { color: t.textSecondary }]}>
             Pick a path — rewards include daily login and optional video bonuses.
           </Text>
@@ -91,7 +91,7 @@ export function BrokeRecoverySheet({
               onPress={() => void handleWatch()}
               disabled={watchVideoBusy}
               accessibilityRole="button"
-              accessibilityLabel="Watch video for virtual coins"
+              accessibilityLabel="Watch video for Vault Coins"
               accessibilityState={{ busy: watchVideoBusy }}
             >
               <View style={[styles.rowIcon, { backgroundColor: hexWithAlpha(t.freeSpin, '22') }]}>
@@ -99,7 +99,7 @@ export function BrokeRecoverySheet({
               </View>
               <View style={styles.rowText}>
                 <Text style={[styles.rowTitle, { color: t.textPrimary }]}>Watch video</Text>
-                <Text style={[styles.rowMeta, { color: t.textMuted }]}>Quick virtual coin bonus</Text>
+                <Text style={[styles.rowMeta, { color: t.textMuted }]}>Quick Vault Coin bonus</Text>
               </View>
               {watchVideoBusy ? (
                 <ActivityIndicator color={t.primary} />
@@ -136,7 +136,7 @@ export function BrokeRecoverySheet({
             ]}
             onPress={handleShop}
             accessibilityRole="button"
-            accessibilityLabel="Shop coin packs"
+            accessibilityLabel="Shop Vault Coin packs"
           >
             <View style={[styles.rowIcon, { backgroundColor: hexWithAlpha(t.gold, '28') }]}>
               <FontAwesome name="shopping-bag" size={18} color={t.gold} />

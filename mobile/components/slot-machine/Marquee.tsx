@@ -494,7 +494,7 @@ export function Marquee() {
                   },
                 ]}
               >
-                {`$${megaJackpotDisplay.toLocaleString()}`}
+                {`${megaJackpotDisplay.toLocaleString()} VC`}
               </Text>
               {isRecovering ? (
                 <Text style={[styles.jackpotSeed, { color: hexWithAlpha(t.gold, 'AA') }]}>
@@ -648,7 +648,7 @@ export function Marquee() {
           </View>
         </View>
         <Text style={[styles.meterHint, { color: t.textMuted }]}>
-          Reach 100% to unlock bonus virtual coins.
+          Reach 100% to unlock bonus Vault Coins.
         </Text>
       </View>
     </View>

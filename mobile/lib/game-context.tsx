@@ -61,6 +61,16 @@ export interface SlotSymbol {
   name: string
   emoji: string
   value: number
+  asset?:
+    | 'redSeven'
+    | 'wildLogo'
+    | 'scatterChest'
+    | 'vaultCoinSymbol'
+    | 'blueDiamondSymbol'
+    | 'purpleGemSymbol'
+    | 'vaultWheelSymbol'
+    | 'goldKeySymbol'
+    | 'crownSymbol'
   isWild?: boolean
   isScatter?: boolean
 }
@@ -283,7 +293,7 @@ export interface SpinAuditEntry {
   win: number
   winType: WinType
   freeSpin: boolean
-  /** Middle row (row index 1) emojis from left to right — 5 symbols */
+  /** Middle row (row index 1) symbol ids left→right; legacy rows may store emojis */
   reelMiddle: string[]
   /** Column indices (0–4) where a winning payline crossed the middle row */
   winningColsMiddle: number[]
@@ -521,15 +531,15 @@ export interface SpinResult {
 }
 
 const SYMBOLS: SlotSymbol[] = [
-  { id: "seven", name: "Lucky Seven", emoji: "7", value: 100 },
-  { id: "diamond", name: "Diamond", emoji: "💎", value: 75 },
-  { id: "bell", name: "Bell", emoji: "🔔", value: 50 },
-  { id: "cherry", name: "Cherry", emoji: "🍒", value: 30 },
-  { id: "lemon", name: "Lemon", emoji: "🍋", value: 20 },
-  { id: "orange", name: "Orange", emoji: "🍊", value: 15 },
-  { id: "grape", name: "Grape", emoji: "🍇", value: 10 },
-  { id: "wild", name: "Wild", emoji: "★", value: 0, isWild: true },
-  { id: "scatter", name: "Scatter", emoji: "✦", value: 0, isScatter: true },
+  { id: "seven", name: "Red Seven", emoji: "7", value: 100, asset: "redSeven" },
+  { id: "diamond", name: "Blue Diamond", emoji: "◆", value: 75, asset: "blueDiamondSymbol" },
+  { id: "bell", name: "Vault Wheel", emoji: "◎", value: 50, asset: "vaultWheelSymbol" },
+  { id: "cherry", name: "Purple Gem", emoji: "♦", value: 30, asset: "purpleGemSymbol" },
+  { id: "lemon", name: "VC Coin", emoji: "VC", value: 20, asset: "vaultCoinSymbol" },
+  { id: "orange", name: "Gold Key", emoji: "🔑", value: 15, asset: "goldKeySymbol" },
+  { id: "grape", name: "Crown", emoji: "👑", value: 10, asset: "crownSymbol" },
+  { id: "wild", name: "Wild Logo", emoji: "★", value: 0, asset: "wildLogo", isWild: true },
+  { id: "scatter", name: "Scatter Chest", emoji: "✦", value: 0, asset: "scatterChest", isScatter: true },
 ]
 
 const WHEEL_REWARDS = [50, 100, 150, 200, 300, 500, 750, 1000]
@@ -1328,7 +1338,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         meta ??
         ({
           reason: 'iap_grant',
-          label: amount > 0 ? 'Coins added' : 'Coins removed',
+          label: amount > 0 ? 'Vault Coins added' : 'Vault Coins removed',
         } satisfies CoinLedgerMeta)
       return {
         ...prev,
@@ -1348,7 +1358,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         meta ??
         ({
           reason: 'adjustment',
-          label: `Spend −${amount.toLocaleString()} virtual coins`,
+          label: `Spend -${amount.toLocaleString()} Vault Coins`,
         } satisfies CoinLedgerMeta)
       return {
         ...prev,
@@ -1383,7 +1393,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             -price,
             bal,
             'free_spins_bundle',
-            `${spins} free spins (−${price.toLocaleString()} virtual coins)`
+            `${spins} free spins (-${price.toLocaleString()} Vault Coins)`
           ),
         }
       }
@@ -1582,7 +1592,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             -bc,
             balanceAfterBet,
             'spin_bet',
-            `Spin cost −${bc.toLocaleString()} virtual coins`,
+            `Spin cost -${bc.toLocaleString()} Vault Coins`,
           )
         }
 
@@ -1776,7 +1786,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
               win: totalWin,
               winType,
               freeSpin: spinWasFreeRef.current,
-              reelMiddle: newGrid.map((col) => col[1]?.emoji ?? '?'),
+              reelMiddle: newGrid.map((col) => col[1]?.id ?? 'lemon'),
               winningColsMiddle: [0,1,2,3,4].filter((c) => positions.has(`${c}-1`)),
               xpGained: srvXpGain,
               paylinesHint: payHint,
@@ -1842,7 +1852,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           bonusMeterPayout,
           runningBal,
           'bonus_meter_full',
-          `Bonus meter +${bonusMeterPayout.toLocaleString()} virtual coins`
+          `Bonus Meter +${bonusMeterPayout.toLocaleString()} Vault Coins`
         )
       }
       if (jackpotBonus > 0) {
@@ -1852,7 +1862,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           jackpotBonus,
           runningBal,
           'jackpot_win',
-          `Jackpot Mode +$${jackpotBonus.toLocaleString()} virtual coins`
+          `Jackpot Mode +${jackpotBonus.toLocaleString()} Vault Coins`
         )
       }
 
@@ -1991,7 +2001,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             win: totalWin,
             winType,
             freeSpin: spinWasFreeRef.current,
-            reelMiddle: newGrid.map((col) => col[1]?.emoji ?? '?'),
+            reelMiddle: newGrid.map((col) => col[1]?.id ?? 'lemon'),
             winningColsMiddle: [0,1,2,3,4].filter((c) => positions.has(`${c}-1`)),
             xpGained: xpGain,
             paylinesHint: payHint,
@@ -2106,7 +2116,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             reward,
             Number(out.coin_balance),
             'daily_wheel',
-            `Daily wheel +${reward.toLocaleString()} virtual coins`,
+            `Daily wheel +${reward.toLocaleString()} Vault Coins`,
           ),
           dailyWheel: {
             lastWheelSpinAt: new Date().toISOString(),
@@ -2134,7 +2144,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           reward,
           bal,
           'daily_wheel',
-          `Daily wheel +${reward.toLocaleString()} virtual coins`,
+          `Daily wheel +${reward.toLocaleString()} Vault Coins`,
         ),
         dailyWheel: {
           lastWheelSpinAt: new Date().toISOString(),

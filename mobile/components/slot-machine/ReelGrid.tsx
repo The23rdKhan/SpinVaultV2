@@ -27,13 +27,21 @@ const SETTLE_PX = 6 // px overshoot on land
 /** Stagger delay per column for winning symbol pulse, in ms. */
 const COL_STAGGER_MS = 80
 
-/** Cell border/shadow escalation per win tier — mirrors SlotSymbol TIER_PULSE intensity. */
+/** Cell border/shadow escalation per win tier — visual only. */
 interface CellTier { shadowOpacity: number; shadowRadius: number; elevation: number }
 const CELL_TIER: Record<Exclude<WinType, 'none'>, CellTier> = {
-  normal:  { shadowOpacity: 0.45, shadowRadius: 6,  elevation: 3  },
-  bigWin:  { shadowOpacity: 0.62, shadowRadius: 10, elevation: 5  },
-  megaWin: { shadowOpacity: 0.78, shadowRadius: 16, elevation: 8  },
-  jackpot: { shadowOpacity: 0.92, shadowRadius: 22, elevation: 12 },
+  normal:  { shadowOpacity: 0.38, shadowRadius: 5,  elevation: 2  },
+  bigWin:  { shadowOpacity: 0.5,  shadowRadius: 8,  elevation: 4  },
+  megaWin: { shadowOpacity: 0.62, shadowRadius: 12, elevation: 6  },
+  jackpot: { shadowOpacity: 0.78, shadowRadius: 16, elevation: 9  },
+}
+
+/** Tier cell border accents — vault gold / purple / jackpot (not generic win green). */
+const TIER_CELL_ACCENT: Record<Exclude<WinType, 'none'>, string> = {
+  normal: '#FFD76A',
+  bigWin: '#FFD76A',
+  megaWin: '#A855F7',
+  jackpot: '#FFD76A',
 }
 
 function ReelColumn({
@@ -115,6 +123,8 @@ function ReelColumn({
               symbol={symbol}
               isWinning={isWin}
               isSpinning={colSpinning}
+              justStoppedSignal={settleSignal}
+              isSpecialTriggered={!colSpinning && isWin && (symbol.isWild === true || symbol.isScatter === true)}
               columnDelay={isWin ? columnDelay : 0}
               winTier={isWin ? winTier : undefined}
               winMotion={isWin ? symbolWinMotion : undefined}
@@ -139,12 +149,7 @@ export function ReelGrid({
   const activeTier: Exclude<WinType, 'none'> =
     lastWinType === 'none' || lastWinType == null ? 'normal' : lastWinType
 
-  // Accent color for cell borders and shadows, matched to the win tier.
-  const tierAccent =
-    activeTier === 'jackpot' ? t.gold
-    : activeTier === 'megaWin' ? t.jackpot
-    : activeTier === 'bigWin'  ? t.primary
-    : t.win
+  const tierAccent = TIER_CELL_ACCENT[activeTier]
 
   const showCenterPaylineGuide =
     !isSpinning && (linesModalOpen || winningLines.length > 0)

@@ -163,7 +163,7 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
     if (showBroke) {
       autoSpinRef.current = false
       setAutoSpinRemaining(null)
-      Toast.show({ type: 'info', text1: 'Auto spin stopped', text2: 'Not enough coins.' })
+      Toast.show({ type: 'info', text1: 'Auto spin stopped', text2: 'Not enough Vault Coins.' })
       return
     }
     // Small delay between auto spins so reels have time to settle visually
@@ -244,7 +244,7 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
       if (earned > 0) {
         addCoins(earned, { reason: 'rewarded_ad', label: 'Rewarded ad' })
         track(AnalyticsEvents.REWARDED_AD_COMPLETED, { reward_coins: earned })
-        Toast.show({ type: 'success', text1: `+${earned} virtual coins` })
+        Toast.show({ type: 'success', text1: `+${earned} Vault Coins` })
       }
       setRecoveryOpen(false)
     } finally {
@@ -327,7 +327,7 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
           accessibilityLabel={
             unlocked
               ? `Line bet ${formatBet(tier)}`
-              : `${formatBet(tier)} locked. Need ${formatBet(coinGateForBet(tier))} coins.`
+              : `${formatBet(tier)} locked. Need ${formatBet(coinGateForBet(tier))} Vault Coins.`
           }
           accessibilityHint={
             unlocked
@@ -444,7 +444,7 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
         <FontAwesome name="history" size={10} color={t.textMuted} style={styles.statIcon} />
         <Text style={[styles.statCompact, { color: t.textMuted }]}>Last</Text>
         <Text style={[styles.statCompactVal, { color: lastWin > 0 ? t.win : t.textSecondary }]}>
-          {`$${displayedWin.toLocaleString()}`}
+          {`${displayedWin.toLocaleString()} VC`}
         </Text>
         <Text style={[styles.statSep, { color: t.border }]}>|</Text>
         <FontAwesome name="refresh" size={11} color={t.textMuted} style={styles.statIcon} />
@@ -453,7 +453,7 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
         <Text style={[styles.statSep, { color: t.border }]}>|</Text>
         <FontAwesome name="trophy" size={11} color={hexWithAlpha(t.gold, 'AA')} style={styles.statIcon} />
         <Text style={[styles.statCompact, { color: t.textMuted }]}>Best</Text>
-        <Text style={[styles.statCompactVal, { color: t.gold }]}>{`$${biggestWin.toLocaleString()}`}</Text>
+        <Text style={[styles.statCompactVal, { color: t.gold }]}>{`${biggestWin.toLocaleString()} VC`}</Text>
       </View>
 
       <View style={[styles.panel, { borderColor: hexWithAlpha(t.gold, '40'), backgroundColor: t.cabinetBg }]}>
@@ -503,7 +503,7 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
                     {nextLockedBet != null && currentBet >= maxSelectableBet ? (
                       <View
                         style={styles.betUnlockWrap}
-                        accessibilityLabel={`Next bet ${formatBet(nextLockedBet)} locked. Need ${formatBet(coinGateForBet(nextLockedBet))} coins.`}
+                        accessibilityLabel={`Next bet ${formatBet(nextLockedBet)} locked. Need ${formatBet(coinGateForBet(nextLockedBet))} Vault Coins.`}
                       >
                         <Text style={[styles.betUnlockHint, { color: t.gold }]} numberOfLines={1}>
                           🔒 {formatBet(nextLockedBet)}
@@ -605,7 +605,7 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
                         accessibilityLabel={`Bet step ×${factor}`}
                         accessibilityHint={
                           selected
-                            ? 'Tap again to clear. Plus and minus change the bet by this many coins.'
+                            ? 'Tap again to clear. Plus and minus change the bet by this many Vault Coins.'
                             : 'Selects step size for plus and minus. Tap again to clear.'
                         }
                         accessibilityState={{ selected }}
@@ -695,7 +695,7 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
                           accessibilityLabel={`Bet step ×${factor}`}
                           accessibilityHint={
                             selected
-                              ? 'Tap again to clear. Plus and minus change the bet by this many coins.'
+                              ? 'Tap again to clear. Plus and minus change the bet by this many Vault Coins.'
                               : 'Larger steps for high bets. Tap again to clear.'
                           }
                           accessibilityState={{ selected }}
@@ -758,7 +758,7 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
         {showBroke ? (
           <View style={styles.warnBlock}>
             <Text style={[styles.warn, { color: t.textPrimary }]}>
-              Not enough coins for this bet. Lower your bet, visit Shop, or claim rewards.
+              Not enough Vault Coins for this bet. Lower your bet, visit Shop, or claim rewards.
             </Text>
             <Text style={[styles.warnHint, { color: t.textMuted }]}>
               Rewards may include video bonuses and daily rewards.
@@ -789,9 +789,9 @@ export function ControlDeck({ onOpenInfo, onOpenLines }: ControlDeckProps) {
               ]}
               onPress={() => setRecoveryOpen(true)}
               accessibilityRole="button"
-              accessibilityLabel="Get coins"
+              accessibilityLabel="Get Vault Coins"
             >
-              <Text style={[styles.getCoinsLbl, { color: t.textPrimary }]}>Get Coins</Text>
+              <Text style={[styles.getCoinsLbl, { color: t.textPrimary }]}>Get Vault Coins</Text>
             </Pressable>
           </View>
         ) : null}
@@ -1120,10 +1120,10 @@ function PressableSpin({
 
 /** Compact bet label in the control deck (narrow middle column). */
 function formatBet(amount: number): string {
-  if (amount >= 1_000_000_000) return `$${Math.round(amount / 1_000_000_000)}B`
-  if (amount >= 1_000_000) return `$${Math.round(amount / 1_000_000)}M`
-  if (amount >= 1_000) return `$${Math.round(amount / 1_000)}K`
-  return `$${amount}`
+  if (amount >= 1_000_000_000) return `${Math.round(amount / 1_000_000_000)}B VC`
+  if (amount >= 1_000_000) return `${Math.round(amount / 1_000_000)}M VC`
+  if (amount >= 1_000) return `${Math.round(amount / 1_000)}K VC`
+  return `${amount} VC`
 }
 
 const styles = StyleSheet.create({

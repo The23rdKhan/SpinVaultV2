@@ -14,6 +14,7 @@ import { hexWithAlpha } from '@/theme/tokens'
 import { AppButton } from '@/components/ui/AppButton'
 import { AppScrollView } from '@/components/ui/AppScrollView'
 import { JACKPOT_MODE_LABEL, getWinTierPaytableRows } from '@/lib/vault-copy'
+import { SlotSymbolAsset } from './SlotSymbol'
 
 type Tab = 'symbols' | 'paylines' | 'bonus'
 
@@ -29,7 +30,7 @@ const TABS: { id: Tab; label: string }[] = [
  *   winMultiplier = lineWinCoins / bet = symValue × matchMult / 10
  * matchMult: 3-of-a-kind = 1, 4-of-a-kind = 2.5, 5-of-a-kind = 5
  */
-function payoutMultipliers(value: number) {
+function rewardMultipliers(value: number) {
   const fmt = (n: number) => (n % 1 === 0 ? `${n}×` : `${n.toFixed(1)}×`)
   return {
     m3: fmt(value / 10),
@@ -38,7 +39,7 @@ function payoutMultipliers(value: number) {
   }
 }
 
-const WIN_TYPES_PAYTABLE = getWinTierPaytableRows()
+const WIN_TYPES_REWARD_TABLE = getWinTierPaytableRows()
 
 interface Props {
   open: boolean
@@ -52,6 +53,7 @@ export function InfoModal({ open, onClose }: Props) {
 
   const regular = SYMBOLS.filter((s) => !s.isWild && !s.isScatter)
   const special = SYMBOLS.filter((s) => s.isWild === true || s.isScatter === true)
+  const scatterSymbol = SYMBOLS.find((s) => s.isScatter === true)
 
   const betList = BET_OPTIONS.map((b) => b.toLocaleString()).join(' · ')
   const xpBarL1 = xpForLevel(1).toLocaleString()
@@ -121,7 +123,7 @@ export function InfoModal({ open, onClose }: Props) {
             {/* ── SYMBOLS ── */}
             {activeTab === 'symbols' && (
               <>
-                {/* Payout table header */}
+                {/* Reward table header */}
                 <View style={[styles.payoutHeader, { borderColor: t.border }]}>
                   <Text style={[styles.payoutHeaderCell, { color: t.textMuted, flex: 1 }]}>Symbol</Text>
                   <Text style={[styles.payoutHeaderCell, { color: t.textMuted }]}>3 match</Text>
@@ -131,11 +133,15 @@ export function InfoModal({ open, onClose }: Props) {
 
                 <Text style={[styles.section, { color: t.textMuted, marginTop: 4 }]}>Paying Symbols</Text>
                 {regular.map((s) => {
-                  const { m3, m4, m5 } = payoutMultipliers(s.value)
+                  const { m3, m4, m5 } = rewardMultipliers(s.value)
                   return (
                     <View key={s.id} style={[styles.payoutRow, { borderColor: t.border }]}>
                       <View style={styles.payoutSymbolCell}>
-                        <Text style={[styles.emoji, { color: t.textPrimary }]}>{s.emoji}</Text>
+                        {s.asset ? (
+                          <SlotSymbolAsset symbol={s} size={28} />
+                        ) : (
+                          <Text style={[styles.emoji, { color: t.textPrimary }]}>{s.emoji}</Text>
+                        )}
                         <Text style={[styles.payoutName, { color: t.textPrimary }]}>{s.name}</Text>
                       </View>
                       <Text style={[styles.payoutVal, { color: t.primary }]}>{m3}</Text>
@@ -163,9 +169,13 @@ export function InfoModal({ open, onClose }: Props) {
                         },
                       ]}
                     >
-                      <Text style={[styles.specialEmoji, { color: s.isWild ? t.win : t.gold }]}>
-                        {s.emoji}
-                      </Text>
+                      {s.asset ? (
+                        <SlotSymbolAsset symbol={s} size={30} />
+                      ) : (
+                        <Text style={[styles.specialEmoji, { color: s.isWild ? t.win : t.gold }]}>
+                          {s.emoji}
+                        </Text>
+                      )}
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.name, { color: s.isWild ? t.win : t.gold }]}>
@@ -173,8 +183,8 @@ export function InfoModal({ open, onClose }: Props) {
                       </Text>
                       <Text style={[styles.meta, { color: t.textSecondary }]}>
                         {s.isWild
-                          ? 'Substitutes for any symbol except Scatter. Can appear on any reel, including the first. Five Wilds alone do not pay.'
-                          : '2+ anywhere pays coins (2×, 5×, 20×, or 100× your bet). 3+ also triggers 10 Free Spins. No payline needed.'}
+                          ? 'Wild Logo substitutes for any symbol except Scatter Chest. Can appear on any reel, including the first. Five Wild Logos alone do not award Vault Coins.'
+                          : '2+ Scatter Chests anywhere award Vault Coins (2×, 5×, 20×, or 100× your bet). 3+ also triggers 10 Free Spins. No payline needed.'}
                       </Text>
                     </View>
                   </View>
@@ -185,7 +195,7 @@ export function InfoModal({ open, onClose }: Props) {
                   <Text style={[styles.infoCalloutText, { color: t.gold }]}>Center-row jackpot</Text>
                   <Text style={[styles.meta, { color: t.textSecondary }]}>
                     Five Lucky Sevens or Wilds on the <Text style={{ fontWeight: '700', color: t.textPrimary }}>middle row</Text> (payline 1) triggers Jackpot Mode. Full rules: <Text style={{ fontWeight: '800', color: t.gold }}>Bonus · Jackpot Mode (center row)</Text> — prize is the greater of{' '}
-                    <Text style={{ fontWeight: '800', color: t.gold }}>${JACKPOT_BASE_PAYOUT.toLocaleString()}</Text> and your line bet × 25.
+                    <Text style={{ fontWeight: '800', color: t.gold }}>{JACKPOT_BASE_PAYOUT.toLocaleString()} Vault Coins</Text> and your line bet × 25.
                   </Text>
                 </View>
               </>
@@ -208,7 +218,7 @@ export function InfoModal({ open, onClose }: Props) {
             {/* ── BONUS ── */}
             {activeTab === 'bonus' && (
               <>
-                {/* Scatter — coins + free spins */}
+                {/* Scatter — Vault Coins + free spins */}
                 <View
                   style={[
                     styles.bonusCard,
@@ -218,16 +228,16 @@ export function InfoModal({ open, onClose }: Props) {
                     },
                   ]}
                 >
-                  <Text style={[styles.bonusCardTitle, { color: t.freeSpin }]}>Scatter Pays</Text>
+                  <Text style={[styles.bonusCardTitle, { color: t.freeSpin }]}>Scatter Rewards</Text>
                   <Text style={[styles.body, { color: t.textSecondary }]}>
-                    Scatter symbols pay coins based on how many land anywhere on the reels — no payline required.
+                    Scatter symbols award Vault Coins based on how many land anywhere on the reels — no payline required.
                     3 or more also trigger Free Spins. Both rewards stack.
                   </Text>
 
                   {/* Scatter payout table */}
                   <View style={[styles.payoutHeader, { borderColor: t.border, marginTop: 8 }]}>
                     <Text style={[styles.payoutHeaderCell, { color: t.textMuted, flex: 1 }]}>Scatters</Text>
-                    <Text style={[styles.payoutHeaderCell, { color: t.textMuted, width: 72, textAlign: 'right' }]}>Coins</Text>
+                    <Text style={[styles.payoutHeaderCell, { color: t.textMuted, width: 72, textAlign: 'right' }]}>VC</Text>
                     <Text style={[styles.payoutHeaderCell, { color: t.textMuted, width: 96, textAlign: 'right' }]}>Free Spins</Text>
                   </View>
                   {([2, 3, 4, 5] as const).map((count) => {
@@ -236,7 +246,11 @@ export function InfoModal({ open, onClose }: Props) {
                       <View key={count} style={[styles.payoutRow, { borderColor: t.border }]}>
                         <View style={[styles.payoutSymbolCell, { flex: 1 }]}>
                           {Array.from({ length: count }).map((_, i) => (
-                            <Text key={i} style={[styles.emoji, { color: t.freeSpin }]}>✦</Text>
+                            scatterSymbol ? (
+                              <SlotSymbolAsset key={i} symbol={scatterSymbol} size={22} />
+                            ) : (
+                              <Text key={i} style={[styles.emoji, { color: t.freeSpin }]}>✦</Text>
+                            )
                           ))}
                         </View>
                         <Text style={[styles.payoutVal, { color: t.win, width: 72, textAlign: 'right' }]}>
@@ -250,11 +264,11 @@ export function InfoModal({ open, onClose }: Props) {
                   })}
 
                   <Text style={[styles.meta, { color: t.textMuted, marginTop: 6 }]}>
-                    Scatter coins are paid in addition to any payline wins on the same spin.
-                    Free spins use your current bet at no cost, so bigger bets mean bigger free spin payouts.
+                    Scatter Vault Coins are awarded in addition to any payline rewards on the same spin.
+                    Free spins use your current bet at no cost, so bigger bets mean bigger free spin rewards.
                   </Text>
                   <Text style={[styles.meta, { color: t.textMuted, marginTop: 6, fontSize: 11 }]}>
-                    6 or more scatters still use the 5-scatter coin tier (100× bet) and still award +10 free spins — counts above 5 are capped for payout math.
+                    6 or more scatters still use the 5-scatter Vault Coin tier (100× bet) and still award +10 free spins — counts above 5 are capped for reward math.
                   </Text>
                 </View>
 
@@ -272,7 +286,7 @@ export function InfoModal({ open, onClose }: Props) {
                   <Text style={[styles.body, { color: t.textSecondary }]}>
                     During a Free Spin session, consecutive{' '}
                     <Text style={{ fontWeight: '800', color: t.textPrimary }}>winning</Text>{' '}
-                    spins build a streak multiplier that boosts your next spin's win total (bonus meter coins when the meter fills are still separate):
+                    spins build a streak multiplier that boosts your next spin's win total (Bonus Meter Vault Coins stay separate):
                   </Text>
 
                   {/* Streak tier table */}
@@ -297,7 +311,7 @@ export function InfoModal({ open, onClose }: Props) {
 
                   <Text style={[styles.meta, { color: t.textMuted, marginTop: 6 }]}>
                     A blank free spin resets the streak to 1×. Returning to a paid spin also resets it.
-                    Bonus Meter coins when the meter fills are paid separately and are not multiplied by the streak.
+                    Bonus Meter Vault Coins are awarded separately and are not multiplied by the streak.
                   </Text>
                   <Text style={[styles.meta, { color: t.textMuted, marginTop: 4 }]}>
                     Free spins do not grant XP toward your level (paid spins do).
@@ -324,9 +338,9 @@ export function InfoModal({ open, onClose }: Props) {
                     {', '}you hit Jackpot Mode. The flat center-row prize stacks on your normal payline wins. Your celebration title still follows total return vs bet (Win → Mega Jackpot).
                   </Text>
                   <Text style={[styles.body, { color: t.textSecondary }]}>
-                    Virtual coin prize is the <Text style={{ fontWeight: '800', color: t.textPrimary }}>greater</Text> of a{' '}
-                    <Text style={{ fontWeight: '800', color: t.gold }}>${JACKPOT_BASE_PAYOUT.toLocaleString()}</Text> floor and{' '}
-                    <Text style={{ fontWeight: '800', color: t.gold }}>your line bet × 25</Text>. Typical line bets hit the floor; very large bets scale up (e.g. $1M bet → $25M, $100M bet → $2.5B).
+                    Vault Coin reward is the <Text style={{ fontWeight: '800', color: t.textPrimary }}>greater</Text> of a{' '}
+                    <Text style={{ fontWeight: '800', color: t.gold }}>{JACKPOT_BASE_PAYOUT.toLocaleString()} Vault Coins</Text> floor and{' '}
+                    <Text style={{ fontWeight: '800', color: t.gold }}>your line bet × 25</Text>. Typical line bets hit the floor; very large bets scale up with the same Vault Coin formula.
                   </Text>
                   <View style={styles.demoRow}>
                     {['7️⃣', '7️⃣', '7️⃣', '7️⃣', '7️⃣'].map((em, i) => (
@@ -349,11 +363,11 @@ export function InfoModal({ open, onClose }: Props) {
                 >
                   <Text style={[styles.bonusCardTitle, { color: t.win }]}>Mystery Multiplier</Text>
                   <Text style={[styles.body, { color: t.textSecondary }]}>
-                    On spins that already have a base win (paylines, scatter coins, and/or center-row
-                    jackpot prize), there is a small chance the entire base win is multiplied before it
+                    On spins that already have a base win result (paylines, Scatter Vault Coins, and/or center-row
+                    jackpot reward), there is a small chance the entire base result is multiplied before it
                     is added to your balance. Possible values:{' '}
                     <Text style={{ fontWeight: '800', color: t.textPrimary }}>2×, 3×, 5×, 8×, or 10×</Text>
-                    . Does not apply to the Bonus Meter payout when the meter fills on the same spin.
+                    . Does not apply to the Bonus Meter reward when the meter fills on the same spin.
                   </Text>
                 </View>
 
@@ -371,14 +385,14 @@ export function InfoModal({ open, onClose }: Props) {
                   <Text style={[styles.body, { color: t.textSecondary }]}>
                     Fills every spin — <Text style={{ fontWeight: '800', color: t.textPrimary }}>+10%</Text> on a winning spin,{' '}
                     <Text style={{ fontWeight: '800', color: t.textPrimary }}>+2%</Text> on a non-winning spin.
-                    Reach 100% to claim a bonus coin reward.
+                    Reach 100% to claim a bonus Vault Coin reward.
                   </Text>
                   <Text style={[styles.body, { color: t.textSecondary }]}>
                     Bonus reward is at least{' '}
-                    <Text style={{ fontWeight: '800', color: t.textPrimary }}>350</Text> coins and scales as{' '}
+                    <Text style={{ fontWeight: '800', color: t.textPrimary }}>350</Text> Vault Coins and scales as{' '}
                     <Text style={{ fontWeight: '800', color: t.textPrimary }}>bet × 8</Text> (no upper cap), so
-                    higher line bets earn larger meter prizes — e.g. at 100 coins:{' '}
-                    <Text style={{ fontWeight: '800', color: t.primary }}>{bonusMeterPayoutForBet(100).toLocaleString()}</Text> coins.
+                    higher line bets earn larger meter rewards — e.g. at a 100 Vault Coin bet:{' '}
+                    <Text style={{ fontWeight: '800', color: t.primary }}>{bonusMeterPayoutForBet(100).toLocaleString()}</Text> Vault Coins.
                   </Text>
                 </View>
 
@@ -396,7 +410,7 @@ export function InfoModal({ open, onClose }: Props) {
                   <Text style={[styles.body, { color: t.textSecondary }]}>
                     Tap <Text style={{ fontWeight: '800', color: t.textPrimary }}>Fast</Text> next to Info / Lines / Auto
                     to speed up only the <Text style={{ fontWeight: '800', color: t.textPrimary }}>Last Win</Text> coin
-                    count-up after a spin. Reel animation timing and payout math are unchanged — it is a display
+                    count-up after a spin. Reel animation timing and reward math are unchanged — it is a display
                     convenience, not a turbo for the slot engine.
                   </Text>
                 </View>
@@ -435,7 +449,7 @@ export function InfoModal({ open, onClose }: Props) {
                   <Text style={[styles.bonusCardTitle, { color: t.freeSpin }]}>Daily streak</Text>
                   <Text style={[styles.body, { color: t.textSecondary }]}>
                     On the <Text style={{ fontWeight: '800', color: t.textPrimary }}>Rewards</Text> tab, claiming the next
-                    day in your login streak awards coins and adds{' '}
+                    day in your login streak awards Vault Coins and adds{' '}
                     <Text style={{ fontWeight: '800', color: t.freeSpin }}>{DAILY_STREAK_FREE_SPINS_PER_CLAIM} free spins</Text>
                     {' '}(offline / local economy). Cloud saves follow the server wallet — amounts may differ but the
                     streak lives there too.
@@ -454,14 +468,14 @@ export function InfoModal({ open, onClose }: Props) {
                 >
                   <Text style={[styles.bonusCardTitle, { color: t.textPrimary }]}>Bet Range</Text>
                   <Text style={[styles.body, { color: t.textSecondary }]}>
-                    Line bets (virtual coins):{'\n'}
+                    Line bets (Vault Coins):{'\n'}
                     {betList}.{'\n'}
                     Higher tiers unlock when your vault holds at least{' '}
-                    <Text style={{ fontWeight: '800', color: t.textPrimary }}>50×</Text> that bet in coins
+                    <Text style={{ fontWeight: '800', color: t.textPrimary }}>50×</Text> that bet in Vault Coins
                     (starter tiers up to 500 are always available).{'\n\n'}
-                    <Text style={{ fontWeight: '700', color: t.textPrimary }}>Free spins</Text> cost no coins and
+                    <Text style={{ fontWeight: '700', color: t.textPrimary }}>Free spins</Text> cost no Vault Coins and
                     pay using your <Text style={{ fontWeight: '800', color: t.textPrimary }}>current line bet</Text> — same
-                    payout math as a paid spin at that amount.
+                    reward math as a paid spin at that amount.
                   </Text>
                 </View>
 
@@ -479,14 +493,14 @@ export function InfoModal({ open, onClose }: Props) {
                   <Text style={[styles.body, { color: t.textSecondary }]}>
                     <Text style={{ fontWeight: '800', color: t.textPrimary }}>Paid spins</Text> earn XP when the
                     reels resolve. <Text style={{ fontWeight: '800', color: t.textPrimary }}>Free spins</Text> do
-                    not (they still pay coins normally).
+                    not (they still award Vault Coins normally).
                   </Text>
                   <Text style={[styles.body, { color: t.textSecondary }]}>
                     Each paid spin grants a{' '}
                     <Text style={{ fontWeight: '800', color: t.textPrimary }}>base</Text> amount from your line bet
-                    (at least 10 XP, plus about 1 XP per 10 coins bet, up to 500 XP from bet alone), plus a{' '}
+                    (at least 10 XP, plus about 1 XP per 10 Vault Coins bet, up to 500 XP from bet alone), plus a{' '}
                     <Text style={{ fontWeight: '800', color: t.textPrimary }}>win bonus</Text> when that spin pays
-                    coins: up to 100 XP from the spin win (about 1 XP per 1,000 coins won on that spin). When the{' '}
+                    Vault Coins: up to 100 XP from the spin win (about 1 XP per 1,000 Vault Coins won on that spin). When the{' '}
                     <Text style={{ fontWeight: '800', color: t.textPrimary }}>Bonus Meter</Text> fills on the same
                     paid spin, you also get <Text style={{ fontWeight: '800', color: t.primary }}>+{BONUS_METER_XP} XP</Text>.
                   </Text>
@@ -498,11 +512,11 @@ export function InfoModal({ open, onClose }: Props) {
                     <Text style={{ fontWeight: '800', color: t.primary }}>{xpBarL30}</Text> XP.
                   </Text>
                   <Text style={[styles.body, { color: t.textSecondary }]}>
-                    Leveling up always pays <Text style={{ fontWeight: '800', color: t.textPrimary }}>bonus coins</Text>
-                    . Landmark levels 5, 10, 20, 30, 50, 75, and 100 replace the default with larger preset coin bundles and may add{' '}
+                    Leveling up always awards <Text style={{ fontWeight: '800', color: t.textPrimary }}>bonus Vault Coins</Text>
+                    . Landmark levels 5, 10, 20, 30, 50, 75, and 100 replace the default with larger preset Vault Coin bundles and may add{' '}
                     <Text style={{ fontWeight: '800', color: t.textPrimary }}>free spins</Text>
                     {' '}(they do <Text style={{ fontWeight: '800', color: t.textPrimary }}>not</Text> stack the small “level × 500” formula on top). Every other level grants{' '}
-                    <Text style={{ fontWeight: '800', color: t.textPrimary }}>level × 500</Text> bonus coins. Claiming{' '}
+                    <Text style={{ fontWeight: '800', color: t.textPrimary }}>level × 500</Text> bonus Vault Coins. Claiming{' '}
                     <Text style={{ fontWeight: '800', color: t.textPrimary }}>missions</Text> and some other rewards can grant bonus XP on top of spins.
                   </Text>
                 </View>
@@ -517,7 +531,7 @@ export function InfoModal({ open, onClose }: Props) {
                     { borderColor: t.border, backgroundColor: hexWithAlpha(t.card, 'CC') },
                   ]}
                 >
-                  {WIN_TYPES_PAYTABLE.map(({ winType, label, range, colorKey }) => (
+                  {WIN_TYPES_REWARD_TABLE.map(({ winType, label, range, colorKey }) => (
                     <View key={winType} style={[styles.winRow, { borderColor: t.border }]}>
                       <Text style={[styles.winLabel, { color: t[colorKey] }]}>{label}</Text>
                       <Text style={[styles.winRange, { color: t.textSecondary }]}>{range}</Text>
@@ -527,7 +541,7 @@ export function InfoModal({ open, onClose }: Props) {
 
                 <Text style={[styles.body, { color: t.textMuted, marginTop: 8, fontSize: 11 }]}>
                   Wins below <Text style={{ fontWeight: '700', color: t.textSecondary }}>1×</Text> your line bet still
-                  credit coins; the in-game result uses a compact tally instead of the full “Win” celebration.
+                  credit Vault Coins; the in-game result uses a compact tally instead of the full “Win” celebration.
                 </Text>
 
                 <Text style={[styles.body, { color: t.textMuted, marginTop: 8, fontSize: 11 }]}>
@@ -539,7 +553,7 @@ export function InfoModal({ open, onClose }: Props) {
                 </Text>
 
                 <Text style={[styles.body, { color: t.textMuted, marginTop: 8, fontSize: 11 }]}>
-                  All amounts are virtual coins. No real-money payouts.
+                  All amounts are Vault Coins for entertainment only. No cash value.
                 </Text>
               </>
             )}
