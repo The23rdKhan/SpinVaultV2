@@ -30,8 +30,8 @@ export function resolveTabHeaderBrandLayout(
       ? TAB_HEADER_LOGO_HORIZONTAL_LARGE
       : TAB_HEADER_LOGO_HORIZONTAL
   const maxByScreen = windowWidth - reservedRight - 16
-  const width = Math.min(cap.width, Math.max(128, Math.round(maxByScreen)))
-  const height = Math.min(cap.height, Math.max(32, Math.round(width * SPINVAULT_LOGO_HORIZONTAL_ASPECT)))
+  const width = Math.min(cap.width, Math.max(120, Math.round(maxByScreen * 0.92)))
+  const height = Math.min(cap.height, Math.max(28, Math.round(width * SPINVAULT_LOGO_HORIZONTAL_ASPECT)))
 
   return {
     useCompact,

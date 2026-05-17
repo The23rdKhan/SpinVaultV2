@@ -43,14 +43,16 @@ function TabHeaderBrand({ subtitle, layout }: { subtitle: string; layout: TabHea
 
   const { width, height } = layout.horizontal
   return (
-    <Image
-      source={SPINVAULT_LOGO_HORIZONTAL_PNG}
-      style={{ width, height }}
-      resizeMode="contain"
-      accessibilityIgnoresInvertColors
-      accessibilityRole="image"
-      accessibilityLabel={`${APP_NAME}. ${subtitle}.`}
-    />
+    <View style={[styles.logoFrame, { width, height }]}>
+      <Image
+        source={SPINVAULT_LOGO_HORIZONTAL_PNG}
+        style={styles.logoImage}
+        resizeMode="contain"
+        accessibilityIgnoresInvertColors
+        accessibilityRole="image"
+        accessibilityLabel={`${APP_NAME}. ${subtitle}.`}
+      />
+    </View>
   )
 }
 
@@ -82,6 +84,7 @@ export function TabScreenHeader({ title }: { title: string }) {
 
 const styles = StyleSheet.create({
   shell: {
+    overflow: 'hidden',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(128,128,128,0.2)',
   },
@@ -89,17 +92,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: TAB_SCREEN_HEADER_BAR_HEIGHT,
+    height: TAB_SCREEN_HEADER_BAR_HEIGHT,
     paddingHorizontal: 16,
-    paddingBottom: 6,
+    paddingBottom: 4,
     gap: 10,
+    overflow: 'hidden',
   },
   brandSlot: {
     flex: 1,
     flexShrink: 1,
     minWidth: 0,
     justifyContent: 'center',
-    minHeight: TAB_HEADER_LOGO_MARK.height,
+    maxHeight: TAB_SCREEN_HEADER_BAR_HEIGHT - 4,
+    overflow: 'hidden',
+  },
+  logoFrame: {
+    overflow: 'hidden',
+    alignSelf: 'flex-start',
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
   brandRow: {
     flexDirection: 'row',

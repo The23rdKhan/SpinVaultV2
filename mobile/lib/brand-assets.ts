@@ -8,16 +8,16 @@ export const VAULT_COIN_PNG = require('@/assets/icons/vault-coin.png') as number
 export const SPINVAULT_LOGO_HORIZONTAL_PNG = require('@/assets/logo-horizontal.png') as number
 
 /** Intrinsic height ÷ width of trimmed `logo-horizontal.png` (keep in sync if asset changes). */
-export const SPINVAULT_LOGO_HORIZONTAL_ASPECT = 146 / 677
+export const SPINVAULT_LOGO_HORIZONTAL_ASPECT = 286 / 1024
 
 /** VC wheel mark for compact headers (narrow phones). */
 export const SPINVAULT_LOGO_MARK_PNG = require('@/assets/icons/logo-mark.png') as number
 
-/** Tab header horizontal wordmark — fits 52pt custom header bar. */
-export const TAB_HEADER_LOGO_HORIZONTAL = { width: 168, height: 40 } as const
+/** Tab header horizontal wordmark — fits 52pt custom header bar without overlapping content. */
+export const TAB_HEADER_LOGO_HORIZONTAL = { width: 142, height: 40 } as const
 
 /** Larger cap for Plus / Pro Max / iPad split (~≥420pt). */
-export const TAB_HEADER_LOGO_HORIZONTAL_LARGE = { width: 188, height: 44 } as const
+export const TAB_HEADER_LOGO_HORIZONTAL_LARGE = { width: 158, height: 44 } as const
 
 /** Tab header compact mark + text layout. */
 export const TAB_HEADER_LOGO_MARK = { width: 40, height: 40 } as const
