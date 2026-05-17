@@ -19,6 +19,7 @@ import {
   TrophyCaseSection,
 } from '@/components/profile/parity-sections'
 import { AppButton } from '@/components/ui/AppButton'
+import { SpinVaultScreenBackground } from '@/components/brand/SpinVaultScreenBackground'
 import { AppScrollView } from '@/components/ui/AppScrollView'
 import type { AppearanceMode } from '@/lib/appearance-context'
 import { useAppearance } from '@/lib/appearance-context'
@@ -139,21 +140,22 @@ export default function ProfileScreen() {
   }
 
   const appearanceOptions: { id: AppearanceMode; label: string }[] = [
-    { id: 'dark', label: 'Dark' },
-    { id: 'light', label: 'Light' },
     { id: 'system', label: 'System' },
+    { id: 'light', label: 'Light' },
+    { id: 'dark', label: 'Dark' },
   ]
 
   const bottomPad = Math.max(insets.bottom, 12) + 64
 
   return (
-    <AppScrollView
-      style={[styles.scroll, { backgroundColor: t.background }]}
-      contentContainerStyle={[
-        styles.pad,
-        { paddingHorizontal: SCREEN_PAD_H, paddingBottom: bottomPad },
-      ]}
-    >
+    <SpinVaultScreenBackground>
+      <AppScrollView
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.pad,
+          { paddingHorizontal: SCREEN_PAD_H, paddingBottom: bottomPad },
+        ]}
+      >
       <Text style={[styles.lead, { color: t.textSecondary }]}>
         Your vault identity, collections & settings
       </Text>
@@ -247,12 +249,12 @@ export default function ProfileScreen() {
             </View>
           </View>
           <View style={[styles.statCard, { backgroundColor: t.cardSoft }]}>
-            <Text style={[styles.statLbl, { color: t.textMuted }]}>Coins</Text>
+            <Text style={[styles.statLbl, { color: t.textMuted }]}>Vault Coins</Text>
             <View style={styles.walletRow}>
               <FontAwesome name="circle" size={14} color={t.gold} />
               <Text style={[styles.walletAmt, { color: t.textPrimary }]}>{coins.toLocaleString()}</Text>
             </View>
-            <Text style={[styles.walletHint, { color: t.textMuted }]}>Virtual coins</Text>
+            <Text style={[styles.walletHint, { color: t.textMuted }]}>No cash value</Text>
           </View>
         </View>
       </LinearGradient>
@@ -370,7 +372,8 @@ export default function ProfileScreen() {
         onSaveBio={setBio}
         onSaveAvatar={setAvatarUri}
       />
-    </AppScrollView>
+      </AppScrollView>
+    </SpinVaultScreenBackground>
   )
 }
 

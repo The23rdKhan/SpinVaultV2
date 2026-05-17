@@ -73,7 +73,7 @@ export function CosmeticChest({ onMessage }: { onMessage: (msg: string) => void 
       })
       if (!spent) {
         setOpening(false)
-        onMessage('Not enough coins')
+        onMessage('Not enough Vault Coins')
         return
       }
 
@@ -86,7 +86,7 @@ export function CosmeticChest({ onMessage }: { onMessage: (msg: string) => void 
           label: 'Chest refund + bonus (collection complete)',
         })
         setOpening(false)
-        onMessage('Collection complete — bonus coins!')
+        onMessage('Collection complete — bonus Vault Coins!')
         return
       }
 
@@ -176,18 +176,18 @@ export function CosmeticChest({ onMessage }: { onMessage: (msg: string) => void 
           <View style={{ flex: 1 }}>
             <Text style={[styles.chestTitle, { color: t.textPrimary }]}>Mystery Chest</Text>
             <Text style={[styles.chestSub, { color: t.textSecondary }]}>
-              Random cosmetic by rarity — paid with virtual coins only.
+              Random cosmetic by rarity — paid with Vault Coins only.
             </Text>
           </View>
           <AppButton
-            label={opening ? 'Opening…' : `${CHEST_PRICE.toLocaleString()} virtual coins`}
+            label={opening ? 'Opening…' : `${CHEST_PRICE.toLocaleString()} Vault Coins`}
             disabled={!canAfford || opening}
             onPress={openChest}
           />
         </View>
         {!canAfford ? (
           <Text style={[styles.needMore, { color: t.destructive }]}>
-            Need {(CHEST_PRICE - coins).toLocaleString()} more virtual coins
+            Need {(CHEST_PRICE - coins).toLocaleString()} more Vault Coins
           </Text>
         ) : null}
       </LinearGradient>

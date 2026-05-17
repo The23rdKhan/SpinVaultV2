@@ -11,7 +11,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated'
 import type { WinningLine } from '@/lib/game-context'
-import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { useAppearance } from '@/lib/appearance-context'
 import { useReducedMotion } from '@/lib/use-reduced-motion'
 import { paylineAccentColors } from './payline-accent-colors'
 
@@ -48,8 +48,8 @@ function toPoints(positions: [number, number][]): string {
 }
 
 export function PaylineOverlay({ winningLines, effectStyle = 'classic' }: Props) {
-  const t = useCasinoTheme()
-  const strokeColors = paylineAccentColors(t)
+  const { resolvedMode } = useAppearance()
+  const strokeColors = paylineAccentColors(resolvedMode)
 
   if (winningLines.length === 0) return null
 

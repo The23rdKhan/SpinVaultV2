@@ -361,7 +361,7 @@ export function WeeklyLeaderboard() {
               <View key={i} style={[styles.jackpotWallRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: hexWithAlpha(t.gold, '30') }]}>
                 <Text style={[styles.jackpotWallName, { color: t.textPrimary }]}>🏆 {w.username}</Text>
                 <View style={styles.jackpotWallRight}>
-                  <Text style={[styles.jackpotWallAmount, { color: t.gold }]}>${w.amount.toLocaleString()}</Text>
+                  <Text style={[styles.jackpotWallAmount, { color: t.gold }]}>{w.amount.toLocaleString()} VC</Text>
                   <Text style={[styles.jackpotWallTime, { color: t.textMuted }]}>{relTime}</Text>
                 </View>
               </View>
@@ -453,7 +453,7 @@ export function WeeklyLeaderboard() {
               : pick
           }
           metricLabel={
-            type === 'biggestWin' ? 'Best spin (weekly)' : 'Total virtual coins won (weekly)'
+            type === 'biggestWin' ? 'Best spin (weekly)' : 'Total Vault Coins won (weekly)'
           }
           onClose={() => setPick(null)}
         />

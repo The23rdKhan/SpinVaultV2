@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { useColorScheme as useRNColorScheme } from 'react-native'
+import { type ColorSchemeName, useColorScheme as useRNColorScheme } from 'react-native'
 
 export type AppearanceMode = 'dark' | 'light' | 'system'
 
@@ -16,6 +16,19 @@ interface AppearanceContextType {
   mode: AppearanceMode
   resolvedMode: 'dark' | 'light'
   setMode: (mode: AppearanceMode) => void
+  /** False until persisted appearance preference has been read from storage. */
+  isHydrated: boolean
+}
+
+/** Maps user preference + OS scheme to the palette used by shell UI and tab backgrounds. */
+export function resolveAppearanceMode(
+  mode: AppearanceMode,
+  systemScheme: ColorSchemeName
+): 'dark' | 'light' {
+  if (mode === 'system') {
+    return systemScheme === 'light' ? 'light' : 'dark'
+  }
+  return mode
 }
 
 const AppearanceContext = createContext<AppearanceContextType | undefined>(undefined)
@@ -24,7 +37,8 @@ const STORAGE_KEY = 'lucky_slots_appearance'
 
 export function AppearanceProvider({ children }: { children: ReactNode }) {
   const systemScheme = useRNColorScheme()
-  const [mode, setModeState] = useState<AppearanceMode>('dark')
+  /** Default: follow device light/dark until the user picks a fixed mode in Profile. */
+  const [mode, setModeState] = useState<AppearanceMode>('system')
   const [hydrated, setHydrated] = useState(false)
 
   useEffect(() => {
@@ -36,12 +50,10 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  const resolvedMode = useMemo<'dark' | 'light'>(() => {
-    if (mode === 'system') {
-      return systemScheme === 'light' ? 'light' : 'dark'
-    }
-    return mode
-  }, [mode, systemScheme])
+  const resolvedMode = useMemo<'dark' | 'light'>(
+    () => resolveAppearanceMode(mode, systemScheme),
+    [mode, systemScheme]
+  )
 
   const setMode = useCallback((next: AppearanceMode) => {
     setModeState(next)
@@ -49,17 +61,9 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo(
-    () => ({ mode, resolvedMode, setMode }),
-    [mode, resolvedMode, setMode]
+    () => ({ mode, resolvedMode, setMode, isHydrated: hydrated }),
+    [mode, resolvedMode, setMode, hydrated]
   )
-
-  if (!hydrated) {
-    return (
-      <AppearanceContext.Provider value={{ mode: 'dark', resolvedMode: 'dark', setMode: () => {} }}>
-        {children}
-      </AppearanceContext.Provider>
-    )
-  }
 
   return <AppearanceContext.Provider value={value}>{children}</AppearanceContext.Provider>
 }

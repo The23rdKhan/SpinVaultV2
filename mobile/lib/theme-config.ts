@@ -42,7 +42,7 @@ export const THEME_CONFIGS: Record<Theme, ThemeConfig> = {
     price: 0,
     unlocks: [
       "✓ Gold cabinet frame",
-      "✓ Classic symbols (7, cherry, bell, diamond, bar)",
+      "✓ Spin Vault symbols (Red 7, VC Coin, Vault Wheel, gems, chest)",
       "✓ Coin burst win effects",
       "✓ Jackpot Mode bonus display",
       "✓ Vegas sound effects",
@@ -52,11 +52,11 @@ export const THEME_CONFIGS: Record<Theme, ThemeConfig> = {
     cabinetFrame: "border-amber-500",
     cabinetBorder: "border-amber-600",
     
-    symbolSet: ["7️⃣", "🍒", "🔔", "💎", "🍫", "⭐", "🎯"],
-    wildName: "Wild",
-    wildIcon: "⭐",
-    scatterName: "Scatter",
-    scatterIcon: "🎯",
+    symbolSet: ["7", "VC", "◎", "◆", "♦", "★", "▣"],
+    wildName: "Wild Logo",
+    wildIcon: "★",
+    scatterName: "Scatter Chest",
+    scatterIcon: "▣",
     
     jackpotName: "MEGA JACKPOT",
     bonusName: "Free Spins",
@@ -113,7 +113,7 @@ export const THEME_CONFIGS: Record<Theme, ThemeConfig> = {
     price: 5000,
     unlocks: [
       "✓ Treasure cabinet frame",
-      "✓ Pirate symbols (coins, chest, compass, skull, map, flag)",
+      "✓ Pirate symbols (Vault Coins, chest, compass, skull, map, flag)",
       "✓ Doubloon win effects",
       "✓ Treasure Vault bonus",
       "✓ Treasure map free spins",

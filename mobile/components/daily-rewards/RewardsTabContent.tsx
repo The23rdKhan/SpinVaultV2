@@ -6,6 +6,7 @@ import Toast from 'react-native-toast-message'
 import { router } from 'expo-router'
 import { WeeklyLeaderboard } from '@/components/social/WeeklyLeaderboard'
 import { WinnerFeedStrip } from '@/components/social/WinnerFeedStrip'
+import { SpinVaultScreenBackground } from '@/components/brand/SpinVaultScreenBackground'
 import { AppScrollView } from '@/components/ui/AppScrollView'
 import { SCREEN_PAD_H } from '@/lib/screen-edge'
 import { useGame } from '@/lib/game-context'
@@ -44,17 +45,18 @@ export function RewardsTabContent() {
   const bottomPad = Math.max(insets.bottom, 12) + 28
 
   return (
-    <AppScrollView
-      style={[styles.scroll, { backgroundColor: t.background }]}
-      contentContainerStyle={[
-        styles.pad,
-        { paddingHorizontal: SCREEN_PAD_H, paddingBottom: bottomPad },
-      ]}
-    >
+    <SpinVaultScreenBackground>
+      <AppScrollView
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.pad,
+          { paddingHorizontal: SCREEN_PAD_H, paddingBottom: bottomPad },
+        ]}
+      >
       <View style={styles.hero}>
         <View>
           <Text style={[styles.tagline, { color: t.textSecondary }]}>
-            Daily quests & virtual coin bonuses
+            Daily quests & Vault Coin bonuses
           </Text>
         </View>
         <View style={[styles.pill, { borderColor: t.border, backgroundColor: t.surfaceElevated }]}>
@@ -119,7 +121,8 @@ export function RewardsTabContent() {
 
       <WinnerFeedStrip />
       <WeeklyLeaderboard />
-    </AppScrollView>
+      </AppScrollView>
+    </SpinVaultScreenBackground>
   )
 }
 

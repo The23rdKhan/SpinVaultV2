@@ -309,7 +309,7 @@ export function StatsGridSection({
     { label: 'Total spins', value: totalSpins.toLocaleString(), icon: 'crosshairs' as const },
     { label: 'Spin wins', value: totalWins.toLocaleString(), icon: 'check-circle' as const },
     {
-      label: 'Best spin (coins)',
+      label: 'Best spin (Vault Coins)',
       value: biggestWin.toLocaleString(),
       icon: 'trophy' as const,
     },
@@ -894,7 +894,7 @@ export function ResponsiblePlaySection({
         </View>
       </View>
       <Text style={[styles.disclaimer, { color: subC }]}>
-        Play responsibly. Coins are for in-game entertainment only and have no cash value. SpinVault does not offer
+        Play responsibly. Vault Coins are for in-game entertainment only and have no cash value. SpinVault does not offer
         real-money gambling or cash prizes.
       </Text>
     </View>

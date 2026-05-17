@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Image, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { useGame, type Theme } from '@/lib/game-context'
 import { VAULT_COIN_PNG } from '@/lib/brand-assets'
@@ -12,8 +12,10 @@ const THEMES: Theme[] = ['vegas', 'cyber', 'treasure']
 
 export function HeaderActions() {
   const t = useCasinoTheme()
+  const { width: windowWidth } = useWindowDimensions()
   const { currentTheme, setTheme, ownedThemes, coins } = useGame()
   const [open, setOpen] = useState(false)
+  const showCoinsLabel = windowWidth >= 390
 
   return (
     <>
@@ -34,7 +36,9 @@ export function HeaderActions() {
             accessibilityLabel="Vault Coins"
           />
           <Text style={[styles.coins, { color: t.gold }]}>{coins.toLocaleString()}</Text>
-          <Text style={[styles.coinsSuffix, { color: hexWithAlpha(t.gold, '99') }]}>Vault Coins</Text>
+          {showCoinsLabel ? (
+            <Text style={[styles.coinsSuffix, { color: hexWithAlpha(t.gold, '99') }]}>Vault Coins</Text>
+          ) : null}
         </View>
         <Pressable
           accessibilityLabel="Choose slot machine look"
@@ -104,7 +108,7 @@ export function HeaderActions() {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',

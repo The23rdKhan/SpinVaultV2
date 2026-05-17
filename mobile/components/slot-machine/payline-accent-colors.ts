@@ -1,17 +1,18 @@
 import { hexWithAlpha } from '@/theme/tokens'
-import type { AppTheme } from '@/lib/use-casino-theme'
+import { VAULT_REEL_PALETTE } from './symbol-win-glow-colors'
 
-/** Payline stroke accents — soft vault palette; red reserved for top-tier overlays elsewhere. */
-export function paylineAccentColors(t: AppTheme): string[] {
+/** Payline stroke accents — vault gem palette first; avoids generic teal-only lines in light mode. */
+export function paylineAccentColors(mode: 'dark' | 'light'): string[] {
+  const p = VAULT_REEL_PALETTE
   return [
-    '#FFD76A',
-    hexWithAlpha('#20D6C7', 'CC'),
-    '#A855F7',
-    hexWithAlpha(t.bonus, 'CC'),
-    t.machineAccent,
-    t.primary,
-    hexWithAlpha('#FFD76A', '99'),
-    hexWithAlpha('#4DBBFF', 'CC'),
-    hexWithAlpha(t.gold, 'BB'),
+    p.gold,
+    hexWithAlpha(p.teal, mode === 'light' ? 'DD' : 'CC'),
+    p.purple,
+    hexWithAlpha(p.blue, mode === 'light' ? 'EE' : 'CC'),
+    p.deepGold,
+    hexWithAlpha(p.gold, mode === 'light' ? 'BB' : '99'),
+    hexWithAlpha(p.purple, 'AA'),
+    hexWithAlpha(p.teal, '99'),
+    hexWithAlpha(p.blue, 'AA'),
   ]
 }

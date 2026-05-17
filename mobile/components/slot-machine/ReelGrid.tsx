@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import { StyleSheet, View } from 'react-native'
+import { Platform, StyleSheet, View } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated'
 import { useGame, SYMBOLS, type ReelGrid as ReelGridType } from '@/lib/game-context'
 import type { WinType } from '@shared/slot/evaluate-spin'
+import { useAppearance } from '@/lib/appearance-context'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { hexWithAlpha } from '@/theme/tokens'
+import { VAULT_REEL_PALETTE } from './symbol-win-glow-colors'
 import { useReducedMotion } from '@/lib/use-reduced-motion'
 import { SlotSymbolView } from './SlotSymbol'
 import { PaylineOverlay, type PaylineStrokeStyle } from './PaylineOverlay'
@@ -48,6 +50,7 @@ function ReelColumn({
   colIndex,
   column,
   isSpinning: colSpinning,
+  resolvedMode,
   winningPositions,
   settleSignal,
   winTier,
@@ -57,6 +60,7 @@ function ReelColumn({
   colIndex: number
   column: ReelGridType[number]
   isSpinning: boolean
+  resolvedMode: 'dark' | 'light'
   winningPositions: Set<string>
   settleSignal: number
   /** Win tier of the last resolved spin — used to escalate cell glow and symbol pulse. */
@@ -95,40 +99,48 @@ function ReelColumn({
         return (
           <View
             key={key}
-            style={[
-              styles.cell,
-              { borderColor: t.border },
-              isWin && {
-                borderColor: tierAccent,
-                shadowColor: tierAccent,
-                shadowOpacity: cellTier.shadowOpacity,
-                shadowRadius: cellTier.shadowRadius,
-                elevation: cellTier.elevation,
-              },
-            ]}
+            style={[styles.cellFrame, isWin && styles.cellFrameWin]}
           >
-            <LinearGradient
-              pointerEvents="none"
-              colors={[
-                hexWithAlpha(t.textPrimary, '0E'),
-                hexWithAlpha(t.reelBg, 'F2'),
-                hexWithAlpha(t.reelBg, 'FF'),
+            <View
+              style={[
+                styles.cell,
+                { borderColor: t.border },
+                isWin && {
+                  borderColor: tierAccent,
+                  shadowColor: tierAccent,
+                  shadowOpacity: cellTier.shadowOpacity,
+                  shadowRadius: cellTier.shadowRadius,
+                  elevation: cellTier.elevation,
+                },
               ]}
-              locations={[0, 0.45, 1]}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
-              style={StyleSheet.absoluteFillObject}
-            />
-            <SlotSymbolView
-              symbol={symbol}
-              isWinning={isWin}
-              isSpinning={colSpinning}
-              justStoppedSignal={settleSignal}
-              isSpecialTriggered={!colSpinning && isWin && (symbol.isWild === true || symbol.isScatter === true)}
-              columnDelay={isWin ? columnDelay : 0}
-              winTier={isWin ? winTier : undefined}
-              winMotion={isWin ? symbolWinMotion : undefined}
-            />
+            >
+              <LinearGradient
+                pointerEvents="none"
+                colors={[
+                  hexWithAlpha(
+                    resolvedMode === 'light' ? VAULT_REEL_PALETTE.gold : VAULT_REEL_PALETTE.gold,
+                    resolvedMode === 'light' ? '18' : '0C',
+                  ),
+                  hexWithAlpha(t.reelBg, 'F2'),
+                  hexWithAlpha(t.reelBg, 'FF'),
+                ]}
+                locations={[0, 0.45, 1]}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+                style={StyleSheet.absoluteFillObject}
+              />
+              <SlotSymbolView
+                symbol={symbol}
+                isWinning={isWin}
+                isSpinning={colSpinning}
+                justStoppedSignal={settleSignal}
+                isSpecialTriggered={!colSpinning && isWin && (symbol.isWild === true || symbol.isScatter === true)}
+                columnDelay={isWin ? columnDelay : 0}
+                pulseStaggerMs={colIndex * COL_STAGGER_MS + rowIndex * 36}
+                winTier={isWin ? winTier : undefined}
+                winMotion={isWin ? symbolWinMotion : undefined}
+              />
+            </View>
           </View>
         )
       })}
@@ -143,6 +155,7 @@ export function ReelGrid({
   symbolWinMotion = 'pulse',
 }: ReelGridProps) {
   const t = useCasinoTheme()
+  const { resolvedMode } = useAppearance()
   const { reelGrid, isSpinning, reelsLocked, winningPositions, winningLines, stopSpin, lastWinType } = useGame()
 
   // Resolve the effective win tier (default to 'normal' when no win or type is 'none').
@@ -288,6 +301,7 @@ export function ReelGrid({
               colIndex={colIndex}
               column={column}
               isSpinning={spinningReels[colIndex]}
+              resolvedMode={resolvedMode}
               winningPositions={winningPositions}
               settleSignal={settleSignals[colIndex]}
               winTier={activeTier}
@@ -332,8 +346,21 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 6,
   },
-  cell: {
+  /** Outer frame allows symbol win halos to extend past the clipped cell interior. */
+  cellFrame: {
+    flex: 1,
     aspectRatio: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cellFrameWin: {
+    overflow: 'visible',
+    zIndex: 2,
+    ...(Platform.OS === 'android' ? { elevation: 4 } : null),
+  },
+  cell: {
+    width: '100%',
+    height: '100%',
     borderRadius: 8,
     borderWidth: 1,
     alignItems: 'center',

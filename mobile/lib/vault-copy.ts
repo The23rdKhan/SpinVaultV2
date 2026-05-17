@@ -148,5 +148,5 @@ export const MARQUEE_JACKPOT_HIT_SEGMENT_FRESH = '🏆 JACKPOT MODE HIT! Fresh p
 /** VoiceOver / TalkBack for the under-1× compact overlay. */
 export function formatSubtleWinAccessibilityLabel(coins: number, returnVsBet: number): string {
   const mult = Number(returnVsBet.toFixed(4))
-  return `Under 1 times your line bet. ${mult} times return vs line bet. ${VAULT_COIN_MARK} ${coins.toLocaleString()} virtual coins.`
+  return `Under 1 times your line bet. ${mult} times return vs line bet. ${VAULT_COIN_MARK} ${coins.toLocaleString()} Vault Coins.`
 }

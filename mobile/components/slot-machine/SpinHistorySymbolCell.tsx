@@ -11,6 +11,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated'
 import type { SlotSymbol } from '@/lib/game-context'
+import { useAppearance } from '@/lib/appearance-context'
 import { hexWithAlpha } from '@/theme/tokens'
 import { getSymbolWinGlow } from './symbol-win-glow-colors'
 import { SlotSymbolAsset } from './SlotSymbol'
@@ -36,10 +37,11 @@ export function SpinHistorySymbolCell({
   reduceMotion,
   columnDelay = 0,
 }: Props) {
+  const { resolvedMode } = useAppearance()
   const scale = useSharedValue(1)
   const glowOpacity = useSharedValue(0)
   const hasAsset = Boolean(symbol?.asset)
-  const glow = symbol ? getSymbolWinGlow(symbol) : null
+  const glow = symbol ? getSymbolWinGlow(symbol, resolvedMode) : null
   const ringColor = glow?.ring ?? fallbackAccent
   const shadowColor = glow?.shadow ?? fallbackAccent
 

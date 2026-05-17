@@ -14,8 +14,10 @@ import Animated2, {
 import { useKeepAwake } from 'expo-keep-awake'
 import Toast from 'react-native-toast-message'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
+import { useAppearance } from '@/lib/appearance-context'
 import { useGame } from '@/lib/game-context'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
+import { VAULT_REEL_PALETTE } from './symbol-win-glow-colors'
 import { useReducedMotion } from '@/lib/use-reduced-motion'
 import { hexWithAlpha } from '@/theme/tokens'
 import { CelebrationParticles } from '@/components/animations/CelebrationParticles'
@@ -42,6 +44,7 @@ import {
 
 export function SlotMachine() {
   const t = useCasinoTheme()
+  const { resolvedMode } = useAppearance()
   const reduceMotion = useReducedMotion()
   const {
     lastWin,
@@ -328,11 +331,19 @@ export function SlotMachine() {
       >
         <LinearGradient
           pointerEvents="none"
-          colors={[
-            hexWithAlpha(t.gold, '12'),
-            'transparent',
-            hexWithAlpha(t.primary, '08'),
-          ]}
+          colors={
+            resolvedMode === 'light'
+              ? [
+                  hexWithAlpha(VAULT_REEL_PALETTE.gold, '14'),
+                  'transparent',
+                  hexWithAlpha(VAULT_REEL_PALETTE.purple, '0A'),
+                ]
+              : [
+                  hexWithAlpha(VAULT_REEL_PALETTE.gold, '12'),
+                  'transparent',
+                  hexWithAlpha(VAULT_REEL_PALETTE.teal, '0A'),
+                ]
+          }
           locations={[0, 0.42, 1]}
           start={{ x: 0.5, y: 0 }}
           end={{ x: 0.5, y: 1 }}

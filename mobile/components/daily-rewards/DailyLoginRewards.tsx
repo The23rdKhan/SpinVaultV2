@@ -79,7 +79,7 @@ function DayCell({
         disabled={!isClaimable || isLocked}
         onPress={onClaim}
         style={[styles.cellBtn, flash && { borderColor: t.win, borderWidth: 2 }]}
-        accessibilityLabel={`Day ${reward.day} reward ${reward.coins} virtual coins`}
+        accessibilityLabel={`Day ${reward.day} reward ${reward.coins} Vault Coins`}
         accessibilityHint={isClaimable ? 'Double-tap to claim' : undefined}
       >
         <View style={styles.cellInner}>

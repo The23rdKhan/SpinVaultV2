@@ -1,5 +1,15 @@
 import type { SlotSymbol } from '@/lib/game-context'
 
+/** Canonical reel-symbol accent colors (shared by glows, paylines, light/dark machine chrome). */
+export const VAULT_REEL_PALETTE = {
+  gold: '#FFD76A',
+  deepGold: '#C9972B',
+  teal: '#20D6C7',
+  purple: '#A855F7',
+  blue: '#4DBBFF',
+  redSeven: '#FF3B3B',
+} as const
+
 /** Per-symbol win ring / halo colors — visual only. */
 export interface SymbolWinGlow {
   ring: string
@@ -8,21 +18,38 @@ export interface SymbolWinGlow {
   accent?: string
 }
 
-export const SYMBOL_WIN_GLOW = {
-  seven: { ring: '#FFD76A', shadow: '#FFD76A', accent: '#FF3B3B' },
-  lemon: { ring: '#FFD76A', shadow: '#C9972B' },
-  diamond: { ring: '#4DBBFF', shadow: '#20D6C7' },
-  cherry: { ring: '#A855F7', shadow: '#A855F7' },
-  bell: { ring: '#20D6C7', shadow: '#FFD76A' },
-  orange: { ring: '#FFD76A', shadow: '#C9972B' },
-  grape: { ring: '#FFD76A', shadow: '#A855F7' },
-  wild: { ring: '#FFD76A', shadow: '#C9972B' },
-  scatter: { ring: '#A855F7', shadow: '#FFD76A' },
-} as const satisfies Record<string, SymbolWinGlow>
+const SYMBOL_WIN_GLOW_DARK: Record<string, SymbolWinGlow> = {
+  seven: { ring: VAULT_REEL_PALETTE.gold, shadow: VAULT_REEL_PALETTE.gold, accent: VAULT_REEL_PALETTE.redSeven },
+  lemon: { ring: VAULT_REEL_PALETTE.gold, shadow: VAULT_REEL_PALETTE.deepGold },
+  diamond: { ring: VAULT_REEL_PALETTE.blue, shadow: VAULT_REEL_PALETTE.teal },
+  cherry: { ring: VAULT_REEL_PALETTE.purple, shadow: VAULT_REEL_PALETTE.purple },
+  bell: { ring: VAULT_REEL_PALETTE.teal, shadow: VAULT_REEL_PALETTE.gold },
+  orange: { ring: VAULT_REEL_PALETTE.gold, shadow: VAULT_REEL_PALETTE.deepGold },
+  grape: { ring: VAULT_REEL_PALETTE.gold, shadow: VAULT_REEL_PALETTE.purple },
+  wild: { ring: VAULT_REEL_PALETTE.gold, shadow: VAULT_REEL_PALETTE.deepGold },
+  scatter: { ring: VAULT_REEL_PALETTE.purple, shadow: VAULT_REEL_PALETTE.gold },
+}
 
-export function getSymbolWinGlow(symbol: SlotSymbol): SymbolWinGlow {
-  if (symbol.isWild) return SYMBOL_WIN_GLOW.wild
-  if (symbol.isScatter) return SYMBOL_WIN_GLOW.scatter
-  const keyed = SYMBOL_WIN_GLOW[symbol.id as keyof typeof SYMBOL_WIN_GLOW]
-  return keyed ?? SYMBOL_WIN_GLOW.diamond
+/** Slightly deeper rings on white reel tiles so halos match symbol art in light mode. */
+const SYMBOL_WIN_GLOW_LIGHT: Record<string, SymbolWinGlow> = {
+  seven: { ring: VAULT_REEL_PALETTE.deepGold, shadow: VAULT_REEL_PALETTE.gold, accent: '#DC2626' },
+  lemon: { ring: VAULT_REEL_PALETTE.deepGold, shadow: VAULT_REEL_PALETTE.gold },
+  diamond: { ring: '#2E9AE0', shadow: VAULT_REEL_PALETTE.blue },
+  cherry: { ring: '#9333EA', shadow: VAULT_REEL_PALETTE.purple },
+  bell: { ring: '#0D9488', shadow: VAULT_REEL_PALETTE.teal },
+  orange: { ring: VAULT_REEL_PALETTE.deepGold, shadow: VAULT_REEL_PALETTE.gold },
+  grape: { ring: VAULT_REEL_PALETTE.deepGold, shadow: VAULT_REEL_PALETTE.purple },
+  wild: { ring: VAULT_REEL_PALETTE.deepGold, shadow: VAULT_REEL_PALETTE.gold },
+  scatter: { ring: '#9333EA', shadow: VAULT_REEL_PALETTE.deepGold },
+}
+
+export function getSymbolWinGlow(
+  symbol: SlotSymbol,
+  mode: 'dark' | 'light' = 'dark',
+): SymbolWinGlow {
+  const table = mode === 'light' ? SYMBOL_WIN_GLOW_LIGHT : SYMBOL_WIN_GLOW_DARK
+  if (symbol.isWild) return table.wild
+  if (symbol.isScatter) return table.scatter
+  const keyed = table[symbol.id]
+  return keyed ?? table.diamond
 }

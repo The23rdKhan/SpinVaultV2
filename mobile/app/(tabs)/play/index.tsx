@@ -2,6 +2,7 @@ import { StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { SlotMachine } from '@/components/slot-machine/SlotMachine'
 import { RecentSpinsRow } from '@/components/slot-machine/RecentSpinsRow'
+import { SpinVaultScreenBackground } from '@/components/brand/SpinVaultScreenBackground'
 import { AppScrollView } from '@/components/ui/AppScrollView'
 import { useGame } from '@/lib/game-context'
 import { SCREEN_PAD_H } from '@/lib/screen-edge'
@@ -14,20 +15,22 @@ export default function PlayScreen() {
   const { spinAudit } = useGame()
 
   return (
-    <AppScrollView
-      style={[styles.scroll, { backgroundColor: t.background }]}
-      contentContainerStyle={[styles.content, { paddingBottom: bottomPad, paddingHorizontal: SCREEN_PAD_H }]}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View
-        collapsable={false}
-        style={[styles.playSurface, { backgroundColor: t.surface, borderColor: t.border }]}
+    <SpinVaultScreenBackground>
+      <AppScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingBottom: bottomPad, paddingHorizontal: SCREEN_PAD_H }]}
+        keyboardShouldPersistTaps="handled"
       >
-        <SlotMachine />
-      </View>
+        <View
+          collapsable={false}
+          style={[styles.playSurface, { backgroundColor: t.surface, borderColor: t.border }]}
+        >
+          <SlotMachine />
+        </View>
 
-      <RecentSpinsRow spinAudit={spinAudit} />
-    </AppScrollView>
+        <RecentSpinsRow spinAudit={spinAudit} />
+      </AppScrollView>
+    </SpinVaultScreenBackground>
   )
 }
 

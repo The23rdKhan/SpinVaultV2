@@ -8,6 +8,7 @@ import { hexWithAlpha } from '@/theme/tokens'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { AppButton } from '@/components/ui/AppButton'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
+import { useAppearance } from '@/lib/appearance-context'
 import { paylineAccentColors } from './payline-accent-colors'
 
 interface Props {
@@ -87,9 +88,10 @@ function LargeGrid({ payline, color, inactiveFill, inactiveStroke }: LargeGridPr
 
 export function LinesModal({ open, onClose }: Props) {
   const t = useCasinoTheme()
+  const { resolvedMode } = useAppearance()
   const insets = useSafeAreaInsets()
   const [current, setCurrent] = useState(0)
-  const lineColors = paylineAccentColors(t)
+  const lineColors = paylineAccentColors(resolvedMode)
 
   const inactiveFill = hexWithAlpha(t.textMuted, '18')
   const inactiveStroke = hexWithAlpha(t.border, 'BB')

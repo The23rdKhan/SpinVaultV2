@@ -1,8 +1,10 @@
 import { memo, useEffect } from 'react'
-import { Image, StyleSheet, View, type ImageSourcePropType } from 'react-native'
+import { Image, Platform, StyleSheet, View, type ImageSourcePropType } from 'react-native'
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  withDelay,
+  withRepeat,
   withSequence,
   withTiming,
   cancelAnimation,
@@ -11,6 +13,7 @@ import Animated, {
 import type { SlotSymbol as SlotSymbolType } from '@/lib/game-context'
 import type { WinType } from '@shared/slot/evaluate-spin'
 import { hexWithAlpha } from '@/theme/tokens'
+import { useAppearance } from '@/lib/appearance-context'
 import { useCasinoTheme } from '@/lib/use-casino-theme'
 import { useReducedMotion } from '@/lib/use-reduced-motion'
 import {
@@ -18,7 +21,7 @@ import {
   runSymbolWinPreset,
   settleWinMotion,
 } from './slot-symbol-win-presets'
-import { getSymbolWinGlow } from './symbol-win-glow-colors'
+import { getSymbolWinGlow, type SymbolWinGlow } from './symbol-win-glow-colors'
 
 const SYMBOL_ASSETS: NonNullable<Record<NonNullable<SlotSymbolType['asset']>, ImageSourcePropType>> = {
   redSeven: require('@/assets/reel-symbols/red-seven.png'),
@@ -76,6 +79,33 @@ const TIER_RING: Record<Exclude<WinType, 'none'>, TierRing> = {
   jackpot: { ringSize: 62, ringBorderWidth: 3,   ringShadowRadius: 20 },
 }
 
+/** Subtle idle breathe — much softer than the SPIN button pulse. */
+const IDLE_PULSE = {
+  scalePeak: 1.018,
+  scaleDip: 0.996,
+  glowHigh: 0.2,
+  glowLow: 0.05,
+  durationMs: 1700,
+  spinDurationMs: 520,
+  ringSize: 44,
+} as const
+
+function idleGlowRingStyle(glow: SymbolWinGlow) {
+  return {
+    width: IDLE_PULSE.ringSize,
+    height: IDLE_PULSE.ringSize,
+    borderRadius: IDLE_PULSE.ringSize / 2,
+    borderWidth: 1,
+    borderColor: glow.ring,
+    backgroundColor: hexWithAlpha(glow.shadow, '14'),
+    shadowColor: glow.shadow,
+    shadowRadius: 6,
+    shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 0 },
+    ...(Platform.OS === 'android' ? { elevation: 2 } : null),
+  }
+}
+
 interface Props {
   symbol: SlotSymbolType
   isWinning?: boolean
@@ -85,6 +115,8 @@ interface Props {
   winMotion?: 'pulse' | 'bounce' | 'glow' | 'sparkle'
   justStoppedSignal?: number
   isSpecialTriggered?: boolean
+  /** Stagger idle pulse phase per cell (ms). */
+  pulseStaggerMs?: number
 }
 
 function SlotSymbolInner({
@@ -95,8 +127,10 @@ function SlotSymbolInner({
   winTier = 'normal',
   justStoppedSignal = 0,
   isSpecialTriggered = false,
+  pulseStaggerMs = 0,
 }: Props) {
   const t = useCasinoTheme()
+  const { resolvedMode } = useAppearance()
   const reduceMotion = useReducedMotion()
   const scale = useSharedValue(1)
   const stopScale = useSharedValue(1)
@@ -106,12 +140,60 @@ function SlotSymbolInner({
   const rotateY = useSharedValue(0)
   const opacity = useSharedValue(1)
   const glowOpacity = useSharedValue(0)
+  const idlePulseScale = useSharedValue(1)
+  const idleGlowOpacity = useSharedValue(0)
 
   const tierRing = TIER_RING[winTier]
   const cycles = TIER_CYCLES[winTier]
   const presetValues = { scale, rotateZ, rotateY, opacity, glowOpacity, winTranslateY }
   const isSpecialSymbol = symbol.isWild === true || symbol.isScatter === true
-  const winGlow = getSymbolWinGlow(symbol)
+  const winGlow = getSymbolWinGlow(symbol, resolvedMode)
+
+  useEffect(() => {
+    if (reduceMotion || isWinning) {
+      cancelAnimation(idlePulseScale)
+      cancelAnimation(idleGlowOpacity)
+      idlePulseScale.value = 1
+      idleGlowOpacity.value = 0
+      return
+    }
+
+    const delay = pulseStaggerMs
+    const duration = isSpinning ? IDLE_PULSE.spinDurationMs : IDLE_PULSE.durationMs
+    const scalePeak = isSpinning ? 1.012 : IDLE_PULSE.scalePeak
+    const scaleDip = isSpinning ? 0.992 : IDLE_PULSE.scaleDip
+    const glowHigh = isSpinning ? 0.1 : IDLE_PULSE.glowHigh
+    const glowLow = isSpinning ? 0.02 : IDLE_PULSE.glowLow
+
+    idlePulseScale.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(scalePeak, { duration, easing: Easing.inOut(Easing.quad) }),
+          withTiming(scaleDip, { duration, easing: Easing.inOut(Easing.quad) }),
+        ),
+        -1,
+        false,
+      ),
+    )
+
+    idleGlowOpacity.value = withDelay(
+      delay + 120,
+      withRepeat(
+        withSequence(
+          withTiming(glowHigh, { duration, easing: Easing.inOut(Easing.quad) }),
+          withTiming(glowLow, { duration, easing: Easing.inOut(Easing.quad) }),
+        ),
+        -1,
+        false,
+      ),
+    )
+
+    return () => {
+      cancelAnimation(idlePulseScale)
+      cancelAnimation(idleGlowOpacity)
+    }
+  }, [isWinning, isSpinning, reduceMotion, pulseStaggerMs, idlePulseScale, idleGlowOpacity])
 
   useEffect(() => {
     if (isWinning) {
@@ -158,6 +240,8 @@ function SlotSymbolInner({
       cancelAnimation(winTranslateY)
       cancelAnimation(stopScale)
       cancelAnimation(stopTranslateY)
+      cancelAnimation(idlePulseScale)
+      cancelAnimation(idleGlowOpacity)
     }
   }, [
     isWinning,
@@ -170,6 +254,7 @@ function SlotSymbolInner({
     symbol.id,
     symbol.isWild,
     symbol.isScatter,
+    resolvedMode,
     stopScale,
     stopTranslateY,
   ])
@@ -204,7 +289,7 @@ function SlotSymbolInner({
     transform: [
       { perspective: 700 },
       { translateY: stopTranslateY.value + winTranslateY.value },
-      { scale: scale.value * stopScale.value },
+      { scale: scale.value * stopScale.value * idlePulseScale.value },
       { rotateZ: `${rotateZ.value}deg` },
       { rotateY: `${rotateY.value}deg` },
     ],
@@ -215,6 +300,12 @@ function SlotSymbolInner({
     opacity: glowOpacity.value,
   }))
 
+  const idleGlowStyle = useAnimatedStyle(() => ({
+    opacity: idleGlowOpacity.value,
+  }))
+
+  const idleRing = idleGlowRingStyle(winGlow)
+
   const glowRingStyle = isWinning
     ? {
         width: tierRing.ringSize,
@@ -222,21 +313,31 @@ function SlotSymbolInner({
         borderRadius: tierRing.ringSize / 2,
         borderWidth: tierRing.ringBorderWidth,
         borderColor: winGlow.ring,
+        backgroundColor: hexWithAlpha(winGlow.shadow, symbol.isScatter && isSpecialTriggered ? '40' : '32'),
         shadowColor: winGlow.shadow,
         shadowRadius: tierRing.ringShadowRadius,
-        shadowOpacity: symbol.isScatter && isSpecialTriggered ? 0.9 : 0.78,
+        shadowOpacity: symbol.isScatter && isSpecialTriggered ? 0.95 : 0.85,
         shadowOffset: { width: 0, height: 0 },
-        ...(winGlow.accent
-          ? { backgroundColor: hexWithAlpha(winGlow.accent, '1A') }
+        ...(Platform.OS === 'android'
+          ? { elevation: winTier === 'jackpot' ? 10 : winTier === 'megaWin' ? 8 : 6 }
           : null),
+        ...(winGlow.accent ? { borderColor: winGlow.accent } : null),
       }
     : null
 
   const flipSurface = styles.flipSurface
 
+  const idleGlowRing = !isWinning ? (
+    <Animated.View
+      style={[styles.glowRing, idleRing, idleGlowStyle]}
+      pointerEvents="none"
+    />
+  ) : null
+
   if (symbol.isWild) {
     return (
       <View style={styles.symbolWrap}>
+        {idleGlowRing}
         {isWinning && isSpecialTriggered && glowRingStyle ? (
           <Animated.View
             style={[styles.glowRing, glowRingStyle, glowStyle]}
@@ -246,6 +347,7 @@ function SlotSymbolInner({
         <Animated.View
           style={[
             styles.chip,
+            styles.symbolOnGlow,
             flipSurface,
             { borderColor: GOLD_WIN, backgroundColor: hexWithAlpha(GOLD_WIN, '35') },
             isWinning &&
@@ -265,6 +367,7 @@ function SlotSymbolInner({
   if (symbol.isScatter) {
     return (
       <View style={styles.symbolWrap}>
+        {idleGlowRing}
         {isWinning && isSpecialTriggered && glowRingStyle ? (
           <Animated.View
             style={[styles.glowRing, glowRingStyle, glowStyle]}
@@ -275,6 +378,7 @@ function SlotSymbolInner({
           style={[
             styles.chip,
             styles.scatterChip,
+            styles.symbolOnGlow,
             flipSurface,
             {
               borderColor: SCATTER_PURPLE,
@@ -300,13 +404,14 @@ function SlotSymbolInner({
 
   return (
     <View style={styles.symbolWrap}>
+      {idleGlowRing}
       {isWinning && glowRingStyle ? (
         <Animated.View
           style={[styles.glowRing, glowRingStyle, glowStyle]}
           pointerEvents="none"
         />
       ) : null}
-      <Animated.View style={[styles.regularSymbol, animStyle]}>
+      <Animated.View style={[styles.regularSymbol, styles.symbolOnGlow, animStyle]}>
         {hasAsset ? (
           <SlotSymbolAsset symbol={symbol} size={assetSize} />
         ) : (
@@ -359,5 +464,9 @@ const styles = StyleSheet.create({
   },
   glowRing: {
     position: 'absolute',
+    zIndex: 0,
+  },
+  symbolOnGlow: {
+    zIndex: 1,
   },
 })

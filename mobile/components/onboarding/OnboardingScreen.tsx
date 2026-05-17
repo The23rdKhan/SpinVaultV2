@@ -107,9 +107,9 @@ export function OnboardingScreen() {
             />
             <Text style={[styles.title, { color: t.textPrimary }]}>Welcome to Spin Vault</Text>
             <Text style={[styles.sub, { color: t.textSecondary }]}>
-              Spin. Win. Unlock. Enter the vault, collect virtual coins, and build your lucky streak.
+              Spin. Win. Unlock. Enter the vault, collect Vault Coins, and build your lucky streak.
             </Text>
-            <Text style={[styles.disclaimer, { color: t.textMuted }]}>Virtual coins only. No cash value.</Text>
+            <Text style={[styles.disclaimer, { color: t.textMuted }]}>Vault Coins only. No cash value.</Text>
             <AppButton label="Start Spinning" onPress={goNext} style={styles.btn} />
           </View>
         ) : null}
@@ -145,14 +145,14 @@ export function OnboardingScreen() {
             />
             <Text style={[styles.title, { color: t.textPrimary }]}>Your Vault Starts With 5,000 Vault Coins</Text>
             <Text style={[styles.sub, { color: t.textSecondary }]}>
-              Every new player gets virtual coins to start spinning right away.
+              Every new player gets Vault Coins to start spinning right away.
             </Text>
             <View style={[styles.rewardPill, { backgroundColor: hexWithAlpha(t.gold, '22'), borderColor: t.gold }]}>
               <VaultCoinIcon size={28} />
               <Text style={[styles.rewardText, { color: t.gold }]}>+5,000 VC</Text>
             </View>
             <Text style={[styles.disclaimer, { color: t.textMuted }]}>
-              Virtual coins are for entertainment only and have no cash value.
+              Vault Coins are for entertainment only and have no cash value.
             </Text>
             <AppButton label="Claim Starter Coins" onPress={goNext} style={styles.btn} />
             <AppButton variant="ghost" label="Back" onPress={() => setStep('how')} />
@@ -168,7 +168,7 @@ export function OnboardingScreen() {
             />
             <Text style={[styles.title, { color: t.textPrimary }]}>Adults Only — 18+</Text>
             <Text style={[styles.sub, { color: t.textSecondary }]}>
-              Spin Vault is for adults only. Virtual coins and rewards are for entertainment only. Spin Vault does not
+              Spin Vault is for adults only. Vault Coins and rewards are for entertainment only. Spin Vault does not
               offer real-money gambling, cash prizes, or withdrawable rewards.
             </Text>
             <Pressable

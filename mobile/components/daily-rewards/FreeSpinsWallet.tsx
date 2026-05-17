@@ -80,7 +80,7 @@ export function FreeSpinsWallet() {
       <View style={[styles.footer, { borderTopColor: t.border }]}>
         <Text style={[styles.hint, { color: t.textMuted }]}>
           Land 3+ Scatter symbols to unlock 10 Free Spins. Free Spins use your current bet without
-          deducting virtual coins.
+          deducting Vault Coins.
         </Text>
       </View>
     </View>

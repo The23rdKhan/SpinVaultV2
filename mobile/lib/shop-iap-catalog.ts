@@ -82,6 +82,7 @@ export const SHOP_COIN_PACKS: ShopCoinPackRow[] = [
     popular: false,
     subtitle: 'Spin boost',
     displayDetails: ['50 Free Spins'],
+    // TODO: Regenerate artwork if it continues to show "Bonus Vault Coins"; this SKU grants spins only.
     artwork: require('@/assets/store/lucky-spin-bundle-card.png'),
   },
   {

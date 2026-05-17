@@ -144,7 +144,7 @@ export function StorePackCard({
       >
         <ImageBackground
           source={artwork}
-          resizeMode="cover"
+          resizeMode="contain"
           imageStyle={styles.storeArtworkImage}
           style={styles.storeArtwork}
         >
@@ -256,25 +256,28 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 1,
     justifyContent: 'flex-end',
+    backgroundColor: '#050505',
+    overflow: 'hidden',
+    borderRadius: 12,
   },
   storeArtworkImage: {
     borderRadius: 12,
   },
   storePriceSlot: {
-    minHeight: 44,
+    minHeight: 36,
     justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingHorizontal: 18,
+    paddingBottom: 10,
   },
   priceButton: {
-    minHeight: 34,
+    minHeight: 30,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 10,
   },
   priceText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '900',
   },
   storeTitle: {

@@ -178,7 +178,7 @@ export function DailyWheel() {
             <View style={styles.resultRow}>
               <FontAwesome name="gift" size={22} color={t.win} />
               <Text style={[styles.resultAmt, { color: t.win }]}>
-                {displayReward.toLocaleString()} virtual coins
+                {displayReward.toLocaleString()} Vault Coins
               </Text>
             </View>
           </Animated.View>
@@ -187,7 +187,7 @@ export function DailyWheel() {
             <Text style={[styles.sub, { color: t.textMuted }]}>Come back tomorrow!</Text>
             {dailyWheel.wheelReward != null ? (
               <Text style={[styles.sub, { color: t.textMuted }]}>
-                Today&apos;s reward: {dailyWheel.wheelReward.toLocaleString()} virtual coins
+                Today&apos;s reward: {dailyWheel.wheelReward.toLocaleString()} Vault Coins
               </Text>
             ) : null}
           </View>
@@ -198,7 +198,7 @@ export function DailyWheel() {
             onPress={handleSpin}
             style={styles.spinBtn}
             accessibilityLabel="Spin the daily wheel"
-            accessibilityHint="Awards a random virtual coin prize once per day"
+            accessibilityHint="Awards a random Vault Coin prize once per day"
           />
         )}
       </View>

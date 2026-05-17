@@ -16,6 +16,7 @@ import { CosmeticChest } from '@/components/shop/CosmeticChest'
 import { ItemPreview } from '@/components/shop/ItemPreview'
 import { ThemeUnlockCards } from '@/components/shop/ThemeUnlockCards'
 import { StorePackCard } from '@/components/brand/asset-components'
+import { SpinVaultScreenBackground } from '@/components/brand/SpinVaultScreenBackground'
 import { AppButton } from '@/components/ui/AppButton'
 import { AppScrollView } from '@/components/ui/AppScrollView'
 import { useGame, type Theme } from '@/lib/game-context'
@@ -281,11 +282,11 @@ export default function ShopScreen() {
   }
 
   const items = getItemsByCategory(tab)
-  const bottomPad = Math.max(insets.bottom, 12) + 24
+  const bottomPad = Math.max(insets.bottom, 12) + 120
   const iapLocked = iapBusyKey !== null
 
   return (
-    <View style={[styles.root, { backgroundColor: t.background }]}>
+    <SpinVaultScreenBackground style={styles.root}>
       <AppScrollView
         style={styles.scroll}
         contentContainerStyle={[
@@ -301,7 +302,7 @@ export default function ShopScreen() {
           accessibilityRole="image"
         />
         <Text style={[styles.lead, { color: t.textSecondary }]}>
-          Add Vault Coins through your app store. Your Spin Vault vault updates automatically.
+          Stock up on Vault Coins. Purchases are processed securely through the app store.
         </Text>
 
         <StorePackCard
@@ -318,7 +319,7 @@ export default function ShopScreen() {
 
         <View style={styles.sectionHead}>
           <FontAwesome name="bolt" size={16} color={t.primary} />
-          <Text style={[styles.h3, { color: t.textPrimary }]}>Free spin bundles</Text>
+          <Text style={[styles.h3, { color: t.textPrimary }]}>Free Spin Bundles</Text>
         </View>
         <View style={styles.bundleRow}>
           {FREE_SPIN_BUNDLES.map((b) => {
@@ -550,7 +551,7 @@ export default function ShopScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SpinVaultScreenBackground>
   )
 }
 
@@ -575,11 +576,13 @@ function PressableBundle({
       style={[styles.bundleCard, { borderColor: disabled ? t.border : hexWithAlpha(t.primary, '88') }]}
       accessibilityLabel={`${spins} spins for ${price.toLocaleString()} Vault Coins`}
     >
-      <FontAwesome name="bolt" size={20} color={t.primary} />
-      <Text style={[styles.bundleSpins, { color: t.textPrimary }]}>{spins}</Text>
-      <Text style={[styles.bundleLbl, { color: t.textMuted }]}>spins</Text>
+      <View style={styles.bundleTop}>
+        <FontAwesome name="bolt" size={16} color={t.primary} />
+        <Text style={[styles.bundleSpins, { color: t.textPrimary }]}>{spins}</Text>
+        <Text style={[styles.bundleLbl, { color: t.textMuted }]}>Spins</Text>
+      </View>
       <View style={styles.bundlePrice}>
-        <FontAwesome name="circle" size={11} color={t.gold} />
+        <FontAwesome name="circle" size={9} color={t.gold} />
         <Text style={[styles.bundlePriceTxt, { color: t.textPrimary }]}>{price.toLocaleString()}</Text>
         <Text style={[styles.bundlePriceUnit, { color: t.textMuted }]}>VC</Text>
       </View>
@@ -594,9 +597,11 @@ const styles = StyleSheet.create({
   lead: { fontSize: 14, fontWeight: '600' },
   shopHeader: {
     width: '100%',
-    aspectRatio: 3 / 2,
+    height: 208,
+    maxHeight: 240,
     borderRadius: 14,
     overflow: 'hidden',
+    backgroundColor: '#050B09',
   },
   starterStoreCard: {
     width: '100%',
@@ -606,19 +611,24 @@ const styles = StyleSheet.create({
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   storeHint: { fontSize: 12, fontWeight: '600', marginTop: -4, lineHeight: 16 },
   h3: { fontSize: 17, fontWeight: '800' },
-  bundleRow: { flexDirection: 'row', gap: 10 },
+  bundleRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   bundleCard: {
-    flex: 1,
-    minWidth: 0,
-    paddingVertical: 14,
+    flexGrow: 1,
+    flexBasis: '31%',
+    minWidth: 104,
+    minHeight: 78,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     alignItems: 'center',
-    gap: 4,
+    justifyContent: 'center',
+    gap: 3,
   },
-  bundleSpins: { fontSize: 18, fontWeight: '900' },
-  bundleLbl: { fontSize: 11 },
-  bundlePrice: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  bundlePriceTxt: { fontSize: 13, fontWeight: '800' },
-  bundlePriceUnit: { fontSize: 10, fontWeight: '900' },
+  bundleTop: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 3 },
+  bundleSpins: { fontSize: 17, fontWeight: '900' },
+  bundleLbl: { fontSize: 10, fontWeight: '800' },
+  bundlePrice: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3 },
+  bundlePriceTxt: { fontSize: 12, fontWeight: '800' },
+  bundlePriceUnit: { fontSize: 9, fontWeight: '900' },
   packGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

@@ -89,8 +89,8 @@ function runReducedWinPreset(preset: SymbolWinPreset, values: WinPresetValues) {
   resetWinMotion(values)
   glowOpacity.value =
     preset === 'jackpotPulse' || preset === 'wildFlip' || preset === 'scatterFlash'
-      ? 0.65
-      : 0.5
+      ? 0.78
+      : 0.62
   scale.value = withSequence(
     withTiming(1.06, { duration: 160, easing: EASE_OUT }),
     withTiming(1, { duration: 200, easing: EASE_OUT }),
@@ -111,8 +111,8 @@ function runGlowPulse(
   delay: number,
   cycles: number,
   pulseMs: number,
-  high = 0.88,
-  low = 0.38,
+  high = 0.92,
+  low = 0.5,
 ) {
   glowOpacity.value = withDelay(
     delay,

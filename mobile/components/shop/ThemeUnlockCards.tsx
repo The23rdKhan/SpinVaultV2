@@ -49,7 +49,7 @@ export function ThemeUnlockCards({
         setTheme(themeId)
         onMessage(`${cfg.name} unlocked`)
       } else {
-        onMessage('Not enough coins')
+        onMessage('Not enough Vault Coins')
       }
     })()
   }
@@ -126,7 +126,7 @@ export function ThemeUnlockCards({
                     <Text style={{ fontWeight: '900', color: t.gold }}>
                       {coinsNeeded.toLocaleString()}
                     </Text>{' '}
-                    virtual coins
+                    Vault Coins
                   </Text>
                 </View>
               ) : (
@@ -143,7 +143,7 @@ export function ThemeUnlockCards({
               />
               {!isOwned && coinsNeeded <= 0 ? (
                 <AppButton
-                  label={`Unlock · ${config.price.toLocaleString()} virtual coins`}
+                  label={`Unlock · ${config.price.toLocaleString()} Vault Coins`}
                   onPress={() => unlock(themeId)}
                   style={{ flex: 1 }}
                 />

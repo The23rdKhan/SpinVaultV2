@@ -159,7 +159,7 @@ export const BADGES: VanityItem[] = [
   { id: "badge-jackpot", name: "Jackpot Hunter", category: "badge", rarity: "legendary", priceCoins: 0, previewImage: "diamond", description: "Hit the Jackpot" },
   { id: "badge-collector", name: "Theme Collector", category: "badge", rarity: "epic", priceCoins: 0, previewImage: "palette", description: "Own all themes" },
   { id: "badge-streak7", name: "Weekly Warrior", category: "badge", rarity: "rare", priceCoins: 0, previewImage: "flame", description: "7-day login streak" },
-  { id: "badge-millionaire", name: "Millionaire", category: "badge", rarity: "legendary", priceCoins: 0, previewImage: "coins", description: "Collected 1M total virtual coins" },
+  { id: "badge-millionaire", name: "Millionaire", category: "badge", rarity: "legendary", priceCoins: 0, previewImage: "coins", description: "Collected 1M total Vault Coins" },
   { id: "badge-mythic-collector", name: "Mythic Collector", category: "badge", rarity: "mythic", priceCoins: 0, previewImage: "gem", description: "Own a mythic item", isLimited: true },
 ]
 
@@ -180,7 +180,7 @@ export const TROPHY_DEFINITIONS: Omit<Trophy, "unlocked" | "unlockedAt">[] = [
   { id: "trophy-first-big", name: "First Big Win", description: "Hit your first Big Win (5x+)", icon: "star" },
   { id: "trophy-first-mega", name: "First Jackpot", description: "Hit your first Jackpot (10x+)", icon: "zap" },
   { id: "trophy-first-jackpot", name: "First Mega Jackpot", description: "Hit your first Mega Jackpot (25x+)", icon: "crown" },
-  { id: "trophy-million", name: "Million Coin Club", description: "Collect 1,000,000 virtual coins total", icon: "coins" },
+  { id: "trophy-million", name: "Million Vault Club", description: "Collect 1,000,000 Vault Coins total", icon: "coins" },
   { id: "trophy-themes", name: "Theme Collector", description: "Own all three themes", icon: "palette" },
   { id: "trophy-streak7", name: "Weekly Dedication", description: "Maintain a 7-day login streak", icon: "flame" },
   { id: "trophy-vip", name: "VIP Status", description: "Reach VIP Tier 5", icon: "gem" },

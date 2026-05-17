@@ -82,7 +82,7 @@ export function WatchAdCard() {
 
   const onClaimDone = () => {
     claimTap()
-    Toast.show({ type: 'success', text1: `+${reward} virtual coins` })
+    Toast.show({ type: 'success', text1: `+${reward} Vault Coins` })
     resetAndClose()
   }
 
@@ -120,7 +120,7 @@ export function WatchAdCard() {
             <Text style={[styles.ctaSmall, { color: t.primaryForeground }]}>Watch</Text>
             <View style={styles.ctaCoins}>
               <FontAwesome name="circle" size={14} color={t.primaryForeground} />
-              <Text style={[styles.ctaAmt, { color: t.primaryForeground }]}>100–300 coins</Text>
+              <Text style={[styles.ctaAmt, { color: t.primaryForeground }]}>100–300 VC</Text>
             </View>
           </Pressable>
         </View>
@@ -187,10 +187,10 @@ export function WatchAdCard() {
               </Text>
               <Text style={[styles.heroSub, { color: hexWithAlpha(t.primaryForeground, 'DD') }]}>
                 {adState === 'complete'
-                  ? `You received ${reward.toLocaleString()} virtual coins`
+                  ? `You received ${reward.toLocaleString()} Vault Coins`
                   : __DEV__
                     ? '[DEV] Simulated ad — real ad will play here in production'
-                    : 'Watch the full video to unlock your coin reward'}
+                    : 'Watch the full video to unlock your Vault Coin reward'}
               </Text>
             </LinearGradient>
 
