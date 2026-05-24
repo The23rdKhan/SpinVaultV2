@@ -27,7 +27,6 @@ import {
   JACKPOT_MODE_LABEL,
 } from '@/lib/vault-copy'
 import { ControlDeck } from './ControlDeck'
-import { SpinSyncBanner } from './SpinSyncBanner'
 import { InfoModal } from './InfoModal'
 import { LinesModal } from './LinesModal'
 import { Marquee } from './Marquee'
@@ -495,8 +494,6 @@ export function SlotMachine() {
           </View>
         ) : null}
       </View>
-
-      <SpinSyncBanner />
 
       <ControlDeck onOpenInfo={() => setShowInfoModal(true)} onOpenLines={() => setShowLinesModal(true)} />
 

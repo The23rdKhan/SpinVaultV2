@@ -19,6 +19,7 @@ import {
   requestSpinDailyWheel,
 } from '@/lib/economy-client'
 import { isServerSpinEnabled, requestServerSpin, type ServerSpinPayload } from '@/lib/server-spin'
+import { usesServerAuthoritativeWallet } from '@/lib/server-wallet'
 import {
   PLAYER_SAVE_SCHEMA_VERSION,
   applyCloudPlayerSave,
@@ -400,12 +401,6 @@ export interface GameState {
   jackpotWinners: JackpotWinEntry[]
   /** Recent coin movements (newest first); capped for memory. Local-only until cloud sync. */
   coinLedger: CoinLedgerEntry[]
-
-  /**
-   * Server spin failed and local RNG was used — wallet may differ from DB until
-   * `resyncWalletFromServer` succeeds or the next server-authoritative spin.
-   */
-  spinSyncDeferred: boolean
   
   // Daily rewards
   dailyStreak: number
@@ -508,7 +503,7 @@ interface GameActions {
   setPurchaseLimit: (limit: number | null) => void
   toggleCooldown: () => void
   clearLastSpinFreeSpinsBonus: () => void
-  /** Pull wallet + meter from Supabase; clears `spinSyncDeferred` on success. */
+  /** Pull wallet + meter from Supabase. */
   resyncWalletFromServer: () => Promise<boolean>
 
   // Vanity actions
@@ -705,7 +700,6 @@ function createInitialGameState(): GameState {
     jackpotLastWonAt: null,
     jackpotWinners: [],
     coinLedger: [],
-    spinSyncDeferred: false,
     dailyStreak: 0,
     dailyRewards: INITIAL_DAILY_REWARDS.map((r) => ({ ...r })),
     lastClaimDate: null,
@@ -851,7 +845,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
       coins: Number(data.coin_balance),
       freeSpins: data.free_spin_balance,
       bonusProgress: Number(data.bonus_meter_progress ?? 0),
-      spinSyncDeferred: false,
     }))
     return true
   }, [])
@@ -987,7 +980,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (cloudSaveInFlightRef.current) return false
     cloudSaveInFlightRef.current = true
     try {
-      const payload = buildPlayerSavePayload(stateRef.current)
+      const payload = buildPlayerSavePayload(stateRef.current, {
+        omitWalletFields: usesServerAuthoritativeWallet(),
+      })
       const { error } = await supabase.from('player_saves').upsert(
         {
           user_id: uid,
@@ -1128,10 +1123,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
         fallbackUserVanity: getDefaultUserVanity(),
         fallbackTrophies: generateInitialTrophies(),
         fallbackLeaderboard: fallbackLeaderboardStats(),
+        serverAuthoritativeWallet: usesServerAuthoritativeWallet(),
       })
 
       setState((prev) => ({ ...prev, ...patch }))
-      await resyncWalletFromServer()
+      if (usesServerAuthoritativeWallet()) {
+        await resyncWalletFromServer()
+      }
       await hydrateDailyRewardProgressFromServer()
       await hydrateMissionsAndWheelFromServer()
       await hydrateOwnedThemesFromServer()
@@ -1178,22 +1176,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [cloudUserId, flushCloudPlayerSave])
 
   useEffect(() => {
-    void resyncWalletFromServer()
-  }, [resyncWalletFromServer])
-
-  useEffect(() => {
-    void hydrateDailyRewardProgressFromServer()
-  }, [hydrateDailyRewardProgressFromServer])
-
-  useEffect(() => {
-    void hydrateMissionsAndWheelFromServer()
-  }, [hydrateMissionsAndWheelFromServer])
-
-  useEffect(() => {
-    void hydrateOwnedThemesFromServer()
-  }, [hydrateOwnedThemesFromServer])
-
-  useEffect(() => {
     if (!isServerSpinEnabled() && !isServerEconomyEnabled()) return
     const sub = AppState.addEventListener('change', (next) => {
       if (next !== 'active') return
@@ -1220,7 +1202,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const id = session?.user?.id
       setCloudUserId(id && !id.startsWith('guest_') ? id : null)
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        void resyncWalletFromServer()
+        if (usesServerAuthoritativeWallet()) {
+          void resyncWalletFromServer()
+        }
         void hydrateDailyRewardProgressFromServer()
         void hydrateMissionsAndWheelFromServer()
         void hydrateOwnedThemesFromServer()
@@ -1527,7 +1511,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
         )
         setState((prev) => ({
           ...prev,
-          spinSyncDeferred: false,
           coins: payload.coin_balance,
           freeSpins: payload.free_spin_balance,
           bonusProgress: payload.bonus_meter_progress,
@@ -1551,17 +1534,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
           spinResolveRef.current = resolve
         })
       } catch {
-        setState((prev) => ({ ...prev, spinSyncDeferred: true }))
         const now = Date.now()
         if (now - lastServerFallbackToastAtRef.current >= FALLBACK_TOAST_THROTTLE_MS) {
           lastServerFallbackToastAtRef.current = now
           Toast.show({
-            type: 'info',
-            text1: 'Playing on device this spin',
-            text2: 'Could not reach server — tap the banner below when online to sync.',
+            type: 'error',
+            text1: 'Could not spin',
+            text2: 'Check your connection and try again.',
           })
         }
-        /* fall through to local RNG spin */
+        return emptySpinResult(snapshot)
       }
     }
 
@@ -1622,7 +1604,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const stopSpin = useCallback(() => {
-    let deferWalletRefresh = false
     setState((prev) => {
       if (!prev.isSpinning) return prev
 
@@ -1720,7 +1701,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
         return {
           ...prev,
-          spinSyncDeferred: false,
           isSpinning: false,
           activeSpinIsFree: false,
           reelsLocked: true,
@@ -1803,8 +1783,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
           }),
         }
       }
-
-      deferWalletRefresh = prev.spinSyncDeferred && isServerSpinEnabled()
 
       const gridIds = buildRandomGridIds()
       const newGrid = gridIdsToReelGrid(gridIds)
@@ -2016,13 +1994,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
           allTimeTotalWinnings: prev.leaderboardStats.allTimeTotalWinnings + totalWin,
           dailyStreak: prev.dailyStreak,
         }),
-        spinSyncDeferred: prev.spinSyncDeferred,
       }
     })
-    queueMicrotask(() => {
-      if (deferWalletRefresh) void resyncWalletFromServer()
-    })
-  }, [resyncWalletFromServer, hydrateMissionsAndWheelFromServer, patchPlayerProgress])
+  }, [hydrateMissionsAndWheelFromServer, patchPlayerProgress])
 
   /** Offline / fallback: updates coins only in React state (no Postgres write). */
   const claimDailyRewardLocal = useCallback((day: number): boolean => {

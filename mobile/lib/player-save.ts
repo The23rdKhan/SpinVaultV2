@@ -223,15 +223,15 @@ function parseRecentBigWins(arr: unknown): GameState['recentBigWins'] {
 }
 
 /** Serializable subset for `player_saves.payload` (jsonb object). */
-export function buildPlayerSavePayload(state: GameState): Record<string, unknown> {
-  return {
+export function buildPlayerSavePayload(
+  state: GameState,
+  options?: { omitWalletFields?: boolean },
+): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
     v: PLAYER_SAVE_SCHEMA_VERSION,
     currentTheme: state.currentTheme,
     ownedThemes: state.ownedThemes,
     currentBet: state.currentBet,
-    coins: state.coins,
-    freeSpins: state.freeSpins,
-    bonusProgress: state.bonusProgress,
     dailyStreak: state.dailyStreak,
     dailyRewards: state.dailyRewards,
     lastClaimDate: state.lastClaimDate,
@@ -261,6 +261,14 @@ export function buildPlayerSavePayload(state: GameState): Record<string, unknown
     recentBigWins: state.recentBigWins.slice(0, RECENT_BIG_WINS_CAP),
     coinLedger: state.coinLedger.slice(0, CLOUD_LEDGER_CAP),
   }
+
+  if (!options?.omitWalletFields) {
+    payload.coins = state.coins
+    payload.freeSpins = state.freeSpins
+    payload.bonusProgress = state.bonusProgress
+  }
+
+  return payload
 }
 
 function lobbySafePatch(createFreshGrid: () => ReelGrid): Partial<GameState> {
@@ -280,7 +288,6 @@ function lobbySafePatch(createFreshGrid: () => ReelGrid): Partial<GameState> {
     lastBonusMeterPayout: 0,
     lastScatterPayout: 0,
     lastScatterCount: 0,
-    spinSyncDeferred: false,
   }
 }
 
@@ -292,11 +299,13 @@ export interface ApplyCloudPlayerSaveOptions {
   fallbackUserVanity: UserVanity
   fallbackTrophies: Trophy[]
   fallbackLeaderboard: LeaderboardStats
+  /** Skip coins / freeSpins / bonusProgress — loaded from `wallets` resync instead. */
+  serverAuthoritativeWallet?: boolean
 }
 
 /**
  * Maps `player_saves.payload` into state fields + always applies a safe lobby (no mid-spin UI).
- * Wallet fields from JSON are overwritten by `resyncWalletFromServer` when online.
+ * When `serverAuthoritativeWallet`, wallet fields come from `resyncWalletFromServer` only.
  */
 export function applyCloudPlayerSave(
   payload: unknown,
@@ -329,23 +338,25 @@ export function applyCloudPlayerSave(
   const totalWins = Number(o.totalWins)
 
   const ledger = parseCoinLedger(o.coinLedger)
+  const walletFromSave = !opt.serverAuthoritativeWallet
 
   const data: Partial<GameState> = {
     ...(theme != null ? { currentTheme: theme } : {}),
     ...(owned != null ? { ownedThemes: owned } : {}),
     ...(Number.isFinite(currentBet) && currentBet > 0
       ? {
-          // Same rules as runtime `setBet` / wallet sync (`clampBetForWallet` in evaluate-spin).
-          currentBet: clampBetForWallet(
-            Math.round(currentBet),
-            Number.isFinite(coins) ? coins : 0,
-            Number.isFinite(freeSpins) && freeSpins >= 0 ? Math.trunc(freeSpins) : 0,
-          ),
+          currentBet: walletFromSave
+            ? clampBetForWallet(
+                Math.round(currentBet),
+                Number.isFinite(coins) ? coins : 0,
+                Number.isFinite(freeSpins) && freeSpins >= 0 ? Math.trunc(freeSpins) : 0,
+              )
+            : Math.round(currentBet),
         }
       : {}),
-    ...(Number.isFinite(coins) ? { coins } : {}),
-    ...(Number.isFinite(freeSpins) && freeSpins >= 0 ? { freeSpins } : {}),
-    ...(Number.isFinite(bonusProgress) ? { bonusProgress } : {}),
+    ...(walletFromSave && Number.isFinite(coins) ? { coins } : {}),
+    ...(walletFromSave && Number.isFinite(freeSpins) && freeSpins >= 0 ? { freeSpins } : {}),
+    ...(walletFromSave && Number.isFinite(bonusProgress) ? { bonusProgress } : {}),
     ...(Number.isFinite(dailyStreak) && dailyStreak >= 0 ? { dailyStreak } : {}),
     dailyRewards: parseDailyRewards(o.dailyRewards, opt.fallbackDailyRewards),
     ...(Object.prototype.hasOwnProperty.call(o, 'lastClaimDate')
