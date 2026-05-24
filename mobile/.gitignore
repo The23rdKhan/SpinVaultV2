@@ -43,3 +43,7 @@ yarn-error.*
 
 # archived generated assets excluded from app bundles
 assets/archive/
+
+# local Python venvs (logo prep scripts)
+.venv-logo/
+.venv/

@@ -3,3 +3,5 @@ assets/images/manual-review/
 assets/ui/
 assets/brand/
 assets/archive/
+.venv-logo/
+.venv/

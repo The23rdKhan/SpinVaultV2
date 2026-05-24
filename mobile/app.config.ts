@@ -59,7 +59,7 @@ const plugins: NonNullable<ExpoConfig['plugins']> = [
   ['expo-notifications', { defaultChannel: 'default' }],
   'expo-system-ui',
   // Adds com.android.vending.BILLING to AndroidManifest (no plugin shipped with RC v10).
-  withRevenueCatAndroidBilling as unknown as string,
+  withRevenueCatAndroidBilling,
 ]
 
 if (googleIosUrlScheme) {
@@ -90,6 +90,7 @@ const config = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.spinvault.mobile',
+    buildNumber: '2',
     usesAppleSignIn: true,
     splash: {
       dark: {
